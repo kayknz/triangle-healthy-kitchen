@@ -1,0 +1,30 @@
+name: Deploy Triangle Platform
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  deploy_supabase:
+    name: Deploy Supabase Functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Supabase CLI
+        run: npm install -g supabase
+
+      - name: Deploy Core Functions
+        # Cleaned list: No Terra remnants. Only Brevo emails and core logic.
+        run: npx supabase functions deploy tap-checkout tap-webhook send-booking-notification send-reminders reconcile-activity process-account-deletion --project-ref teguqlkfmchxucedxvpu --no-verify-jwt
+        working-directory: .
+        env:
+          SUPABASE_ACCESS_TOKEN: sbp_a4a7a101755c2fb91c852c76e8ce6f969f9c3c08

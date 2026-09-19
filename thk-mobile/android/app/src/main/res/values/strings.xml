@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Triangle Healthy Kitchen</string>
+    <string name="title_activity_main">Triangle Healthy Kitchen</string>
+    <string name="package_name">com.trianglehealthykitchen.app</string>
+    <string name="custom_url_scheme">com.trianglehealthykitchen.app</string>
+    <string name="label_allergies">Allergies</string>
+    <string name="label_medical_conditions">Medical Conditions</string>
+    <string name="label_verify_phone">Verify Phone Number</string>
+    <string name="payment_method_cod">Cash on Delivery</string>
+    <string name="health_connect_privacy_policy_url">https://triangle.qa/privacy</string>
+</resources>

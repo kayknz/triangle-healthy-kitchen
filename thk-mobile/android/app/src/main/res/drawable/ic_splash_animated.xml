@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="288dp"
+            android:height="288dp"
+            android:viewportWidth="100"
+            android:viewportHeight="100">
+            <!-- Background Circle -->
+            <group android:name="circle_group" android:pivotX="50" android:pivotY="50">
+                <path
+                    android:name="circle_path"
+                    android:pathData="M 50,10 A 40,40 0 1,1 50,90 A 40,40 0 1,1 50,10"
+                    android:strokeColor="#082828"
+                    android:strokeWidth="2"
+                    android:trimPathEnd="0" />
+            </group>
+
+            <!-- Central Stem -->
+            <group android:name="stem_group">
+                <path
+                    android:name="stem_path"
+                    android:pathData="M 50,85 L 50,45"
+                    android:strokeColor="#D4A843"
+                    android:strokeWidth="3"
+                    android:strokeLineCap="round"
+                    android:trimPathEnd="0" />
+            </group>
+
+            <!-- Leaf -->
+            <group android:name="leaf_group" android:pivotX="50" android:pivotY="45" android:scaleX="0" android:scaleY="0">
+                <path
+                    android:name="leaf_path"
+                    android:fillColor="#D4A843"
+                    android:pathData="M 50,45 C 43,35 43,20 50,15 C 57,20 57,35 50,45" />
+            </group>
+
+            <!-- Spoon -->
+            <group android:name="spoon_group" android:translateX="-20" android:alpha="0">
+                <path
+                    android:pathData="M 50,70 L 35,55"
+                    android:strokeColor="#D4A843"
+                    android:strokeWidth="2.5"
+                    android:strokeLineCap="round" />
+                <path
+                    android:fillColor="#D4A843"
+                    android:pathData="M 35,55 C 30,50 35,40 40,45 L 35,55" />
+            </group>
+
+            <!-- Fork -->
+            <group android:name="fork_group" android:translateX="20" android:alpha="0">
+                <path
+                    android:pathData="M 50,70 L 65,55"
+                    android:strokeColor="#D4A843"
+                    android:strokeWidth="2.5"
+                    android:strokeLineCap="round" />
+                <path
+                    android:strokeColor="#D4A843"
+                    android:strokeWidth="2"
+                    android:pathData="M 65,55 L 68,52 M 65,55 L 72,55 M 65,55 L 65,48" />
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <!-- Animations -->
+
+    <!-- 1. Stem Grows -->
+    <target android:name="stem_path">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="trimPathEnd"
+                android:duration="600"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+
+    <!-- 2. Leaf Scales Up -->
+    <target android:name="leaf_group">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:propertyName="scaleX"
+                    android:startOffset="400"
+                    android:duration="500"
+                    android:valueFrom="0"
+                    android:valueTo="1"
+                    android:interpolator="@android:interpolator/overshoot" />
+                <objectAnimator
+                    android:propertyName="scaleY"
+                    android:startOffset="400"
+                    android:duration="500"
+                    android:valueFrom="0"
+                    android:valueTo="1"
+                    android:interpolator="@android:interpolator/overshoot" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <!-- 3. Spoon & Fork Slide In -->
+    <target android:name="spoon_group">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:propertyName="translateX"
+                    android:startOffset="600"
+                    android:duration="600"
+                    android:valueFrom="-20"
+                    android:valueTo="0"
+                    android:interpolator="@android:interpolator/fast_out_slow_in" />
+                <objectAnimator
+                    android:propertyName="alpha"
+                    android:startOffset="600"
+                    android:duration="400"
+                    android:valueFrom="0"
+                    android:valueTo="1" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <target android:name="fork_group">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:propertyName="translateX"
+                    android:startOffset="600"
+                    android:duration="600"
+                    android:valueFrom="20"
+                    android:valueTo="0"
+                    android:interpolator="@android:interpolator/fast_out_slow_in" />
+                <objectAnimator
+                    android:propertyName="alpha"
+                    android:startOffset="600"
+                    android:duration="400"
+                    android:valueFrom="0"
+                    android:valueTo="1" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <!-- 4. Circle Border Draws -->
+    <target android:name="circle_path">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="trimPathEnd"
+                android:startOffset="800"
+                android:duration="1000"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+</animated-vector>

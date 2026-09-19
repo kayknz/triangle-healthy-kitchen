@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Wellness Excellent 2026 Theme — Ported from Web Architecture */
+  --background: #FDFCF7;
+  --primary: #1A2E2E;
+  --teal: #2D4B4B;
+  --sage: #8AA694;
+  --gold: #C5A059;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-primary antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  .input-field {
+    @apply w-full bg-white border border-primary/5 rounded-2xl px-5 py-4 text-primary placeholder-gray-400 text-sm outline-none transition-all duration-300 focus:border-gold focus:ring-4 focus:ring-gold/5;
+  }
+
+  .glass-card {
+    @apply bg-white/60 backdrop-blur-xl border border-primary/5 rounded-[2.5rem] shadow-[0_15px_50px_rgba(26,46,46,0.04)] transition-all duration-500;
+  }
+
+  .premium-card {
+    @apply bg-white border border-primary/5 rounded-[2.5rem] shadow-[0_15px_50px_rgba(26,46,46,0.03)] transition-all duration-500 hover:shadow-[0_30px_70px_rgba(26,46,46,0.06)];
+  }
+
+  .btn-primary {
+    @apply bg-teal text-white font-black px-10 py-5 rounded-3xl text-lg transition-all duration-300 hover:shadow-2xl active:scale-95 disabled:opacity-50;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-2 bg-gold/10 border border-gold/20 rounded-full px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-gold;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-2 bg-primary/5 rounded-full px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-primary/60;
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-top {
+    padding-top: max(1rem, env(safe-area-inset-top)) !important;
+  }
+  .safe-bottom {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes reveal {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.animate-reveal {
+  animation: reveal 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-glow {
+  animation: glow 4s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(197, 160, 89, 0.2)); }
+  50% { filter: drop-shadow(0 0 25px rgba(197, 160, 89, 0.5)); }
+}

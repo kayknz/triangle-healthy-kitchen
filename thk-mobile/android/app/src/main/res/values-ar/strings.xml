@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">مطبخ المثلث الصحي</string>
+    <string name="title_activity_main">مطبخ المثلث الصحي</string>
+    <string name="label_allergies">الحساسية</string>
+    <string name="label_medical_conditions">الحالات الطبية</string>
+    <string name="label_verify_phone">تحقق من رقم الهاتف</string>
+    <string name="payment_method_cod">الدفع عند الاستلام</string>
+    <string name="health_connect_privacy_policy_url">https://triangle.qa/privacy</string>
+</resources>

@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body {
+    background-color: #F5F3EB;
+    color: #123F38;
+    font-family: 'Manrope', sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    width: 100%;
+    position: relative;
+    scroll-behavior: smooth;
+  }
+
+  /* Precision Scale Pass — The Billboard Killer */
+  h1 { @apply text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-serif italic leading-[1.1] tracking-tight; }
+  h2 { @apply text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-serif italic leading-tight tracking-tight; }
+  h3 { @apply text-2xl sm:text-3xl font-serif italic leading-tight; }
+  h4 { @apply text-xl sm:text-2xl font-serif italic leading-tight; }
+
+  /* Universal Overflow protection */
+  * {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+}
+
+@layer components {
+  /* High Contrast Glass Architecture */
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(18, 63, 56, 0.1);
+    border-radius: 3.5rem;
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.08);
+  }
+
+  .glass-card {
+    background: #FFFFFF;
+    border: 1px solid rgba(18, 63, 56, 0.08);
+    border-radius: 3.5rem;
+    box-shadow: 0 40px 100px rgba(18, 63, 56, 0.05);
+    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .glass-card:hover {
+    @apply -translate-y-2 border-gold/30 shadow-2xl shadow-gold/5;
+  }
+
+  .glass-card-dark {
+    background: #123F38;
+    color: #F5F3EB;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 3.5rem;
+    box-shadow: 0 50px 100px rgba(0, 0, 0, 0.3);
+  }
+
+  .btn-primary {
+    @apply bg-[#123F38] text-[#F5F3EB] font-black px-12 py-6 rounded-2xl uppercase tracking-[0.4em] text-[10px] shadow-2xl transition-all duration-500 relative overflow-hidden;
+    border: none;
+  }
+
+  .btn-primary:hover {
+    @apply bg-gold text-[#123F38] shadow-gold/30 scale-[1.02];
+  }
+
+  .btn-primary:active {
+    @apply scale-95;
+  }
+
+  .btn-secondary {
+    @apply bg-white/50 backdrop-blur-md border border-[#123F38]/10 text-[#123F38] font-black px-12 py-6 rounded-2xl uppercase tracking-[0.4em] text-[10px] transition-all duration-500 hover:bg-white hover:border-gold hover:shadow-xl active:scale-95;
+  }
+
+  .input-field {
+    @apply w-full bg-white/60 border border-[#123F38]/10 rounded-2xl px-6 py-5 text-[#123F38] placeholder-primary/20 text-sm font-bold outline-none transition-all duration-500 focus:border-gold focus:ring-[12px] focus:ring-gold/5 shadow-sm;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-2.5 bg-gold/10 text-gold border border-gold/20 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.3em] shadow-sm animate-reveal;
+  }
+
+  /* Editorial Layout Helpers */
+  .container-hq {
+    @apply max-w-[1400px] mx-auto px-6 sm:px-12 md:px-20;
+  }
+
+  .text-shadow-premium {
+    text-shadow: 0 10px 30px rgba(18, 63, 56, 0.15);
+  }
+}
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-reveal {
+  animation: reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-spin-slow {
+  animation: spin 12s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.bg-food-atmosphere {
+  background-image: url('https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2');
+  @apply bg-cover bg-center bg-no-repeat;
+}
