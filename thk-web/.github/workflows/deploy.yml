@@ -27,4 +27,4 @@ jobs:
         run: npx supabase functions deploy tap-checkout tap-webhook send-booking-notification send-reminders reconcile-activity process-account-deletion --project-ref teguqlkfmchxucedxvpu --no-verify-jwt
         working-directory: .
         env:
-          SUPABASE_ACCESS_TOKEN: sbp_a4a7a101755c2fb91c852c76e8ce6f969f9c3c08
+          SUPABASE_ACCESS_TOKEN: "token"

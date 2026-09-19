@@ -39,7 +39,7 @@ Deno.serve(async (req: Request) => {
     const response = await fetch("https://api.tap.company/v2/charges", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer sk_test_LAPJw2fEqyCmsHMBhDxjuzZk",
+        "Authorization": "token",
         "Content-Type": "application/json"
       },
       body: JSON.stringify(tapPayload)
