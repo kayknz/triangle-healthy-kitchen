@@ -3,6 +3,7 @@ import { RefreshCw, CheckCircle2, Circle, Timer, XCircle, Trophy, Users, Chevron
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/lib/LanguageContext';
+import { getQatarDate } from '@/lib/date-utils';
 import { syncHealthData, healthSyncStore } from '@/lib/health';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import SecuringProtocol from './SecuringProtocol';
@@ -57,7 +58,7 @@ const MyRhythm: React.FC = () => {
   const fetchData = async () => {
     if (!user) return;
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getQatarDate();
 
       // Fetch Today's Activity
       const { data: activity } = await supabase

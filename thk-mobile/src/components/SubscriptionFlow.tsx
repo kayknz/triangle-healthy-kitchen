@@ -6,6 +6,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { supabase } from '@/lib/supabase';
+import { invokeFunction } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { PACKAGES } from '@/types/booking';
 import { useLanguage } from '@/lib/LanguageContext';
@@ -194,17 +195,15 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
       if (subError) throw subError;
 
-      const { data: result, error: fetchErr } = await supabase.functions.invoke('tap-checkout', {
-        body: {
-          package_id: pkg?.id,
-          package_name: pkg?.name,
-          amount: price,
-          user_email: activeUser.email,
-          user_id: activeUser.id,
-          subscriber_id: subData.id,
-          success_url: `${window.location.origin}/#account`,
-          cancel_url: `${window.location.origin}/#home`
-        }
+      const { data: result, error: fetchErr } = await invokeFunction('tap-checkout', {
+        package_id: pkg?.id,
+        package_name: pkg?.name,
+        amount: price,
+        user_email: activeUser.email,
+        user_id: activeUser.id,
+        subscriber_id: subData.id,
+        success_url: `${window.location.origin}/#account`,
+        cancel_url: `${window.location.origin}/#home`
       });
 
       if (fetchErr) throw fetchErr;

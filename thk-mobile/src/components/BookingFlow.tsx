@@ -69,16 +69,18 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
         const { latitude, longitude } = pos.coords;
         try {
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`);
+          if (!res.ok) throw new Error("API Offline");
           const data = await res.json();
           if (data && data.address) {
             const addr = data.address;
             const fullAddr = `${addr.house_number || ''} ${addr.road || ''}, ${addr.suburb || addr.city_district || ''}`.trim();
             update({ health_notes: (data.health_notes ? data.health_notes + "\n" : "") + "Verified Location: " + fullAddr });
           } else {
-            setLocationError("Signal weak.");
+            throw new Error("Signal weak.");
           }
         } catch (e) {
-           setLocationError("Lookup failed.");
+           // GRACEFUL FALLBACK: Don't block user, just alert and let them enter manually
+           setLocationError("Auto-lookup unavailable. Please verify manually below.");
         } finally { setLocating(false); }
       },
       (err) => {

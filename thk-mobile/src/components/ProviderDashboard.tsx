@@ -13,55 +13,14 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { PACKAGES } from '@/types/booking';
 import {
-  PACKAGE_MEALS, MEAL_LABELS,
   type Subscriber, type ProgressEntry, type MenuSelection, type GlobalSettings,
 } from '@/types/subscription';
+import { type Booking, type RiderApplication, type RiderDelivery } from '@/types/shared';
 import { WEEKLY_MENU } from '@/data/menu';
 import { useLanguage } from '@/lib/LanguageContext';
 
-interface Booking {
-  id: string;
-  package_id: string;
-  package_name: string;
-  weight_kg: number | null;
-  height_cm: number | null;
-  fitness_goal: string | null;
-  exercise_routine: string | null;
-  wants_exercise_plan: boolean;
-  dietary_restrictions: string | null;
-  health_notes: string | null;
-  appointment_date: string;
-  appointment_time: string;
-  client_name: string;
-  client_email: string;
-  client_phone: string;
-  status: string;
-  created_at: string;
-}
-
 interface ProviderDashboardProps {
   onExit: () => void;
-}
-
-interface RiderApplication {
-  id: string;
-  user_id: string;
-  full_name: string | null;
-  email: string | null;
-  phone: string | null;
-  approved: boolean;
-  created_at: string;
-  approved_at: string | null;
-}
-
-interface RiderDelivery {
-  id: string;
-  rider_application_id: string;
-  rider_user_id: string;
-  subscriber_id: string;
-  delivery_date: string;
-  meal_type: string;
-  status: string;
 }
 
 interface FeedItem {
@@ -124,7 +83,7 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     const [{ data: books }, { data: subs }, { data: setts }] = await Promise.all([
-      supabase.from('bookings').select('*').order('appointment_date', { ascending: true }),
+      supabase.from('provider_bookings_view').select('*').order('appointment_date', { ascending: true }),
       supabase.from('subscribers').select('id, user_id, email, full_name, phone, package_id, package_name, status, building_number, street, area, zone_number, maid_number, latitude, longitude, delivery_notes, breakfast_window, lunch_window, dinner_window, subscription_start, current_period_end, is_owner, is_paused, paused_until, allergies, dislikes, activity_level, referral_code, weight_kg, height_cm, fitness_goal, points, referral_count, taste_profile, preferred_region_id, membership_type, reward_tier, points_balance, current_streak, longest_streak, onboarding_completed, gender').order('created_at', { ascending: false }),
       supabase.from('global_settings').select('*').single(),
     ]);

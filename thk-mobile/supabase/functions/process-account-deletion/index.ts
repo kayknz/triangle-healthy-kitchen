@@ -16,7 +16,33 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
+    // 1. Authorization Verification
+    const authHeader = req.headers.get('Authorization')!;
+    const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    if (authError || !user) throw new Error("Unauthorized Access.");
+
     const { userId } = await req.json();
+
+    // Only allow users to delete themselves, unless service role is used (handled by createClient above)
+    // But since this function uses SERVICE_ROLE_KEY internally to perform the deletion,
+    // we must ensure the REQUESTER is allowed to trigger it.
+    if (user.id !== userId) {
+      // Check if requester is a provider/admin
+      const { data: requesterSub } = await supabase
+        .from('subscribers')
+        .select('is_owner')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!requesterSub?.is_owner) {
+        throw new Error("Identity Mismatch: Privilege Escalation Prevented.");
+      }
+    }
+
     console.log(`[EXECUTE] Clinical Purge Protocol for User: ${userId}`);
 
     if (!userId) throw new Error("Identity reference null.");
@@ -24,18 +50,17 @@ Deno.serve(async (req: Request) => {
     // 1. Identify Subscriber
     const { data: sub } = await supabase
       .from('subscribers')
-      .select('id')
+      .select('id, email')
       .eq('user_id', userId)
       .maybeSingle();
 
     const subId = sub?.id;
+    const subEmail = sub?.email;
 
-    // 2. Systematic Scouring of Child Tables (Foreign Key Guards)
+    // 2. Systematic Scouring of Clinical Data for Subscriber
     if (subId) {
       console.log(`[EXECUTE] Scouring Clinical Data for Subscriber: ${subId}`);
 
-      // These tables reference subscriber_id with CASCADE usually,
-      // but we do a manual sweep for absolute clinical precision.
       const subTables = [
         'weekly_menu_selections',
         'health_data',
@@ -48,6 +73,12 @@ Deno.serve(async (req: Request) => {
       for (const table of subTables) {
         await supabase.from(table).delete().eq('subscriber_id', subId);
       }
+    }
+
+    // 2.5 Scouring Bookings (PII Leak Prevention)
+    if (subEmail) {
+      console.log(`[EXECUTE] Scouring Lead Protocols for Email: ${subEmail}`);
+      await supabase.from('bookings').delete().eq('client_email', subEmail);
     }
 
     // 3. Clear Deletion Requests (CRITICAL: References auth.users with NO ACTION)

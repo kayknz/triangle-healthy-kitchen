@@ -34,6 +34,7 @@
     "@capgo/capacitor-health": "^8.10.5",
     "@supabase/supabase-js": "^2.57.4",
     "@vercel/analytics": "^1.1.2",
+    "base64-arraybuffer": "^1.0.2",
     "capacitor-native-biometric": "^4.2.2",
     "framer-motion": "^13.2.0",
     "lucide-react": "^0.344.0",

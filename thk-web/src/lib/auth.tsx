@@ -4,18 +4,7 @@ import { supabase } from '../supabase';
 
 export type UserRole = 'owner' | 'rider' | 'subscriber';
 
-const OWNER_EMAILS = [
-  'kevmulgeo@gmail.com',
-  'issashahid1@gmail.com',
-  'georgekmuliika@gmail.com',
-  'google-tester-staff@example.com',
-  'owner@triangle.qa'
-];
-
-const RIDER_EMAILS = [
-  'rosiekye@gmail.com'
-];
-
+// Role detection is now handled via database flags and metadata
 export type AccessMode = 'work' | 'personal';
 
 interface AuthContextValue {
@@ -93,7 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!u) return { role: null, isOwner: false, isApprovedRider: false, hasPersonal: false, onboardingCompleted: false };
 
     const email = u.email?.toLowerCase() ?? '';
-    const isHardcodedOwner = OWNER_EMAILS.includes(email);
 
     // 1. Check for personal subscription status
     const { data: sub } = await supabase
@@ -102,8 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('user_id', u.id)
       .maybeSingle();
 
-    const hasPersonal = !!sub || isHardcodedOwner;
-    const owner = isHardcodedOwner || sub?.is_owner === true;
+    const hasPersonal = !!sub;
+    const owner = sub?.is_owner === true;
     const onboardingCompleted = sub?.onboarding_completed === true;
 
     // 2. Resolve Owner Status
@@ -111,19 +99,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { role: 'owner', isOwner: true, isApprovedRider: false, hasPersonal: true, onboardingCompleted };
     }
 
-    // 3. Resolve Rider Status (Check rider_applications table or hardcoded list)
-    const isHardcodedRider = RIDER_EMAILS.includes(email);
+    // 3. Resolve Rider Status (Check rider_applications table)
     const { data: riderApp } = await supabase
       .from('rider_applications')
       .select('approved')
       .eq('user_id', u.id)
       .maybeSingle();
 
-    if (riderApp || u.user_metadata?.role === 'rider' || isHardcodedRider) {
+    if (riderApp || u.user_metadata?.role === 'rider') {
       return {
         role: 'rider',
         isOwner: false,
-        isApprovedRider: riderApp?.approved === true || u.user_metadata?.approved === true || isHardcodedRider,
+        isApprovedRider: riderApp?.approved === true || u.user_metadata?.approved === true,
         hasPersonal,
         onboardingCompleted
       };
@@ -177,48 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string, role?: UserRole): Promise<{ error: string | null; role?: UserRole; dual?: boolean }> => {
-    // 1. Attempt Standard Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      // 2. Master Key Bypass for Development
-      const isOwnerEmail = OWNER_EMAILS.includes(email.toLowerCase());
-      const isRiderEmail = RIDER_EMAILS.includes(email.toLowerCase());
-      const isMasterKey = password === 'triangle2026';
-
-      if ((isOwnerEmail || isRiderEmail) && isMasterKey) {
-        const resolvedRole = isOwnerEmail ? 'owner' : 'rider';
-
-        // If login fails but it's a known user with the master key, try to auto-signup
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              role: resolvedRole,
-              approved: true,
-              full_name: isOwnerEmail ? 'Triangle Owner' : 'Triangle Rider'
-            }
-          }
-        });
-
-        if (!signUpError && signUpData.user) {
-          if (resolvedRole === 'rider') {
-            await supabase.from('rider_applications').upsert({
-              user_id: signUpData.user.id,
-              email: email,
-              full_name: 'Triangle Rider (Bypass)',
-              approved: true,
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id' });
-          }
-
-          const access = await applyAuthAccess(signUpData.user);
-          return { error: null, role: resolvedRole as UserRole, dual: access.dual };
-        }
-
-        return { error: normalizeAuthError(error.message) };
-      }
       return { error: normalizeAuthError(error.message) };
     }
 

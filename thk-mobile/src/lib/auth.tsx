@@ -3,15 +3,8 @@ import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { NativeBiometric } from 'capacitor-native-biometric';
 
+// Role detection is now handled via database flags and metadata
 export type UserRole = 'owner' | 'rider' | 'subscriber';
-
-const OWNER_EMAILS = [
-  'kevmulgeo@gmail.com',
-  'issashahid1@gmail.com',
-  'georgekmuliika@gmail.com',
-  'google-tester-staff@example.com',
-  'owner@triangle.qa',
-];
 
 interface AuthResult {
   error: string | null;
@@ -74,10 +67,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { role: null, isOwner: false, isApprovedRider: false };
     }
 
-    const email = u.email?.toLowerCase() ?? '';
-    const owner = OWNER_EMAILS.includes(email);
+    const { data: sub } = await supabase
+      .from('subscribers')
+      .select('is_owner')
+      .eq('user_id', u.id)
+      .maybeSingle();
 
-    if (owner) {
+    if (sub?.is_owner) {
       return { role: 'owner', isOwner: true, isApprovedRider: false };
     }
 
@@ -121,9 +117,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const u = data.session?.user ?? null;
       setUser(u);
 
-      if (u && OWNER_EMAILS.includes(u.email?.toLowerCase() ?? '')) {
-        ensureOwnerSubscriber(u.id);
-      }
       applyAuthAccess(u).finally(() => {
         clearTimeout(safetyTimeout);
         if (mounted) setLoading(false);
@@ -136,9 +129,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const u = newSession?.user ?? null;
       setUser(u);
 
-      if (u && OWNER_EMAILS.includes(u.email?.toLowerCase() ?? '')) {
-        ensureOwnerSubscriber(u.id);
-      }
       applyAuthAccess(u).finally(() => {
         if (mounted) setLoading(false);
       });
@@ -152,32 +142,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    // 1. Standard Auth
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      // 2. Master Key Bypass for development/owner testing
-      const isOwnerEmail = OWNER_EMAILS.includes(email.toLowerCase());
-      const isMasterKey = password === 'triangle2026';
-
-      if (isOwnerEmail && isMasterKey) {
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              role: 'owner',
-              approved: true,
-              full_name: 'Triangle Admin'
-            }
-          }
-        });
-
-        if (!signUpError && signUpData.user) {
-          const access = await applyAuthAccess(signUpData.user);
-          return { error: null, role: access.role ?? undefined, approved: access.isApprovedRider };
-        }
-      }
       return { error: error.message };
     }
 

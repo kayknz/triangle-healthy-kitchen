@@ -16,6 +16,8 @@ import {
 import { WEEKLY_MENU } from '@/data/menu';
 import HealthTab from '@/components/HealthTab';
 import { useLanguage } from '@/lib/LanguageContext';
+import { BUSINESS_RULES } from '@/config/business';
+import { getQatarDate } from '@/lib/date-utils';
 
 type Tab = 'menu' | 'delivery' | 'health' | 'settings';
 
@@ -52,7 +54,7 @@ export default function SubscriberDashboard() {
 
       if (subData) {
         const sid = subData.id;
-        const today = new Date().toISOString().split('T')[0];
+        const today = getQatarDate();
 
         // Fetch activity data
         const [
@@ -114,7 +116,7 @@ export default function SubscriberDashboard() {
 
   const isHardLocked = settings?.selection_deadline &&
     menuSelectionsCount === 0 &&
-    (new Date(settings.selection_deadline).getTime() - new Date().getTime()) < 48 * 60 * 60 * 1000;
+    (new Date(settings.selection_deadline).getTime() - new Date().getTime()) < BUSINESS_RULES.MENU_LOCK_WINDOW;
 
   useEffect(() => {
     if (isHardLocked && tab !== 'menu') {

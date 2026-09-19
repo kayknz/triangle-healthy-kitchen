@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Camera as NativeCamera, CameraResultType } from '@capacitor/camera';
+import { decode } from 'base64-arraybuffer';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 
@@ -188,19 +189,34 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
       setCompleting(deliveryId);
       setError(null);
 
+      // 1. Upload to Supabase Storage
+      const fileName = `${deliveryId}_${Date.now()}.jpg`;
+      const filePath = `deliveries/${deliveryId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('delivery-proofs')
+        .upload(filePath, decode(image.base64String!), {
+          contentType: 'image/jpeg',
+          upsert: true
+        });
+
+      if (uploadError) throw new Error(`Upload Failed: ${uploadError.message}`);
+
+      // 2. Register Path in Database
       const { error: updateError } = await supabase
         .from('rider_deliveries')
         .update({
           status: 'delivered',
           delivered_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          proof_photo: image.base64String, // Store photo if table supports it
+          proof_storage_path: filePath,
         })
         .eq('id', deliveryId);
 
       if (updateError) {
+        // Cleanup storage on DB failure
+        await supabase.storage.from('delivery-proofs').remove([filePath]);
         setError(updateError.message);
-        // Rollback on error
         setDeliveries(originalDeliveries);
       }
     } catch (e: any) {
