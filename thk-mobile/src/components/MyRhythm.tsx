@@ -3,7 +3,7 @@ import { RefreshCw, CheckCircle2, Circle, Timer, XCircle, Trophy, Users, Chevron
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/lib/LanguageContext';
-import { getQatarDate } from '@/lib/date-utils';
+import { getQatarDate, addDays, getQatarDayOfWeek } from '@/lib/date-utils';
 import { syncHealthData, healthSyncStore } from '@/lib/health';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import SecuringProtocol from './SecuringProtocol';
@@ -99,10 +99,9 @@ const MyRhythm: React.FC = () => {
       const status: DayStatus[] = [];
 
       for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(now.getDate() - i);
+        const d = addDays(new Date(), -i);
         const dateStr = d.getDate().toString();
-        const dayLabel = days[d.getDay()];
+        const dayLabel = days[getQatarDayOfWeek(d)];
 
         let dayStatus: DayStatus['status'] = 'missed';
         if (i === 0) dayStatus = 'in-progress';

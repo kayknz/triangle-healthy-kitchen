@@ -653,7 +653,7 @@ CREATE TABLE IF NOT EXISTS rider_deliveries (
   rider_application_id uuid NOT NULL REFERENCES rider_applications(id) ON DELETE CASCADE,
   rider_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   subscriber_id uuid NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE,
-  delivery_date date NOT NULL DEFAULT CURRENT_DATE,
+  delivery_date date NOT NULL DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Qatar')::date,
   meal_type text NOT NULL DEFAULT 'lunch' CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snacks')),
   time_window text,
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'delivered', 'failed')),

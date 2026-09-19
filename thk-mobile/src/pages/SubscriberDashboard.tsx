@@ -17,7 +17,7 @@ import { WEEKLY_MENU } from '@/data/menu';
 import HealthTab from '@/components/HealthTab';
 import { useLanguage } from '@/lib/LanguageContext';
 import { BUSINESS_RULES } from '@/config/business';
-import { getQatarDate } from '@/lib/date-utils';
+import { getQatarDate, getQatarDayOfWeek, addDays, getDaysRemaining } from '@/lib/date-utils';
 
 type Tab = 'menu' | 'delivery' | 'health' | 'settings';
 
@@ -244,7 +244,7 @@ export default function SubscriberDashboard() {
             <div className="flex justify-between gap-2">
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
                 const isActive = activityData.streak[i] === 1;
-                const isToday = i === (new Date().getDay() + 6) % 7; // Adjust for Monday start
+                const isToday = i === (getQatarDayOfWeek() + 6) % 7; // Adjust for Monday start
 
                 return (
                   <div key={i} className="flex flex-col items-center gap-2">
@@ -318,14 +318,15 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
   const [loading, setLoading] = useState(true);
   const { t, isRtl } = useLanguage();
 
-  const deadlineDate = settings?.selection_deadline ? new Date(settings.selection_deadline) : null;
-  const daysRemaining = deadlineDate ? Math.ceil((deadlineDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+  const daysRemaining = settings?.selection_deadline ? getDaysRemaining(settings.selection_deadline) : null;
 
   const getWeekStart = (offset: number) => {
     const today = new Date();
-    const day = today.getDay();
-    const diff = today.getDate() - day + (offset * 7);
-    return new Date(today.setDate(diff)).toISOString().slice(0, 10);
+    const day = getQatarDayOfWeek(today);
+    const qatarDateStr = getQatarDate(today);
+    const qatarDate = new Date(qatarDateStr + 'T12:00:00'); // Midday to avoid edge cases
+    const diff = offset * 7 - day;
+    return getQatarDate(addDays(qatarDate, diff));
   };
 
   const weekStart = getWeekStart(weekOffset);

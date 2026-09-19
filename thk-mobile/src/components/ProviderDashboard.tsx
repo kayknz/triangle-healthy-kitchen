@@ -18,6 +18,7 @@ import {
 import { type Booking, type RiderApplication, type RiderDelivery } from '@/types/shared';
 import { WEEKLY_MENU } from '@/data/menu';
 import { useLanguage } from '@/lib/LanguageContext';
+import { getQatarDate, addDays } from '@/lib/date-utils';
 
 interface ProviderDashboardProps {
   onExit: () => void;
@@ -103,8 +104,9 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
   const fetchRiders = useCallback(async () => {
     setLoading(true);
     const date = new Date();
-    if (selectedDate === 'tomorrow') date.setDate(date.getDate() + 1);
-    const targetDate = date.toISOString().slice(0, 10);
+    const targetDate = selectedDate === 'tomorrow'
+      ? getQatarDate(addDays(date, 1))
+      : getQatarDate(date);
 
     const [{ data, error }, { data: subsData }, { data: deliveriesData }] = await Promise.all([
       supabase
@@ -184,8 +186,9 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
 
     setUpdating(true);
     const date = new Date();
-    if (selectedDate === 'tomorrow') date.setDate(date.getDate() + 1);
-    const targetDate = date.toISOString().slice(0, 10);
+    const targetDate = selectedDate === 'tomorrow'
+      ? getQatarDate(addDays(date, 1))
+      : getQatarDate(date);
 
     const newDeliveries = unassignedInArea.map(subscriber => {
       const windowKey = `${selectedMeal}_window` as keyof Subscriber;
@@ -219,8 +222,9 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
 
     setUpdating(true);
     const date = new Date();
-    if (selectedDate === 'tomorrow') date.setDate(date.getDate() + 1);
-    const targetDate = date.toISOString().slice(0, 10);
+    const targetDate = selectedDate === 'tomorrow'
+      ? getQatarDate(addDays(date, 1))
+      : getQatarDate(date);
     const windowKey = `${selectedMeal}_window` as keyof Subscriber;
 
     const { data, error } = await supabase

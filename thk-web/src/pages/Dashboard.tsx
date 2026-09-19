@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabase';
 import { useAuth } from '../lib/auth';
+import { getQatarDate } from '../lib/date-utils';
 import { useLanguage } from '../lib/LanguageContext';
 import { PACKAGES } from '../types/booking';
 import { Subscriber } from '../types/subscription';
@@ -218,7 +219,7 @@ export default function Dashboard() {
         rider_application_id: rider.id,
         rider_user_id: rider.user_id,
         status: 'pending',
-        delivery_date: new Date().toISOString().split('T')[0],
+        delivery_date: getQatarDate(),
         meal_type: 'lunch'
       }, { onConflict: 'subscriber_id,delivery_date,meal_type' });
 
@@ -262,7 +263,7 @@ export default function Dashboard() {
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `KITCHEN-PREP-${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `KITCHEN-PREP-${getQatarDate()}.csv`;
     link.click();
   };
 

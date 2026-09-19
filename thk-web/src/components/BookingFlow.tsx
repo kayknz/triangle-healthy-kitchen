@@ -9,6 +9,8 @@ import { supabase } from '../supabase';
 import { TIME_SLOTS, FITNESS_GOALS, type BookingData, type Package, PACKAGES } from '../types/booking';
 import { useLanguage } from '../lib/LanguageContext';
 
+import { getQatarDate, addDays, getQatarDayOfWeek } from '../lib/date-utils';
+
 interface BookingFlowProps {
   open: boolean;
   onClose: () => void;
@@ -113,12 +115,10 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
   const pkg = PACKAGES.find((p) => p.id === data.package_id);
   const update = (patch: Partial<BookingData>) => setData((d) => ({ ...d, ...patch }));
 
-  const today = new Date();
   const allowedDates: string[] = [];
   for (let i = 1; i <= 21; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    if (d.getDay() !== 5) allowedDates.push(d.toISOString().slice(0, 10));
+    const d = addDays(new Date(), i);
+    if (getQatarDayOfWeek(d) !== 5) allowedDates.push(getQatarDate(d));
   }
 
   const handleNext = () => {

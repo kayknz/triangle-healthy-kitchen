@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { type RiderDelivery } from '@/types/shared';
+import { getQatarDate } from '@/lib/date-utils';
 
 /**
  * Hook to manage deliveries for both riders and subscribers.
@@ -10,7 +11,7 @@ export function useDeliveries() {
   const [error, setError] = useState<string | null>(null);
 
   const getActiveDelivery = useCallback(async (subscriberId: string) => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getQatarDate();
 
     const { data, error: fetchError } = await supabase
       .from('rider_deliveries')

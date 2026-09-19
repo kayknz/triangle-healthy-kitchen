@@ -15,6 +15,21 @@ Deno.serve(async (req: Request) => {
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+    const getQatarDate = (date: Date = new Date()): string => {
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Qatar',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(date);
+    };
+
+    const addDays = (dateStr: string, days: number): string => {
+      const date = new Date(dateStr + 'T12:00:00Z'); // Use midday to avoid DST/offset shifts
+      date.setUTCDate(date.getUTCDate() + days);
+      return date.toISOString().split('T')[0];
+    };
+
     // Get Auth Context
     const authHeader = req.headers.get('Authorization')!;
     const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
@@ -25,7 +40,7 @@ Deno.serve(async (req: Request) => {
     if (!sub) throw new Error("Biological Identity Not Found");
 
     const body = await req.json();
-    const local_date = body.local_date || new Date().toISOString().split('T')[0];
+    const local_date = body.local_date || getQatarDate();
     const source_platform = body.platform || "unknown";
     const time_zone = body.timezone || "Asia/Qatar";
 
@@ -84,9 +99,8 @@ Deno.serve(async (req: Request) => {
            if (bonus > 0) delta += bonus;
         }
 
-        const prevDate = new Date(local_date);
-        prevDate.setDate(prevDate.getDate() - 1);
-        const { data: prevGoal } = await supabase.from("user_daily_goals").select("is_completed").eq('subscriber_id', sub.id).eq('target_date', prevDate.toISOString().split('T')[0]).maybeSingle();
+        const prevDateStr = addDays(local_date, -1);
+        const { data: prevGoal } = await supabase.from("user_daily_goals").select("is_completed").eq('subscriber_id', sub.id).eq('target_date', prevDateStr).maybeSingle();
         const isConsecutive = prevGoal?.is_completed === true;
         if (isConsecutive) delta += 20;
 

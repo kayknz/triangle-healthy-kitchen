@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { useAuth } from '../lib/auth';
+import { getQatarDate, getQatarDayOfWeek, addDays } from '../lib/date-utils';
 import { PACKAGES } from '../types/booking';
 import {
   DELIVERY_WINDOWS, PACKAGE_MEALS,
@@ -47,7 +48,7 @@ export default function SubscriberDashboard() {
     setLoading(true);
 
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getQatarDate();
 
       // Batch 1: Identity & Settings
       const { data: subData, error: subError } = await supabase
@@ -377,14 +378,15 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
   const [loading, setLoading] = useState(true);
   const { t, isRtl } = useLanguage();
 
-  const deadlineDate = settings?.selection_deadline ? new Date(settings.selection_deadline) : null;
-  const daysRemaining = deadlineDate ? Math.ceil((deadlineDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+  const daysRemaining = settings?.selection_deadline ? Math.ceil((new Date(settings.selection_deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
 
   const getWeekStart = (offset: number) => {
     const today = new Date();
-    const day = today.getDay();
-    const diff = today.getDate() - day + (offset * 7);
-    return new Date(today.setDate(diff)).toISOString().slice(0, 10);
+    const day = getQatarDayOfWeek(today);
+    const qatarDateStr = getQatarDate(today);
+    const qatarDate = new Date(qatarDateStr + 'T12:00:00');
+    const diff = offset * 7 - day;
+    return getQatarDate(addDays(qatarDate, diff));
   };
 
   const weekStart = getWeekStart(weekOffset);

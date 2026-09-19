@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import SecuringProtocol from './SecuringProtocol';
 import { supabase } from '@/lib/supabase';
+import { getQatarStartOfDay, getUTCISO } from '@/lib/date-utils';
 import {
   HEALTH_METRICS,
   type Subscriber, type HealthEntry,
@@ -101,9 +102,8 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
         read: ['steps', 'calories', 'weight', 'water']
       });
 
-      const today = new Date();
-      const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-      const endOfDay = new Date().toISOString();
+      const startOfDay = getQatarStartOfDay();
+      const endOfDay = getUTCISO();
 
       const [steps, calories, weight] = await Promise.all([
         Health.query({ type: 'steps', startDate: startOfDay, endDate: endOfDay }),

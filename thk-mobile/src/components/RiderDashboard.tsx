@@ -9,6 +9,7 @@ import { Camera as NativeCamera, CameraResultType } from '@capacitor/camera';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { getQatarDate, addDays } from '@/lib/date-utils';
 
 interface Delivery {
   id: string;
@@ -82,8 +83,9 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
     setError(null);
 
     const date = new Date();
-    if (selectedDate === 'tomorrow') date.setDate(date.getDate() + 1);
-    const targetDate = date.toISOString().slice(0, 10);
+    const targetDate = selectedDate === 'tomorrow'
+      ? getQatarDate(addDays(date, 1))
+      : getQatarDate(date);
 
     const { data, error: fetchError } = await supabase
       .from('rider_deliveries')

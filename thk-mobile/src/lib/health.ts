@@ -1,5 +1,6 @@
 import { Health } from '@capgo/capacitor-health';
 import { supabase } from '@/lib/supabase';
+import { getQatarStartOfDay, getUTCISO } from '@/lib/date-utils';
 
 /**
  * Sync Status for Health data
@@ -98,10 +99,8 @@ export const syncHealthData = async () => {
 
     const platformName = healthInfo.platform === 'ios' ? 'Apple Health' : 'Health Connect';
 
-    const now = new Date();
-    // Start of current day in local time
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-    const endOfDay = now.toISOString();
+    const startOfDay = getQatarStartOfDay();
+    const endOfDay = getUTCISO();
 
     // Query aggregated data for today
     const [stepsData, distanceData] = await Promise.all([
