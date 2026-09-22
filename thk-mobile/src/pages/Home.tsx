@@ -123,9 +123,3 @@ export default function Home({ onBookClick, onSubscribeClick }: HomeProps) {
     </div>
   );
 }
-
-      <Menu />
-      <Footer />
-    </div>
-  );
-}

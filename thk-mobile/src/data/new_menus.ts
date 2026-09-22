@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { DailyMenu } from '@/types/subscription';
 
 export const MENU_A: DailyMenu[] = [

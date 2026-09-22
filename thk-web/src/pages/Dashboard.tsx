@@ -98,7 +98,7 @@ export default function Dashboard() {
 
       const [subsRes, bookingsRes, ridersRes, pendingRidersRes, notificationsRes, settingsRes] = await Promise.all([
         supabase.from('subscribers').select('*').order('created_at', { ascending: false }),
-        supabase.from('bookings').select('*').order('appointment_date', { ascending: true }),
+        supabase.from('provider_bookings_view').select('*').order('appointment_date', { ascending: true }),
         supabase.from('rider_applications').select('id, user_id, full_name, phone, approved, is_online').eq('approved', true).order('full_name'),
         supabase.from('rider_applications').select('id, user_id, full_name, phone, approved, created_at').eq('approved', false).order('created_at', { ascending: false }),
         supabase.from('notifications').select('subject, status, created_at').order('created_at', { ascending: false }).limit(10),
@@ -288,49 +288,34 @@ export default function Dashboard() {
   return (
     <div className={`min-h-screen bg-background py-32 px-4 md:px-12 ${isRtl ? 'text-right' : 'text-left'}`}>
       <div className="max-w-[1600px] mx-auto">
-        <header className="mb-20 sm:mb-32">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-12 sm:gap-24">
-            <div className="space-y-6 sm:space-y-10 flex-1 min-w-fit">
-              <div className="badge bg-gold/10 border-gold/20 py-2.5 px-6 w-fit">
-                <Activity className="w-3.5 h-3.5 fill-gold animate-glow" />
-                <span className="font-black tracking-[0.5em] text-[10px] text-gold uppercase">{t('ops_command') || 'Ops Command'}</span>
+        <header className="mb-20 sm:mb-24">
+          <div className="flex flex-col gap-12">
+            {/* Top Row: Title */}
+            <div className="space-y-6 sm:space-y-8">
+              <div className="badge bg-gold/10 border-gold/20 py-2 px-5 w-fit">
+                <Activity className="w-3 h-3 fill-gold animate-glow" />
+                <span className="font-black tracking-[0.4em] text-[9px] text-gold uppercase">{t('ops_command') || 'Ops Command'}</span>
               </div>
 
-              <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-serif italic text-primary leading-[0.85] tracking-tighter drop-shadow-xl uppercase w-full max-w-[800px] flex-shrink-0">
-                <span className="whitespace-nowrap">Operational</span><br />
+              <h1 className="text-5xl sm:text-7xl lg:text-8xl font-serif italic text-primary leading-[0.85] tracking-tighter drop-shadow-xl uppercase max-w-4xl">
+                <span className="block">Operational</span>
                 <span className="text-gold font-sans font-black not-italic tracking-tighter text-2xl sm:text-4xl lg:text-5xl opacity-80 block mt-2">Command Center.</span>
               </h1>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-6 justify-end w-full lg:w-auto flex-shrink-0">
-               <div className="glass-card bg-primary p-8 md:p-10 border-none shadow-4xl relative overflow-hidden w-full sm:w-[320px] lg:w-[380px] flex-shrink-0">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gold/10 rounded-full blur-3xl -mr-16 -mt-16" />
-                  <div className="flex justify-between items-start mb-4 relative z-10">
-                     <p className="text-gold text-[9px] font-black uppercase tracking-[0.4em]">Revenue Pulse</p>
-                     <div className="flex items-center gap-1.5 text-emerald-400">
-                        <Zap className="w-3 h-3 fill-current animate-pulse" />
-                        <span className="text-[7px] font-black uppercase tracking-widest">Live Sync</span>
-                     </div>
-                  </div>
-                  <div className="flex items-end gap-3 relative z-10">
-                     <h4 className="text-3xl sm:text-4xl font-black text-white italic tracking-tighter leading-none whitespace-nowrap">QAR {stats.revenue.toLocaleString()}</h4>
-                     <span className="text-white/30 text-[10px] font-black uppercase mb-1 tracking-widest">Total</span>
-                  </div>
-               </div>
-
-               <div className="flex bg-white/60 backdrop-blur-xl rounded-[3rem] p-2 border border-primary/10 shadow-4xl overflow-x-auto no-scrollbar touch-pan-x w-full sm:w-auto justify-start sm:justify-center scroll-smooth snap-x snap-mandatory">
-                 {(['performance', 'feed', 'bookings', 'members', 'logistics'] as const).map((tKey) => (
-                   <button
-                     key={tKey}
-                     onClick={() => setTab(tKey)}
-                     className={`relative px-6 sm:px-10 py-4 sm:py-5 rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.3em] transition-all snap-start whitespace-nowrap ${
-                       tab === tKey ? 'bg-primary !text-white shadow-3xl scale-105' : 'text-primary/70 hover:text-primary hover:bg-white/40'
-                     }`}
-                   >
-                     {t(tKey) || tKey.toUpperCase()}
-                   </button>
-                 ))}
-               </div>
+            {/* Bottom Row: Navigation Tabs */}
+            <div className="flex bg-white/60 backdrop-blur-xl rounded-[3rem] p-2 border border-primary/10 shadow-4xl overflow-x-auto no-scrollbar touch-pan-x justify-start lg:justify-start w-fit">
+               {(['performance', 'feed', 'bookings', 'members', 'logistics'] as const).map((tKey) => (
+                 <button
+                   key={tKey}
+                   onClick={() => setTab(tKey)}
+                   className={`relative px-6 sm:px-10 py-4 sm:py-5 rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.3em] transition-all whitespace-nowrap ${
+                     tab === tKey ? 'bg-primary !text-white shadow-3xl scale-105' : 'text-primary/70 hover:text-primary hover:bg-white/40'
+                   }`}
+                 >
+                   {t(tKey) || tKey.toUpperCase()}
+                 </button>
+               ))}
             </div>
           </div>
         </header>
@@ -613,7 +598,7 @@ export default function Dashboard() {
 
 function StatCard({ label, value, icon: Icon, theme }: any) {
   return (
-    <div className={`glass-card p-12 relative overflow-hidden transition-all duration-1000 hover:translate-y-[-10px] ${theme === 'teal' ? 'bg-primary text-[#F5F3EB] border-none shadow-4xl' : 'bg-white border-primary/5 shadow-3xl'}`}>
+    <div className={`glass-card p-8 sm:p-10 relative overflow-hidden transition-all duration-1000 hover:translate-y-[-10px] ${theme === 'teal' ? 'bg-primary text-[#F5F3EB] border-none shadow-4xl' : 'bg-white border-primary/5 shadow-3xl'}`}>
       {theme === 'teal' && <div className="absolute inset-0 bg-food-atmosphere opacity-5 grayscale pointer-events-none" />}
       <div className="flex justify-between items-start mb-10 relative z-10">
          <p className={`${theme === 'teal' ? 'text-gold' : 'text-primary/40'} text-[10px] font-black uppercase tracking-[0.5em]`}>{label}</p>

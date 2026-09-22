@@ -3,7 +3,7 @@ import {
   Plus, LogOut, Utensils, Truck, Activity, X, Loader2, Heart,
   Moon, Sun, Coffee, Brain, Zap, Map as MapIcon, Share2, Award,
   ShieldAlert, Phone, Clock, Trash2, ChevronLeft, ChevronRight, Check,
-  Package, MapPin, CheckCircle, CheckCircle2, Circle, Timer, XCircle, Camera, MessageCircle, Shield
+  Package, MapPin, CheckCircle, CheckCircle2, Circle, Timer, XCircle, Camera, MessageCircle, Shield, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { PACKAGES } from '@/types/booking';
 import {
   DELIVERY_WINDOWS, PACKAGE_MEALS,
-  type Subscriber, type ProgressEntry, type MenuSelection, type GlobalSettings,
+  type Subscriber, type ProgressEntry, type MenuSelection, type GlobalSettings, type MenuDish, type Ingredient
 } from '@/types/subscription';
 import { WEEKLY_MENU } from '@/data/menu';
 import HealthTab from '@/components/HealthTab';
@@ -114,9 +114,9 @@ export default function SubscriberDashboard() {
 
   useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
 
-  const isHardLocked = settings?.selection_deadline &&
+  const isHardLocked = !!(settings?.selection_deadline &&
     menuSelectionsCount === 0 &&
-    (new Date(settings.selection_deadline).getTime() - new Date().getTime()) < BUSINESS_RULES.MENU_LOCK_WINDOW;
+    (new Date(settings.selection_deadline).getTime() - new Date().getTime()) < BUSINESS_RULES.MENU_LOCK_WINDOW);
 
   useEffect(() => {
     if (isHardLocked && tab !== 'menu') {
@@ -264,7 +264,7 @@ export default function SubscriberDashboard() {
             <div className="mt-8 p-4 rounded-2xl bg-[#FDFCF7] border border-primary/5">
               <p className="text-[10px] font-black uppercase tracking-widest text-[#C5A059] mb-1">{t('next_milestone') || 'Next Milestone'}</p>
               <p className="text-xs font-medium text-primary/60">
-                {subscriber.current_streak >= 7
+                {(subscriber.current_streak || 0) >= 7
                   ? "You're on fire! Keep the momentum for exclusive rewards."
                   : `Complete today's rhythm to earn ${50} bonus points.`
                 }
@@ -312,62 +312,84 @@ export default function SubscriberDashboard() {
 
 function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscriber, settings: GlobalSettings | null, onUpdate: () => void }) {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [activeDayIndex, setActiveDayIndex] = useState(0);
+  const [menuWeek, setMenuWeek] = useState<number>(1);
   const [selections, setSelections] = useState<MenuSelection[]>([]);
+  const [availableMenu, setAvailableMenu] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [aboutMeal, setAboutMeal] = useState<MenuDish | null>(null);
+  const [customizingMeal, setCustomizingMeal] = useState<{dish: MenuDish, meal: string} | null>(null);
   const { t, isRtl } = useLanguage();
 
   const daysRemaining = settings?.selection_deadline ? getDaysRemaining(settings.selection_deadline) : null;
+  const days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
 
   const getWeekStart = (offset: number) => {
     const today = new Date();
     const day = getQatarDayOfWeek(today);
     const qatarDateStr = getQatarDate(today);
-    const qatarDate = new Date(qatarDateStr + 'T12:00:00'); // Midday to avoid edge cases
+    const qatarDate = new Date(qatarDateStr + 'T12:00:00');
     const diff = offset * 7 - day;
     return getQatarDate(addDays(qatarDate, diff));
   };
 
   const weekStart = getWeekStart(weekOffset);
-  const availableMeals = PACKAGE_MEALS[subscriber.package_id] || ['breakfast', 'lunch', 'dinner'];
+  const availableMeals = PACKAGE_MEALS[subscriber.package_id] || ['breakfast', 'lunch', 'dinner', 'snacks'];
 
-  const getMenuWeek = (dateStr: string) => {
-    const start = new Date('2026-08-22');
-    const current = new Date(dateStr);
-    const diffDays = Math.floor((current.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    const diffWeeks = Math.floor(diffDays / 7);
-    return (Math.abs(diffWeeks) % 4) + 1;
-  };
-
-  const menuWeek = getMenuWeek(weekStart);
-
-  const currentWeekMenu = WEEKLY_MENU.filter(d =>
-    d.week === menuWeek &&
-    d.collection === (settings?.active_season || 'summer')
-  );
-
-  const loadSelections = useCallback(async () => {
+  const loadMenu = useCallback(async () => {
     setLoading(true);
-    let query = supabase
-      .from('weekly_menu_selections')
-      .select('day_of_week, meal_type, dish_name, dish_kcals, menu_period')
-      .eq('subscriber_id', subscriber.id);
+    try {
+      // 1. Fetch Authoritative Week
+      const { data: week } = await supabase.rpc('get_current_qatar_week');
+      setMenuWeek(week || 1);
 
-    if (settings?.current_menu_period) {
-      query = query.eq('menu_period', settings.current_menu_period);
-    } else {
-      query = query.eq('week_start_date', weekStart);
+      // 2. Fetch Availability from DB
+      const { data: menuData } = await supabase
+        .from('menu_availability')
+        .select('*, dishes(*, ingredients(*))')
+        .eq('week_number', week || 1)
+        .eq('collection', settings?.active_season || 'autumn')
+        .eq('is_active', true);
+
+      // Group by day for easier UI consumption
+      const grouped = days.map(d => ({
+        day: d,
+        items: {
+          breakfast: menuData?.filter(m => m.day_of_week === d && m.meal_period === 'breakfast').map(m => m.dishes) || [],
+          lunch: menuData?.filter(m => m.day_of_week === d && m.meal_period === 'lunch').map(m => m.dishes) || [],
+          dinner: menuData?.filter(m => m.day_of_week === d && m.meal_period === 'dinner').map(m => m.dishes) || [],
+          snacks: menuData?.filter(m => m.day_of_week === d && m.meal_period === 'snacks').map(m => m.dishes) || [],
+        }
+      }));
+      setAvailableMenu(grouped);
+
+      // 3. Fetch User Selections
+      let selQuery = supabase
+        .from('weekly_menu_selections')
+        .select('day_of_week, meal_type, dish_name, dish_kcals, menu_period, customizations, dish_id')
+        .eq('subscriber_id', subscriber.id);
+
+      if (settings?.current_menu_period) {
+        selQuery = selQuery.eq('menu_period', settings.current_menu_period);
+      } else {
+        selQuery = selQuery.eq('week_start_date', weekStart);
+      }
+
+      const { data: selData } = await selQuery;
+      setSelections(selData as MenuSelection[] || []);
+    } catch (e) {
+      console.error('Menu Sync Failure:', e);
+    } finally {
+      setLoading(false);
     }
+  }, [subscriber.id, weekStart, settings?.active_season, settings?.current_menu_period]);
 
-    const { data } = await query;
-    setSelections(data as MenuSelection[] || []);
-    setLoading(false);
-  }, [subscriber.id, weekStart, settings?.current_menu_period]);
+  useEffect(() => { loadMenu(); }, [loadMenu]);
 
-  useEffect(() => { loadSelections(); }, [loadSelections]);
+  const activeDay = availableMenu.find(d => d.day === days[activeDayIndex]);
 
-  const pickDish = async (day: string, meal: string, dishName: string, dishKcals: number, isSkip = false) => {
+  const pickDish = async (day: string, meal: string, dish: MenuDish, customizations = {}) => {
     setSaving(true);
     const { error } = await supabase
       .from('weekly_menu_selections')
@@ -376,159 +398,322 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
         week_start_date: weekStart,
         day_of_week: day,
         meal_type: meal,
-        dish_name: isSkip ? 'SKIP DAY' : dishName,
-        dish_kcals: isSkip ? 0 : dishKcals,
+        dish_id: dish.id,
+        dish_name: dish.name,
+        dish_kcals: dish.kcals,
+        customizations,
         menu_period: settings?.current_menu_period
       }, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
 
-    if (error) {
-      alert(t('error_generic'));
-    } else {
-      await loadSelections();
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+    if (!error) {
+      await loadMenu();
       onUpdate();
     }
     setSaving(false);
+    setCustomizingMeal(null);
   };
 
-  const applyWeeklyPattern = async (meal: string, dishName: string, dishKcals: number) => {
-    if (!confirm(`Apply "${dishName}" to all days this week?`)) return;
+  const skipEntireDay = async (day: string) => {
+    if (!confirm(`Skip all meals for ${t(day)}?`)) return;
     setSaving(true);
-    const days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+    const skipSelections = availableMeals.map(meal => ({
+      subscriber_id: subscriber.id,
+      week_start_date: weekStart,
+      day_of_week: day,
+      meal_type: meal,
+      dish_name: 'SKIP DAY',
+      dish_kcals: 0,
+      menu_period: settings?.current_menu_period
+    }));
+    await supabase.from('weekly_menu_selections').upsert(skipSelections, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
+    await loadMenu();
+    setSaving(false);
+  };
+
+  const applyWeeklyPattern = async (meal: string, dish: MenuDish) => {
+    if (!confirm(`Apply "${dish.name}" to all days this week?`)) return;
+    setSaving(true);
     const newSelections = days.map(day => ({
       subscriber_id: subscriber.id,
       week_start_date: weekStart,
       day_of_week: day,
       meal_type: meal,
-      dish_name: dishName,
-      dish_kcals: dishKcals,
+      dish_id: dish.id,
+      dish_name: dish.name,
+      dish_kcals: dish.kcals,
       menu_period: settings?.current_menu_period
     }));
-
-    const { error } = await supabase
-      .from('weekly_menu_selections')
-      .upsert(newSelections, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
-
-    if (error) alert(t('error_generic'));
-    else {
-      await loadSelections();
-      onUpdate();
-    }
+    await supabase.from('weekly_menu_selections').upsert(newSelections, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
+    await loadMenu();
     setSaving(false);
   };
 
   return (
-    <div className="space-y-12">
-      <div className="flex items-center justify-between bg-white border border-primary/5 rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden">
-        {daysRemaining !== null && daysRemaining <= 3 && daysRemaining > 0 && (
-          <div className="absolute top-0 left-0 h-full w-1.5 bg-gold animate-pulse" />
-        )}
-        <button onClick={() => setWeekOffset(w => w - 1)} className="p-4 rounded-2xl hover:bg-gray-50 transition-colors"><ChevronLeft /></button>
+    <div className="space-y-6">
+      {/* 1. Header & Week Selector */}
+      <div className="flex items-center justify-between bg-white p-5 rounded-2xl border border-primary/5 shadow-lg">
+        <button onClick={() => setWeekOffset(w => Math.max(0, w - 1))} className="p-2 rounded-lg hover:bg-gray-50"><ChevronLeft className="w-5 h-5"/></button>
         <div className="text-center">
-          <p className="text-primary font-black text-sm uppercase tracking-widest">{weekOffset === 0 ? t('this_week') : t('next_week')}</p>
-          <p className="text-gold text-[10px] font-black uppercase mt-2 tracking-widest">
-            {daysRemaining !== null && daysRemaining > 0
-              ? `DEADLINE: ${daysRemaining} DAYS REMAINING`
-              : `${t('starting')} ${new Date(weekStart).toLocaleDateString()}`
-            }
-          </p>
+          <p className="text-primary font-black text-[10px] uppercase tracking-[0.2em]">{weekOffset === 0 ? t('this_week') : t('next_week')}</p>
+          <p className="text-gold text-[8px] font-bold mt-0.5 uppercase tracking-widest">Cycle W{menuWeek}</p>
         </div>
-        <button onClick={() => setWeekOffset(w => Math.min(w + 1, 2))} className="p-4 rounded-2xl hover:bg-gray-50 transition-colors"><ChevronRight /></button>
+        <button onClick={() => setWeekOffset(w => Math.min(w + 1, 2))} className="p-2 rounded-lg hover:bg-gray-50"><ChevronRight className="w-5 h-5"/></button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-        {currentWeekMenu.sort((a, b) => {
-          const order = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-          return order.indexOf(a.day) - order.indexOf(b.day);
-        }).map(day => (
-          <div key={day.day} className="glass-card p-8 space-y-8 border-primary/5 hover:border-teal/20 transition-all group/day relative overflow-hidden">
-            <div className="flex items-center justify-between border-b border-primary/5 pb-4">
-               <div>
-                  <h3 className="text-xl font-black uppercase italic tracking-tighter text-primary">{t(day.day)}</h3>
-                  <button
-                    onClick={() => pickDish(day.day, 'lunch', '', 0, true)}
-                    className="text-[8px] font-black text-red-400 hover:text-red-600 transition-colors mt-1 uppercase tracking-widest"
-                  >
-                    SKIP THIS DAY
-                  </button>
-               </div>
-               <div className="w-2 h-2 rounded-full bg-gold/30" />
-            </div>
-
-            <div className="space-y-10">
-              {availableMeals.map(meal => {
-                const sel = selections.find(s => s.day_of_week === day.day && s.meal_type === meal);
-                const isSkipped = sel?.dish_name === 'SKIP DAY';
-                const dishes = day.items[meal as keyof typeof day.items] || [];
-
-                return (
-                  <div key={meal} className={`space-y-4 transition-opacity ${isSkipped ? 'opacity-30 pointer-events-none' : ''}`}>
-                    <div className="flex items-center justify-between">
-                       <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gold">{t(meal)}</p>
-                    </div>
-                    {isSkipped ? (
-                      <div className="p-4 rounded-2xl bg-red-50/50 border border-dashed border-red-200 text-center">
-                         <p className="text-[9px] font-black text-red-400 uppercase tracking-widest italic">Day Skipped</p>
-                      </div>
-                    ) : (
-                      <div className="grid gap-3">
-                        {dishes.map(d => {
-                          const hasAllergy = d.allergens?.some(a => subscriber.allergies?.includes(a));
-                          const isSelected = sel?.dish_name === d.name;
-
-                          return (
-                            <div key={d.name} className="relative group/dish">
-                              <button
-                                onClick={() => !hasAllergy && pickDish(day.day, meal, d.name, d.kcals)}
-                                disabled={hasAllergy}
-                                className={`w-full p-4 rounded-2xl text-left border-2 transition-all ${
-                                  isSelected ? 'border-teal bg-teal text-white shadow-lg' :
-                                  hasAllergy ? 'border-red-500 bg-red-50 text-red-500 cursor-not-allowed opacity-60' :
-                                  'border-primary/5 bg-white/40 hover:border-teal/20 text-primary'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="font-black text-sm uppercase tracking-tight">{isRtl && d.name_ar ? d.name_ar : d.name}</p>
-                                  {hasAllergy ? <ShieldAlert className="w-4 h-4 text-red-600" /> : isSelected && <CheckCircle className="w-4 h-4 text-white" />}
-                                </div>
-                                <p className={`text-[10px] font-bold mt-1 ${isSelected ? 'opacity-60' : 'opacity-40'}`}>{d.kcals} KCAL</p>
-
-                                {hasAllergy ? (
-                                  <div className="mt-4 p-2 bg-red-600 text-white rounded-xl text-center">
-                                    <p className="text-[9px] font-black uppercase tracking-tighter">
-                                      WARNING: Contains {d.allergens?.filter(a => subscriber.allergies?.includes(a)).join(', ')}. NOT SAFE FOR YOU.
-                                    </p>
-                                  </div>
-                                ) : (
-                                  <div className={`mt-4 p-2 rounded-xl text-center ${isSelected ? 'bg-white/20 text-white' : 'bg-emerald-500 text-white'}`}>
-                                    <p className="text-[9px] font-black uppercase tracking-tighter">
-                                      SAFE FOR YOU
-                                    </p>
-                                  </div>
-                                )}
-                              </button>
-                              {isSelected && !hasAllergy && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); applyWeeklyPattern(meal, d.name, d.kcals); }}
-                                  className="absolute -right-2 -top-2 bg-gold text-primary p-1.5 rounded-lg shadow-xl hover:scale-110 transition-all opacity-0 group-hover/dish:opacity-100 z-10"
-                                  title="Apply to all week"
-                                >
-                                  <Zap className="w-3 h-3 fill-primary" />
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+      {/* 2. Compact Day Tabs */}
+      <div className="flex bg-white/40 backdrop-blur-xl p-1 rounded-xl border border-primary/5 shadow-sm overflow-x-auto no-scrollbar">
+        {days.map((day, idx) => (
+          <button
+            key={day}
+            onClick={() => setActiveDayIndex(idx)}
+            className={`flex-1 min-w-[70px] py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+              activeDayIndex === idx ? 'bg-primary text-white shadow-sm' : 'text-primary/40'
+            }`}
+          >
+            {t(day.substring(0, 3))}
+          </button>
         ))}
       </div>
+
+      {/* 3. Compact Meal List */}
+      <div className="space-y-4 animate-reveal">
+        <div className="flex items-center justify-between px-2">
+           <h3 className="text-lg font-black uppercase italic tracking-tighter text-primary">{t(days[activeDayIndex])}</h3>
+           <button onClick={() => skipEntireDay(days[activeDayIndex])} className="text-[8px] font-black text-red-400 uppercase tracking-widest underline underline-offset-4">Skip Day</button>
+        </div>
+
+        <div className="space-y-6">
+          {availableMeals.map(mealType => {
+            const sel = selections.find(s => s.day_of_week === days[activeDayIndex] && s.meal_type === mealType);
+            const dishes = activeDay?.items[mealType as keyof typeof activeDay.items] || [];
+            const isSkipped = sel?.dish_name === 'SKIP DAY';
+
+            if (dishes.length === 0) return null;
+
+            return (
+              <section key={mealType} className="space-y-3">
+                <div className="flex items-center gap-3 px-2">
+                   <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gold">{t(mealType)}</p>
+                   <div className="h-px flex-1 bg-primary/5" />
+                   {isSkipped && <span className="text-[7px] font-black text-red-500 uppercase tracking-widest">SKIPPED</span>}
+                </div>
+
+                <div className="space-y-2">
+                  {dishes.map((dish: MenuDish) => {
+                    const sel = selections.find(s => s.day_of_week === days[activeDayIndex] && s.meal_type === mealType);
+                    const isSelected = sel?.dish_id === dish.id || sel?.dish_name === dish.name;
+                    const hasAllergy = dish.allergens?.some((a: string) => subscriber.allergies?.includes(a));
+
+                    return (
+                      <div key={dish.id} className={`group relative flex flex-col p-4 rounded-xl border-2 transition-all ${
+                        isSelected ? 'border-teal bg-teal/5' : 'border-primary/5 bg-white'
+                      } ${hasAllergy ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+
+                        <div className="flex items-start justify-between gap-4">
+                           <div className="flex-1 min-w-0">
+                              <h4 className="font-serif italic text-base text-primary leading-tight truncate">{isRtl ? dish.name_ar : dish.name}</h4>
+                              <div className="flex gap-3 mt-1">
+                                 <span className="text-[8px] font-bold text-primary/30 uppercase">{dish.kcals} KCAL</span>
+                                 {dish.macros && <span className="text-[8px] font-bold text-gold uppercase">P:{dish.macros.protein} C:{dish.macros.carbs}</span>}
+                              </div>
+                           </div>
+                           {isSelected && <CheckCircle className="w-4 h-4 text-teal fill-teal/10 shrink-0" />}
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-4">
+                           <button onClick={() => setAboutMeal(dish)} className="flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-primary/5 hover:bg-primary/5">About</button>
+                           <button onClick={() => setCustomizingMeal({dish, meal: mealType})} className="flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-gold/10 text-gold hover:bg-gold/5">Personalize</button>
+                           <button
+                             onClick={() => pickDish(days[activeDayIndex], mealType, dish)}
+                             className={`flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${
+                               isSelected ? 'bg-gold text-primary' : 'bg-primary/5 text-primary/60'
+                             }`}
+                           >
+                             {isSelected ? 'Active' : 'Select'}
+                           </button>
+                        </div>
+
+                        {isSelected && !hasAllergy && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); applyWeeklyPattern(mealType, dish); }}
+                            className="absolute -right-2 -top-2 bg-gold text-primary p-1.5 rounded-lg shadow-lg border-2 border-white"
+                          >
+                            <Zap className="w-3 h-3 fill-primary" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Modals Re-implementation with higher density */}
+      <AnimatePresence>
+        {aboutMeal && <AboutMealModal dish={aboutMeal} isRtl={isRtl} onClose={() => setAboutMeal(null)} />}
+        {customizingMeal && (
+          <CustomizeMealModal
+            dish={customizingMeal.dish}
+            mealType={customizingMeal.meal}
+            day={days[activeDayIndex]}
+            subscriber={subscriber}
+            onClose={() => setCustomizingMeal(null)}
+            onSave={(customs) => pickDish(days[activeDayIndex], customizingMeal.meal, customizingMeal.dish, customs)}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function AboutMealModal({ dish, isRtl, onClose }: { dish: MenuDish, isRtl: boolean, onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-primary/40 backdrop-blur-md" />
+      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-[#FDFCF7] w-full max-w-2xl max-h-[85vh] rounded-[3rem] shadow-4xl overflow-hidden flex flex-col border border-white/40">
+         <div className="p-10 border-b border-primary/5 flex items-center justify-between bg-white/40">
+            <div>
+               <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em] mb-2 block">Meal Intel</span>
+               <h2 className="text-3xl font-black text-primary uppercase italic tracking-tighter">{isRtl ? dish.name_ar : dish.name}</h2>
+            </div>
+            <button onClick={onClose} className="p-4 hover:bg-primary/5 rounded-full transition-colors"><X className="w-8 h-8 text-primary/20" /></button>
+         </div>
+
+         <div className="flex-1 overflow-y-auto p-10 space-y-12">
+            <section className="grid grid-cols-2 gap-8">
+               <div className="space-y-2">
+                  <p className="text-[10px] font-black text-primary/30 uppercase tracking-widest flex items-center gap-2"><MapPin className="w-3 h-3" /> Culinary Origin</p>
+                  <p className="font-serif italic text-xl text-primary">{dish.origin || 'Global Fusion'}</p>
+               </div>
+               <div className="space-y-2">
+                  <p className="text-[10px] font-black text-primary/30 uppercase tracking-widest flex items-center gap-2"><Sparkles className="w-3 h-3" /> Integrity Tags</p>
+                  <div className="flex gap-2">
+                     {dish.isHeritage && <span className="pill bg-gold/10 text-gold text-[8px]">HERITAGE</span>}
+                     <span className="pill bg-teal/5 text-teal text-[8px]">MACRO OPTIMIZED</span>
+                  </div>
+               </div>
+            </section>
+
+            <section className="space-y-4">
+               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary">The History</h3>
+               <p className="text-muted leading-relaxed italic text-lg">{dish.history || dish.description}</p>
+            </section>
+
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-10">
+               <div className="space-y-4">
+                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary/40">Traditional Craft</h3>
+                  <p className="text-sm font-medium text-primary/60 leading-relaxed">{dish.preparation_traditional || 'Centuries of refinement using regional spices and hearth techniques.'}</p>
+               </div>
+               <div className="space-y-4">
+                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-gold">Triangle Evolution</h3>
+                  <p className="text-sm font-medium text-primary/80 leading-relaxed">{dish.preparation_triangle || 'Optimized for modern wellness without compromising cultural depth.'}</p>
+               </div>
+            </section>
+
+            <section className="p-8 rounded-[2rem] bg-[#1A2E2E] text-white">
+               <h3 className="text-[10px] font-black uppercase tracking-[0.5em] text-[#C5A059] mb-8 text-center">Protocol Breakdown</h3>
+               <div className="grid grid-cols-4 gap-4 text-center">
+                  <div><p className="text-2xl font-serif mb-1">{dish.kcals}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">Kcal</p></div>
+                  <div><p className="text-2xl font-serif mb-1">{dish.macros?.protein || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">Protein</p></div>
+                  <div><p className="text-2xl font-serif mb-1">{dish.macros?.carbs || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">Carbs</p></div>
+                  <div><p className="text-2xl font-serif mb-1">{dish.macros?.fats || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">Fats</p></div>
+               </div>
+            </section>
+         </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function CustomizeMealModal({ dish, mealType, day, subscriber, onClose, onSave }: { dish: MenuDish, mealType: string, day: string, subscriber: Subscriber, onClose: () => void, onSave: (c: any) => void }) {
+  const [removed, setRemoved] = useState<string[]>([]);
+  const [subs, setSubs] = useState<Record<string, string>>({});
+
+  const handleSave = () => {
+    onSave({ removed_ingredients: removed, substitutions: subs });
+  };
+
+  const currentIngredients = dish.ingredients || [];
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-primary/40 backdrop-blur-md" />
+      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="relative bg-white w-full max-w-xl max-h-[85vh] rounded-[3rem] shadow-4xl overflow-hidden flex flex-col">
+         <div className="p-8 border-b border-primary/5">
+            <span className="text-[9px] font-black text-gold uppercase tracking-[0.4em] mb-2 block">Protocol Personalization</span>
+            <h2 className="text-2xl font-black text-primary uppercase italic tracking-tighter">Customize Your {dish.name}</h2>
+         </div>
+
+         <div className="flex-1 overflow-y-auto p-8 space-y-10">
+            <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10">
+               <p className="text-[10px] font-black uppercase text-primary/40 mb-4 tracking-widest">Core Integrity (Non-changeable)</p>
+               <div className="flex flex-wrap gap-2">
+                  {currentIngredients.filter(i => i.is_required).map(i => (
+                    <span key={i.slug} className="pill bg-white text-primary text-[9px] border border-primary/5">{i.name}</span>
+                  ))}
+               </div>
+            </div>
+
+            <div className="space-y-6">
+               <p className="text-[10px] font-black uppercase text-gold mb-4 tracking-widest">Adjustable Elements</p>
+               {currentIngredients.filter(i => !i.is_required).map(ing => (
+                 <div key={ing.slug} className="p-5 rounded-2xl border border-primary/5 bg-gray-50/50 space-y-4">
+                    <div className="flex items-center justify-between">
+                       <h4 className="font-black text-primary text-xs uppercase tracking-widest">{ing.name}</h4>
+                       {ing.is_removable && (
+                         <button
+                           onClick={() => removed.includes(ing.slug) ? setRemoved(removed.filter(s => s !== ing.slug)) : setRemoved([...removed, ing.slug])}
+                           className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${
+                             removed.includes(ing.slug) ? 'bg-red-500 text-white' : 'bg-red-50 text-red-500 hover:bg-red-100'
+                           }`}
+                         >
+                           {removed.includes(ing.slug) ? 'REMOVED' : 'REMOVE'}
+                         </button>
+                       )}
+                    </div>
+
+                    {!removed.includes(ing.slug) && ing.approved_substitutions && ing.approved_substitutions.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[8px] font-black text-primary/30 uppercase">Approved Alternatives</p>
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                           <button
+                             onClick={() => { const newSubs = {...subs}; delete newSubs[ing.slug]; setSubs(newSubs); }}
+                             className={`flex-shrink-0 px-4 py-2 rounded-xl text-[8px] font-black uppercase border-2 transition-all ${
+                               !subs[ing.slug] ? 'border-teal bg-teal text-white' : 'border-primary/5 bg-white text-primary/40'
+                             }`}
+                           >Original</button>
+                           {ing.approved_substitutions.map(subSlug => (
+                             <button
+                               key={subSlug}
+                               onClick={() => setSubs({...subs, [ing.slug]: subSlug})}
+                               className={`flex-shrink-0 px-4 py-2 rounded-xl text-[8px] font-black uppercase border-2 transition-all ${
+                                 subs[ing.slug] === subSlug ? 'border-teal bg-teal text-white' : 'border-primary/5 bg-white text-primary/40'
+                               }`}
+                             >{subSlug.replace(/_/g, ' ')}</button>
+                           ))}
+                        </div>
+                      </div>
+                    )}
+                 </div>
+               ))}
+            </div>
+
+            <div className="p-6 rounded-2xl bg-[#FDFCF7] border border-gold/10">
+               <h4 className="text-[9px] font-black text-gold uppercase mb-4 tracking-widest">Personalized Outcome</h4>
+               <p className="text-sm font-medium text-primary/80 leading-relaxed italic">
+                 {dish.name} prepared with {Object.values(subs).length > 0 ? Object.values(subs).map(s => s.replace(/_/g, ' ')).join(', ') : 'original ingredients'}
+                 {removed.length > 0 ? ` and no ${removed.join(', ')}.` : '.'}
+               </p>
+            </div>
+         </div>
+
+         <div className="p-8 bg-gray-50 border-t border-primary/5">
+            <button onClick={handleSave} className="btn-primary w-full py-5 uppercase tracking-widest text-xs">Confirm My Protocol</button>
+         </div>
+      </motion.div>
     </div>
   );
 }

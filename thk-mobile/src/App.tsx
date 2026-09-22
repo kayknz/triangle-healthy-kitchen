@@ -181,6 +181,14 @@ function AppContent() {
     setSubscribeOpen(true);
   }, []);
 
+  useEffect(() => {
+    if (!authLoading && session && route === 'home') {
+      if (userRole === 'rider') setRoute('rider-dashboard');
+      else if (userRole === 'owner') setRoute('provider-dashboard');
+      else if (userRole === 'subscriber') setRoute('subscriber-dashboard');
+    }
+  }, [authLoading, session, userRole, route]);
+
   if (authLoading || onboardingComplete === null) {
     return <SecuringProtocol message="Securing Protocol" subtitle="Verifying authenticated access to the culinary rhythm ledger..." />;
   }
@@ -189,14 +197,6 @@ function AppContent() {
   if (session && !onboardingComplete && userRole === 'subscriber') {
     return <OnboardingFlow onComplete={() => setOnboardingComplete(true)} />;
   }
-
-  useEffect(() => {
-    if (!authLoading && session && route === 'home') {
-      if (userRole === 'rider') setRoute('rider-dashboard');
-      else if (userRole === 'owner') setRoute('provider-dashboard');
-      else if (userRole === 'subscriber') setRoute('subscriber-dashboard');
-    }
-  }, [authLoading, session, userRole, route]);
 
   const BottomNav = () => (
     <nav className="fixed bottom-0 left-0 right-0 bg-[#123F38] border-t border-[#F5F3EB]/10 px-6 py-4 pb-8 flex justify-between items-center z-[60] shadow-2xl">

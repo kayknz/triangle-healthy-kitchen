@@ -78,9 +78,9 @@ const RewardsPage: React.FC = () => {
     try {
       const { error: ledgerError } = await supabase.from('points_ledger').insert({
         subscriber_id: subscriber.id,
-        amount: reward.points_cost,
-        type: 'spend',
-        description: `Redeemed: ${reward.name}`
+        points_delta: -reward.points_cost,
+        event_type: 'redemption',
+        idempotency_key: `redeem:${subscriber.id}:${reward.id}:${Date.now()}`
       });
 
       if (ledgerError) throw ledgerError;
@@ -330,14 +330,14 @@ const RewardsPage: React.FC = () => {
             <div key={entry.id} className="p-10 flex justify-between items-center group hover:bg-[#FDFCF7] transition-all duration-500">
               <div className="flex items-center gap-8">
                 <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center transition-all duration-500 shadow-sm ${
-                  entry.type === 'earn'
+                  entry.points_delta > 0
                     ? 'bg-[#0a3030] text-[#C5A059] group-hover:scale-110'
                     : 'bg-[#C5A059] text-[#0a3030] group-hover:scale-110'
                 }`}>
-                   {entry.type === 'earn' ? <ArrowUpRight className="w-6 h-6" /> : <ShoppingBag className="w-6 h-6" />}
+                   {entry.points_delta > 0 ? <ArrowUpRight className="w-6 h-6" /> : <ShoppingBag className="w-6 h-6" />}
                 </div>
                 <div>
-                  <p className="text-base font-black text-[#0a3030] uppercase tracking-tighter mb-1">{entry.description}</p>
+                  <p className="text-base font-black text-[#0a3030] uppercase tracking-tighter mb-1">{entry.event_type.replace(/_/g, ' ')}</p>
                   <div className="flex items-center gap-3">
                      <Calendar className="w-3 h-3 text-[#0a3030]/20" />
                      <p className="text-[10px] text-[#0a3030]/40 uppercase tracking-[0.2em] font-bold">
@@ -347,8 +347,8 @@ const RewardsPage: React.FC = () => {
                 </div>
               </div>
               <div className="text-right">
-                 <div className={`font-serif text-4xl italic ${entry.type === 'earn' ? 'text-[#0a3030]' : 'text-[#C5A059]'}`} style={{ fontFamily: "'DM Serif Display', serif" }}>
-                   {entry.type === 'earn' ? '+' : '-'}{entry.amount.toLocaleString()}
+                 <div className={`font-serif text-4xl italic ${entry.points_delta > 0 ? 'text-[#0a3030]' : 'text-[#C5A059]'}`} style={{ fontFamily: "'DM Serif Display', serif" }}>
+                   {entry.points_delta > 0 ? '+' : ''}{entry.points_delta.toLocaleString()}
                  </div>
                  <span className="text-[9px] font-black uppercase tracking-widest text-[#0a3030]/20">Protocol Points</span>
               </div>

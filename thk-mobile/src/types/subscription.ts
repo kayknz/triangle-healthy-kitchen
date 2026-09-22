@@ -12,11 +12,45 @@ export const DAYS_OF_WEEK = [
   'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday',
 ] as const;
 
-export interface MenuDish {
+export interface Ingredient {
+  id: string;
+  slug: string;
   name: string;
   name_ar?: string;
+  is_required: boolean;
+  is_removable: boolean;
+  approved_substitutions?: string[]; // Slugs of other ingredients
+  allergen?: string;
+  dietary_impact?: string;
+}
+
+export interface MenuDish {
+  id?: string;
+  slug?: string;
+  name: string;
+  name_ar?: string;
+  description?: string;
+  description_ar?: string;
+  origin?: string;
+  origin_ar?: string;
+  history?: string;
+  history_ar?: string;
+  preparation_traditional?: string;
+  preparation_traditional_ar?: string;
+  preparation_triangle?: string;
+  preparation_triangle_ar?: string;
+  cooking_method?: string;
+  cooking_method_ar?: string;
+  interesting_fact?: string;
+  interesting_fact_ar?: string;
   kcals: number;
+  macros?: {
+    protein: number;
+    carbs: number;
+    fats: number;
+  };
   allergens?: string[];
+  ingredients?: Ingredient[];
   isHeritage?: boolean;
 }
 
@@ -43,8 +77,8 @@ export interface GlobalSettings {
 
 // Package-specific meal availability
 export const PACKAGE_MEALS: Record<string, string[]> = {
-  '1100kcal': ['breakfast', 'lunch', 'snacks'],
-  '1400kcal': ['breakfast', 'lunch', 'dinner'],
+  '1100kcal': ['breakfast', 'lunch', 'dinner', 'snacks'],
+  '1400kcal': ['breakfast', 'lunch', 'dinner', 'snacks'],
   '1500kcal': ['breakfast', 'lunch', 'dinner', 'snacks'],
 };
 
@@ -58,10 +92,15 @@ export const MEAL_LABELS: Record<string, string> = {
 export interface MenuSelection {
   day_of_week: string;
   meal_type: string;
+  dish_id?: string;
   dish_name: string;
   dish_kcals: number;
   week_start_date?: string;
   menu_period?: string;
+  customizations?: {
+    removed_ingredients?: string[];
+    substitutions?: Record<string, string>;
+  };
 }
 
 export interface ProgressEntry {

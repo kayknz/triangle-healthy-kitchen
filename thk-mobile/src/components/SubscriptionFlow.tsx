@@ -19,7 +19,7 @@ interface SubscriptionFlowProps {
 }
 
 export default function SubscriptionFlow({ open, onClose, preselectedPackage }: SubscriptionFlowProps) {
-  const { user } = useAuth();
+  const { user, signUp } = useAuth();
   const { t, isRtl } = useLanguage();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -159,7 +159,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
     try {
       if (!activeUser) {
-        const { error: signUpErr } = await signUp(email, password, 'subscriber', 'Triangle Member');
+        const { error: signUpErr } = await signUp(email, password, 'Triangle Member', 'subscriber');
         if (signUpErr) throw new Error(signUpErr);
 
         const { data: { user: newUser } } = await supabase.auth.getUser();
@@ -167,8 +167,6 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       }
 
       if (!activeUser) throw new Error("Identity verification failed.");
-
-      const price = pkg?.price || 175;
 
       const { data: subData, error: subError } = await supabase
         .from('subscribers')
@@ -195,22 +193,14 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
       if (subError) throw subError;
 
-      const { data: result, error: fetchErr } = await invokeFunction('tap-checkout', {
-        package_id: pkg?.id,
-        package_name: pkg?.name,
-        amount: price,
-        user_email: activeUser.email,
-        user_id: activeUser.id,
-        subscriber_id: subData.id,
-        success_url: `${window.location.origin}/#account`,
-        cancel_url: `${window.location.origin}/#home`
+      const { data: result, error: fetchErr } = await invokeFunction<{ checkout_url?: string }>('tap-checkout', {
+        packageId: pkg?.id,
+        subscriberId: subData.id,
       });
 
       if (fetchErr) throw fetchErr;
-      if (result?.url) window.location.assign(result.url);
-      else {
-        setSuccess(true);
-      }
+      if (!result?.checkout_url) throw new Error('Payment gateway did not return a checkout link.');
+      window.location.assign(result.checkout_url);
 
     } catch (e: any) {
       setError(e.message || "Gateway Offline");
@@ -250,7 +240,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 <SecuringProtocol
                   message={submitting ? "Starting Plan" : "Error"}
                   subtitle={submitting ? "Connecting..." : null}
-                  error={error}
+                  error={error ?? undefined}
                   onRetry={() => { setError(null); setSubmitting(false); }}
                 />
               )}
