@@ -7,8 +7,8 @@ interface SecuringProtocolProps {
 }
 
 export default function SecuringProtocol({
-  message = "Securing Protocol",
-  subtitle = "Synchronizing premium encrypted assets with the platform ledger..."
+  message = "Loading...",
+  subtitle = "Connecting to your account..."
 }: SecuringProtocolProps) {
   return (
     <div className="fixed inset-0 z-[300] flex flex-col items-center justify-center bg-[#123F38] overflow-hidden p-6">
@@ -19,7 +19,6 @@ export default function SecuringProtocol({
       {/* Center Shield Structure */}
       <div className="relative flex flex-col items-center max-w-md text-center animate-reveal">
         <div className="relative w-28 h-28 mb-10">
-          {/* Saffron/Gold pulsing rings */}
           <div className="absolute inset-0 bg-[#C5A059]/20 rounded-[2rem] blur-xl animate-ping" />
           <div className="absolute -inset-2 bg-gradient-to-tr from-[#C5A059] to-transparent rounded-[2.2rem] opacity-30 animate-spin [animation-duration:8s]" />
 
@@ -30,7 +29,7 @@ export default function SecuringProtocol({
 
         {/* Text Polish */}
         <h2
-          className="text-4xl md:text-5xl font-serif text-[#F5F3EB] tracking-tight italic mb-4"
+          className="text-3xl md:text-4xl font-serif text-[#F5F3EB] tracking-tight italic mb-3"
           style={{ fontFamily: "'DM Serif Display', serif" }}
         >
           {message}
@@ -50,10 +49,10 @@ export default function SecuringProtocol({
           <div className="h-full bg-gradient-to-r from-transparent via-[#C5A059] to-transparent w-3/4 animate-shimmer" />
         </div>
         <span
-          className="text-[#C5A059] text-[9px] font-black uppercase tracking-[0.4em] mt-4 flex items-center gap-2"
+          className="text-[#C5A059] text-[9px] font-black uppercase tracking-[0.3em] mt-4 flex items-center gap-2"
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
-          <Sparkles className="w-3 h-3 fill-[#C5A059]" /> Verified Integrity Verified
+          <Sparkles className="w-3 h-3 fill-[#C5A059]" /> Safe & Secure
         </span>
       </div>
 

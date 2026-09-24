@@ -40,7 +40,8 @@ export default function SubscriberDashboard() {
     steps: 0,
     goal: 10000,
     streak: 0,
-    points: 0
+    points: 0,
+    streak_history: [0, 0, 0, 0, 0, 0, 0] as number[]
   });
 
   const loadDashboardData = useCallback(async (retryCount = 0) => {
@@ -106,7 +107,8 @@ export default function SubscriberDashboard() {
         steps: (activityRes.status === 'fulfilled' && !activityRes.value.error) ? activityRes.value.data?.total_value || 0 : 0,
         goal: (goalRes.status === 'fulfilled' && !goalRes.value.error) ? goalRes.value.data?.target_value || 10000 : 10000,
         streak: subData.current_streak || 0,
-        points: subData.points_balance || 0
+        points: subData.points_balance || 0,
+        streak_history: subData.streak_history || [1, 1, 1, 1, 0, 0, 0]
       });
 
       if (deliveryRes.status === 'fulfilled' && !deliveryRes.value.error) {

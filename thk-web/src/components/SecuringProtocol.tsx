@@ -8,8 +8,8 @@ interface SecuringProtocolProps {
 }
 
 export default function SecuringProtocol({
-  message = "Securing Protocol",
-  subtitle = "Synchronizing premium encrypted assets with the platform ledger..."
+  message = "Loading...",
+  subtitle = "Connecting to your account..."
 }: SecuringProtocolProps) {
   return (
     <div className="fixed inset-0 z-[500] flex flex-col items-center justify-center bg-[#123F38] overflow-hidden p-6">
@@ -40,7 +40,7 @@ export default function SecuringProtocol({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="text-5xl font-serif text-[#F5F3EB] tracking-tight italic mb-6 uppercase"
+          className="text-4xl font-serif text-[#F5F3EB] tracking-tight italic mb-4"
         >
           {message}
         </motion.h2>
@@ -49,7 +49,7 @@ export default function SecuringProtocol({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="text-[#F5F3EB]/70 text-sm font-medium leading-relaxed max-w-xs uppercase tracking-[0.3em]"
+          className="text-[#F5F3EB]/70 text-sm font-medium leading-relaxed max-w-xs"
         >
           {subtitle}
         </motion.p>
@@ -64,8 +64,8 @@ export default function SecuringProtocol({
              className="absolute inset-0 bg-gradient-to-r from-transparent via-gold to-transparent"
            />
         </div>
-        <span className="text-[#C5A059] text-[9px] font-black uppercase tracking-[0.5em] mt-6 flex items-center gap-2">
-          <Sparkles className="w-3 h-3 fill-gold" /> Verified Integrity Verified
+        <span className="text-[#C5A059] text-[9px] font-black uppercase tracking-[0.3em] mt-6 flex items-center gap-2">
+          <Sparkles className="w-3 h-3 fill-gold" /> Safe & Secure
         </span>
       </div>
     </div>

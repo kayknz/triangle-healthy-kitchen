@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { safeHaptics } from '@/lib/haptics';
 import { useLanguage } from '@/lib/LanguageContext';
 
 interface HowItWorksProps {
@@ -10,30 +10,30 @@ export default function HowItWorks({ onBookClick }: HowItWorksProps) {
   const { t } = useLanguage();
 
   const handleBookClick = async () => {
-    await Haptics.impact({ style: ImpactStyle.Light });
+    await safeHaptics.impact();
     onBookClick();
   };
 
   const steps = [
     {
       n: '01',
-      title: t('hiw_step1_title'),
-      desc: t('hiw_step1_desc'),
+      title: t('hiw_step1_title') || 'Select Your Plan',
+      desc: t('hiw_step1_desc') || 'Choose a meal plan that fits your goals and lifestyle.',
     },
     {
       n: '02',
-      title: t('hiw_step2_title'),
-      desc: t('hiw_step2_desc'),
+      title: t('hiw_step2_title') || 'Customized for You',
+      desc: t('hiw_step2_desc') || 'Our chefs prepare your meals fresh according to your preferences.',
     },
     {
       n: '03',
-      title: t('hiw_step3_title'),
-      desc: t('hiw_step3_desc'),
+      title: t('hiw_step3_title') || 'Daily Fresh Delivery',
+      desc: t('hiw_step3_desc') || 'We deliver your fresh meals directly to your door in Doha.',
     },
     {
       n: '04',
-      title: t('hiw_step4_title'),
-      desc: t('hiw_step4_desc'),
+      title: t('hiw_step4_title') || 'Enjoy & Reach Goals',
+      desc: t('hiw_step4_desc') || 'Eat delicious healthy food and see real results every week.',
     },
   ];
 
@@ -51,15 +51,15 @@ export default function HowItWorks({ onBookClick }: HowItWorksProps) {
           <div className="flex items-center justify-center gap-3 mb-6 animate-in">
             <span className="h-px w-8 bg-[#C5A059]" />
             <p className="text-[#C5A059] text-sm tracking-[0.4em] uppercase font-black">
-              {t('nav_how_it_works')}
+              {t('nav_how_it_works') || 'How It Works'}
             </p>
             <span className="h-px w-8 bg-[#C5A059]" />
           </div>
           <h2 className="text-5xl sm:text-6xl font-black text-[#0a3030] mb-6 tracking-tighter">
-            {t('how_it_works_title')}
+            {t('how_it_works_title') || 'Simple 4-Step Process'}
           </h2>
           <p className="text-gray-400 text-xl max-w-2xl mx-auto font-medium">
-            {t('how_it_works_subtitle')}
+            {t('how_it_works_subtitle') || 'Healthy eating made effortless and enjoyable'}
           </p>
         </div>
 
@@ -86,7 +86,7 @@ export default function HowItWorks({ onBookClick }: HowItWorksProps) {
             onClick={handleBookClick}
             className="bg-[#0a3030] text-white px-10 py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-[#154a4a] hover:shadow-2xl transition-all inline-flex items-center gap-2 group"
           >
-            {t('start_journey')}
+            {t('start_journey') || 'Start Your Journey'}
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>

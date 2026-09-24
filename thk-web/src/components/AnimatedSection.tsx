@@ -26,7 +26,7 @@ export default function AnimatedSection({
         delay,
         ease: [0.16, 1, 0.3, 1]
       }}
-      {...props}
+      {...props as any}
     >
       {children}
     </motion.div>

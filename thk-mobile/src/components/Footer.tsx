@@ -1,5 +1,5 @@
 import { Phone, Instagram, MapPin } from 'lucide-react';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { safeHaptics } from '@/lib/haptics';
 import { useLanguage } from '@/lib/LanguageContext';
 
 export default function Footer() {
@@ -89,7 +89,7 @@ export default function Footer() {
           </p>
           <button
             onClick={async () => {
-              await Haptics.impact({ style: ImpactStyle.Light });
+              await safeHaptics.impact();
               window.location.hash = '#provider';
             }}
             className="text-white/10 hover:text-[#C5A059]/40 text-[10px] uppercase tracking-[0.2em] transition-all font-black"

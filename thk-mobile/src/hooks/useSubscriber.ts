@@ -22,14 +22,32 @@ export function useSubscriber() {
 
     setLoading(true);
     try {
-      const { data, error: fetchError } = await supabase
+      const { data: subData, error: fetchError } = await supabase
         .from('subscribers')
-        .select('*, preferred_region:regional_communities(name, image_url)')
+        .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (fetchError) throw fetchError;
-      setSubscriber(data as Subscriber | null);
+
+      if (subData) {
+        let region = null;
+        if (subData.preferred_region_id) {
+          try {
+            const { data: comm } = await supabase
+              .from('regional_communities')
+              .select('name, image_url')
+              .eq('id', subData.preferred_region_id)
+              .maybeSingle();
+            region = comm;
+          } catch (e) {
+            // Ignore if regional_communities is missing
+          }
+        }
+        setSubscriber({ ...subData, preferred_region: region } as Subscriber);
+      } else {
+        setSubscriber(null);
+      }
       setError(null);
     } catch (err: any) {
       console.error('[useSubscriber] Failed to load:', err);

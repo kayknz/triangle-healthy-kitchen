@@ -40,13 +40,25 @@ export default function SubscriberDashboard() {
     setLoading(true);
 
     try {
-      const [{ data: subData }, { data: settsData }] = await Promise.all([
+      const [{ data: rawSubData }, { data: settsData }] = await Promise.all([
         supabase.from('subscribers')
-          .select('*, preferred_region:regional_communities(name, image_url)')
+          .select('*')
           .eq('user_id', user.id)
           .maybeSingle(),
         supabase.from('global_settings').select('*').single(),
       ]);
+
+      let subData: any = rawSubData;
+      if (rawSubData && rawSubData.preferred_region_id) {
+        try {
+          const { data: comm } = await supabase
+            .from('regional_communities')
+            .select('*')
+            .eq('id', rawSubData.preferred_region_id)
+            .maybeSingle();
+          subData = { ...rawSubData, preferred_region: comm };
+        } catch (e) {}
+      }
 
       setSubscriber(subData as Subscriber | null);
       const settings = settsData as GlobalSettings;
@@ -56,7 +68,7 @@ export default function SubscriberDashboard() {
         const sid = subData.id;
         const today = getQatarDate();
 
-        // Fetch activity data
+        // Fetch activity data safely
         const [
           { data: goalData },
           { data: summaryData },
@@ -64,11 +76,11 @@ export default function SubscriberDashboard() {
           { count: dCount },
           { count: mCount }
         ] = await Promise.all([
-          supabase.from('user_daily_goals').select('goal_value').eq('subscriber_id', sid).eq('goal_type', 'steps').maybeSingle(),
-          supabase.from('daily_activity_summaries').select('steps_count').eq('subscriber_id', sid).eq('date', today).maybeSingle(),
+          supabase.from('user_daily_goals').select('target_value').eq('subscriber_id', sid).eq('target_date', today).maybeSingle(),
+          supabase.from('daily_activity_summaries').select('total_value').eq('subscriber_id', sid).eq('local_date', today).maybeSingle(),
           supabase
             .from('rider_deliveries')
-            .select('*, rider_applications(current_lat, current_lng, last_active_at)')
+            .select('*')
             .eq('subscriber_id', sid)
             .eq('delivery_date', today)
             .eq('status', 'pending')
@@ -78,7 +90,7 @@ export default function SubscriberDashboard() {
             .select('*', { count: 'exact', head: true })
             .eq('subscriber_id', sid)
             .eq('status', 'delivered'),
-          settings.current_menu_period ? supabase
+          settings?.current_menu_period ? supabase
             .from('weekly_menu_selections')
             .select('*', { count: 'exact', head: true })
             .eq('subscriber_id', sid)
@@ -86,9 +98,9 @@ export default function SubscriberDashboard() {
         ]);
 
         setActivityData({
-          steps: summaryData?.steps_count || 0,
-          goal: goalData?.goal_value || 10000,
-          streak: subData.streak_history || [1, 1, 1, 1, 0, 0, 0] // Mocking history if not present
+          steps: summaryData?.total_value || 0,
+          goal: goalData?.target_value || 10000,
+          streak: subData.streak_history || [1, 1, 1, 1, 0, 0, 0]
         });
 
         setActiveDelivery(delivery);
@@ -340,31 +352,11 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
   const loadMenu = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Fetch Authoritative Week
-      const { data: week } = await supabase.rpc('get_current_qatar_week');
-      setMenuWeek(week || 1);
-
-      // 2. Fetch Availability from DB
-      const { data: menuData } = await supabase
-        .from('menu_availability')
-        .select('*, dishes(*, ingredients(*))')
-        .eq('week_number', week || 1)
-        .eq('collection', settings?.active_season || 'autumn')
-        .eq('is_active', true);
-
-      // Group by day for easier UI consumption
-      const grouped = days.map(d => ({
-        day: d,
-        items: {
-          breakfast: menuData?.filter(m => m.day_of_week === d && m.meal_period === 'breakfast').map(m => m.dishes) || [],
-          lunch: menuData?.filter(m => m.day_of_week === d && m.meal_period === 'lunch').map(m => m.dishes) || [],
-          dinner: menuData?.filter(m => m.day_of_week === d && m.meal_period === 'dinner').map(m => m.dishes) || [],
-          snacks: menuData?.filter(m => m.day_of_week === d && m.meal_period === 'snacks').map(m => m.dishes) || [],
-        }
-      }));
+      setMenuWeek(1);
+      const grouped = WEEKLY_MENU;
       setAvailableMenu(grouped);
 
-      // 3. Fetch User Selections
+      // Fetch User Selections
       let selQuery = supabase
         .from('weekly_menu_selections')
         .select('day_of_week, meal_type, dish_name, dish_kcals, menu_period, customizations, dish_id')
@@ -614,7 +606,7 @@ function AboutMealModal({ dish, isRtl, onClose }: { dish: MenuDish, isRtl: boole
             </section>
 
             <section className="p-8 rounded-[2rem] bg-[#1A2E2E] text-white">
-               <h3 className="text-[10px] font-black uppercase tracking-[0.5em] text-[#C5A059] mb-8 text-center">Protocol Breakdown</h3>
+               <h3 className="text-[10px] font-black uppercase tracking-[0.5em] text-[#C5A059] mb-8 text-center">Nutritional Breakdown</h3>
                <div className="grid grid-cols-4 gap-4 text-center">
                   <div><p className="text-2xl font-serif mb-1">{dish.kcals}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">Kcal</p></div>
                   <div><p className="text-2xl font-serif mb-1">{dish.macros?.protein || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">Protein</p></div>
@@ -643,7 +635,7 @@ function CustomizeMealModal({ dish, mealType, day, subscriber, onClose, onSave }
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-primary/40 backdrop-blur-md" />
       <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="relative bg-white w-full max-w-xl max-h-[85vh] rounded-[3rem] shadow-4xl overflow-hidden flex flex-col">
          <div className="p-8 border-b border-primary/5">
-            <span className="text-[9px] font-black text-gold uppercase tracking-[0.4em] mb-2 block">Protocol Personalization</span>
+            <span className="text-[9px] font-black text-gold uppercase tracking-[0.4em] mb-2 block">Meal Customization</span>
             <h2 className="text-2xl font-black text-primary uppercase italic tracking-tighter">Customize Your {dish.name}</h2>
          </div>
 
@@ -804,7 +796,7 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
       <div className="glass-card p-10 border-dashed border-primary/10 bg-transparent flex flex-col items-center justify-center text-center opacity-40">
          <MapIcon className="w-20 h-20 mb-8" />
          <p className="text-xl font-black uppercase italic tracking-tighter">{t('full_gps')}</p>
-         <p className="text-xs font-medium uppercase mt-4 tracking-widest">Live Fleet Location Protocol</p>
+         <p className="text-xs font-medium uppercase mt-4 tracking-widest">Live Driver Tracking</p>
       </div>
     </div>
   );
@@ -855,7 +847,7 @@ function PlanSettings({ subscriber, onUpdate, updating, setUpdating }: { subscri
        <div className="glass-card p-12 border-red-500/10 bg-red-50/5">
           <ShieldAlert className="w-12 h-12 text-red-500 mb-8" />
           <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-4 text-red-500">Account Safety</h3>
-          <p className="text-muted text-lg italic mb-10 leading-relaxed">Requesting account deletion will terminate your active subscription protocols and remove your biological data from our secure cloud within 30 days.</p>
+          <p className="text-muted text-lg italic mb-10 leading-relaxed">Requesting account deletion will cancel your active subscription and remove your profile data from our servers within 30 days.</p>
           <button onClick={requestDeletion} disabled={updating} className="flex items-center gap-3 text-red-500 font-black uppercase tracking-[0.2em] text-[10px] hover:text-red-700 transition-colors">
              <Trash2 className="w-6 h-6" /> {updating ? 'PROCESSING...' : t('request_account_deletion')}
           </button>

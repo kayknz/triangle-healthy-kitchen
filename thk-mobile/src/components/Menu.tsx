@@ -1,21 +1,21 @@
 import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronUp, Search, Sparkles } from 'lucide-react';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { safeHaptics } from '@/lib/haptics';
 import { WEEKLY_MENU } from '@/data/menu';
 import * as NewMenus from '@/data/new_menus';
 import { useLanguage } from '@/lib/LanguageContext';
 
 const COLLECTIONS = [
-  { id: 'standard', name: 'weekly_menu', data: WEEKLY_MENU },
-  { id: 'menu_a', name: 'menu_a', data: NewMenus.MENU_A },
-  { id: 'menu_c', name: 'menu_c', data: NewMenus.MENU_C },
-  { id: 'menu_d', name: 'menu_d', data: NewMenus.MENU_D },
-  { id: 'menu_e', name: 'menu_e', data: NewMenus.MENU_E },
-  { id: 'menu_f', name: 'menu_f', data: NewMenus.MENU_F },
-  { id: 'menu_2026', name: 'Excellent_2026', data: NewMenus.MENU_2026 },
-  { id: 'summer_j', name: 'summer_special_j', data: NewMenus.SUMMER_J },
-  { id: 'ramadan', name: 'ramadan_special', data: NewMenus.RAMADAN_SPECIAL },
-  { id: 'summer_coll', name: 'summer_collection', data: NewMenus.SUMMER_COLLECTION },
+  { id: 'standard', name: 'weekly_menu', label: 'Weekly Menu', label_ar: 'المنيو الأسبوعي', data: WEEKLY_MENU },
+  { id: 'menu_a', name: 'menu_a', label: 'Menu A', label_ar: 'المنيو أ', data: NewMenus.MENU_A },
+  { id: 'menu_c', name: 'menu_c', label: 'Menu C', label_ar: 'المنيو ج', data: NewMenus.MENU_C },
+  { id: 'menu_d', name: 'menu_d', label: 'Menu D', label_ar: 'المنيو د', data: NewMenus.MENU_D },
+  { id: 'menu_e', name: 'menu_e', label: 'Menu E', label_ar: 'المنيو هـ', data: NewMenus.MENU_E },
+  { id: 'menu_f', name: 'menu_f', label: 'Menu F', label_ar: 'المنيو و', data: NewMenus.MENU_F },
+  { id: 'menu_2026', name: 'excellent_2026', label: 'Executive 2026', label_ar: 'منيو التميز ٢٠٢٦', data: NewMenus.MENU_2026 },
+  { id: 'summer_j', name: 'summer_special_j', label: 'Summer Special', label_ar: 'خاص بالصيف', data: NewMenus.SUMMER_J },
+  { id: 'ramadan', name: 'ramadan_special', label: 'Ramadan Special', label_ar: 'خاص برمضان', data: NewMenus.RAMADAN_SPECIAL },
+  { id: 'summer_coll', name: 'summer_collection', label: 'Summer Collection', label_ar: 'مجموعة الصيف', data: NewMenus.SUMMER_COLLECTION },
 ];
 
 const MEAL_COLORS: Record<string, string> = {
@@ -58,10 +58,10 @@ export default function Menu() {
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-5xl sm:text-6xl font-black text-[#0a3030] mb-6 tracking-tighter">
-            {t('menu_title')}
+            {t('menu_title') || (isRtl ? 'ماذا يوجد في المنيو' : 'What\'s on the Menu')}
           </h2>
           <p className="text-gray-400 text-xl max-w-2xl mx-auto font-medium">
-            {t('menu_subtitle')}
+            {t('menu_subtitle') || (isRtl ? 'وجبات طازجة يحضرها الشيف أسبوعياً.' : 'Fresh healthy meals prepared daily by our chefs in Doha.')}
           </p>
         </div>
 
@@ -71,7 +71,7 @@ export default function Menu() {
             <button
               key={c.id}
               onClick={async () => {
-                await Haptics.impact({ style: ImpactStyle.Light });
+                await safeHaptics.impact();
                 setActiveCollection(c);
                 setActiveDay(0);
               }}
@@ -81,7 +81,7 @@ export default function Menu() {
                   : 'bg-white text-gray-400 border border-gray-100 hover:border-[#C5A059]/30'
               }`}
             >
-              {t(c.name)}
+              {t(c.name) || (isRtl ? c.label_ar : c.label)}
             </button>
           ))}
         </div>
@@ -93,7 +93,7 @@ export default function Menu() {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t('menu_search_placeholder')}
+            placeholder={t('menu_search_placeholder') || (isRtl ? 'بحث عن طعام...' : 'Search for food or ingredients...')}
             className="w-full bg-white border border-gray-100 shadow-sm rounded-3xl py-4 pl-12 pr-6 text-[#0a3030] text-sm outline-none"
           />
         </div>
@@ -104,7 +104,7 @@ export default function Menu() {
             <button
               key={`${d.day}-${i}`}
               onClick={async () => {
-                await Haptics.impact({ style: ImpactStyle.Light });
+                await safeHaptics.impact();
                 setActiveDay(i);
               }}
               className={`flex-shrink-0 px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 ${
@@ -113,7 +113,7 @@ export default function Menu() {
                   : 'bg-white text-gray-400 border border-gray-100 hover:text-[#0a3030]'
               }`}
             >
-              {t(d.day)}
+              {t(d.day) || d.day}
             </button>
           ))}
         </div>
@@ -123,7 +123,7 @@ export default function Menu() {
             <div key={meal} className="premium-card p-0 overflow-hidden">
               <button
                 onClick={async () => {
-                  await Haptics.impact({ style: ImpactStyle.Light });
+                  await safeHaptics.impact();
                   setExpandedMeal(expandedMeal === meal ? null : meal);
                 }}
                 className="w-full flex items-center justify-between px-8 py-6 group"
@@ -131,9 +131,9 @@ export default function Menu() {
                 <div className="flex items-center gap-4">
                   <div className={`w-2 h-2 rounded-full ${expandedMeal === meal ? 'bg-[#C5A059]' : 'bg-gray-200'}`} />
                   <span className={`text-sm font-black uppercase tracking-[0.2em] ${MEAL_COLORS[meal]}`}>
-                    {t(meal)}
+                    {t(meal) || meal}
                   </span>
-                  <span className="text-gray-300 text-[10px] font-bold uppercase">{dishes.length} {t('choices')}</span>
+                  <span className="text-gray-300 text-[10px] font-bold uppercase">{dishes.length} {t('choices') || 'Choices'}</span>
                 </div>
                 {expandedMeal === meal ? <ChevronUp className="w-5 h-5 text-gray-300" /> : <ChevronDown className="w-5 h-5 text-gray-300" />}
               </button>
@@ -146,7 +146,7 @@ export default function Menu() {
                         <span className="text-[#0a3030] font-black text-base">
                           {isRtl && d.name_ar ? d.name_ar : d.name}
                         </span>
-                        <span className={`text-xs font-black ${MEAL_COLORS[meal]}`}>{d.kcals} {t('kcal')}</span>
+                        <span className={`text-xs font-black ${MEAL_COLORS[meal]}`}>{d.kcals} {t('kcal') || 'Kcal'}</span>
                       </div>
                     </div>
                   ))}
@@ -159,7 +159,7 @@ export default function Menu() {
         <div className="mt-16 p-8 bg-gray-50 rounded-3xl border border-gray-100 flex items-start gap-4">
           <Sparkles className="w-6 h-6 text-[#C5A059] flex-shrink-0" />
           <p className="text-gray-400 text-xs font-medium leading-relaxed">
-            {t('menu_disclaimer')}
+            {t('menu_disclaimer') || 'All meals are prepared fresh daily in our municipality-approved Doha kitchen.'}
           </p>
         </div>
       </div>

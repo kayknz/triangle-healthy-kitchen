@@ -4,7 +4,7 @@ import {
   Navigation, Camera, Package, Clock, AlertCircle, ShieldAlert,
   MessageSquare, Power, EyeOff
 } from 'lucide-react';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { safeHaptics } from '@/lib/haptics';
 import { Camera as NativeCamera, CameraResultType } from '@capacitor/camera';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from '@/lib/supabase';
@@ -61,7 +61,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
     setSyncingStatus(true);
     const newStatus = !isOnline;
 
-    await Haptics.impact({ style: ImpactStyle.Medium });
+    await safeHaptics.impact();
 
     const { error: syncError } = await supabase
       .from('rider_applications')
@@ -103,7 +103,6 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
           area,
           building_number,
           street,
-          zone_number,
           delivery_notes
         )
       `)
@@ -125,7 +124,6 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
           area: subscriber.area || 'Doha',
           building: subscriber.building_number || '-',
           street: subscriber.street || '-',
-          zone: subscriber.zone_number || '-',
           notes: route.notes || subscriber.delivery_notes,
           status: route.status,
           time_window: route.time_window || '12-2 PM',
@@ -174,7 +172,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
     }
 
     try {
-      await Haptics.impact({ style: ImpactStyle.Light });
+      await safeHaptics.impact();
 
       // Task 3: Native Camera Integration
       const image = await NativeCamera.getPhoto({
@@ -328,7 +326,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
             </button>
             <button
               onClick={async () => {
-                await Haptics.impact({ style: ImpactStyle.Light });
+                await safeHaptics.impact();
                 fetchRoutes();
               }}
               className="p-2.5 text-white/30 hover:text-[#D4A843] transition-colors rounded-full hover:bg-white/5"
@@ -338,7 +336,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
             </button>
             <button
               onClick={async () => {
-                await Haptics.impact({ style: ImpactStyle.Light });
+                await safeHaptics.impact();
                 signOut();
                 onExit();
               }}

@@ -21,14 +21,24 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setSubmitting(true);
     try {
       // Use UPSERT instead of update to ensure the record is created for new users
-      await supabase
+      const { error } = await supabase
         .from('subscribers')
         .upsert({
           user_id: user.id,
           onboarding_completed: true,
           gender,
-          email: user.email
+          email: user.email || ''
         }, { onConflict: 'user_id' });
+
+      if (error && error.message?.includes('gender')) {
+        await supabase
+          .from('subscribers')
+          .upsert({
+            user_id: user.id,
+            onboarding_completed: true,
+            email: user.email || ''
+          }, { onConflict: 'user_id' });
+      }
       onComplete();
     } catch (e) {
       console.error(e);

@@ -48,7 +48,7 @@ export default function EditorialPanel({
                 <div className={`flex items-center gap-2 mb-3 bg-primary/5 px-3 py-1.5 rounded-full w-fit ${isRtl ? 'flex-row-reverse ml-auto' : ''}`}>
                   <Star className="w-3 h-3 fill-gold text-gold" />
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">
-                    {badge || t('membership_protocol')}
+                    {badge || 'Active Plan'}
                   </span>
                 </div>
                 {title && (
@@ -118,10 +118,10 @@ export function SecuringProtocol({ message, subtitle, error, onRetry }: { messag
       <div className="text-center space-y-6 px-8">
         <div className="flex flex-col items-center">
           <h3 className={`font-black text-3xl uppercase tracking-tighter italic ${error ? 'text-red-500' : 'text-primary'}`}>
-            {error ? 'Protocol Breach' : (message || t('securing_protocol') || 'Securing Protocol')}
+            {error ? 'Error Occurred' : (message || 'Loading...')}
           </h3>
           <p className="text-muted text-[10px] font-bold uppercase tracking-[0.3em] mt-2 max-w-xs mx-auto">
-            {error || subtitle || t('encrypting_session') || 'Encrypting Session Data'}
+            {error || subtitle || 'Setting up your account'}
           </p>
         </div>
 
@@ -135,7 +135,7 @@ export function SecuringProtocol({ message, subtitle, error, onRetry }: { messag
           >
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[10px] font-black uppercase tracking-widest">
-              {t('biometric_link') || 'Biometric Link Established'}
+              {t('biometric_link') || 'Secure Connection'}
             </span>
           </motion.div>
         ) : onRetry && (
@@ -143,7 +143,7 @@ export function SecuringProtocol({ message, subtitle, error, onRetry }: { messag
             onClick={onRetry}
             className="flex items-center gap-3 bg-red-500 text-white px-8 py-4 rounded-2xl shadow-xl shadow-red-500/20 mx-auto w-fit font-black text-[10px] uppercase tracking-[0.2em] active:scale-95 transition-all"
           >
-            Retry Protocol
+            Try Again
           </button>
         )}
       </div>

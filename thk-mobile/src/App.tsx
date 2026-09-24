@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Calendar, Users, Gift, User as UserIcon } from 'lucide-react';
 import Home from '@/pages/Home';
+import Navbar from '@/components/Navbar';
 import BookingFlow from '@/components/BookingFlow';
 import ProviderAuth from '@/components/ProviderAuth';
 import ProviderDashboard from '@/components/ProviderDashboard';
@@ -15,6 +16,7 @@ import OnboardingFlow from '@/components/OnboardingFlow';
 import MyRhythm from '@/components/MyRhythm';
 import SplashScreenComponent from '@/components/SplashScreen';
 import SecuringProtocol from '@/components/SecuringProtocol';
+import { Capacitor } from '@capacitor/core';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { supabase } from '@/lib/supabase';
@@ -46,7 +48,7 @@ function AppContent() {
       try {
         const { data, error } = await supabase
           .from('subscribers')
-          .select('id, user_id, email, full_name, phone, package_id, package_name, status, building_number, street, area, zone_number, maid_number, latitude, longitude, delivery_notes, breakfast_window, lunch_window, dinner_window, subscription_start, current_period_end, is_owner, is_paused, paused_until, allergies, dislikes, activity_level, referral_code, weight_kg, height_cm, fitness_goal, points, referral_count, taste_profile, preferred_region_id, membership_type, reward_tier, points_balance, current_streak, longest_streak, onboarding_completed, gender')
+          .select('onboarding_completed')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -152,23 +154,31 @@ function AppContent() {
   }, [session, userRole]);
 
   useEffect(() => {
-    if (!session || !user) return;
+    if (!session || !user || Capacitor.getPlatform() === 'web') return;
     const setupPush = async () => {
-      let permStatus = await PushNotifications.checkPermissions();
-      if (permStatus.receive === 'prompt') {
-        permStatus = await PushNotifications.requestPermissions();
+      try {
+        let permStatus = await PushNotifications.checkPermissions();
+        if (permStatus.receive === 'prompt') {
+          permStatus = await PushNotifications.requestPermissions();
+        }
+        if (permStatus.receive !== 'granted') return;
+        await PushNotifications.register();
+        PushNotifications.addListener('registration', async (token) => {
+          await supabase
+            .from('subscribers')
+            .update({ push_token: token.value })
+            .eq('user_id', user.id);
+        });
+      } catch (err) {
+        console.warn('Push registration skipped or failed:', err);
       }
-      if (permStatus.receive !== 'granted') return;
-      await PushNotifications.register();
-      PushNotifications.addListener('registration', async (token) => {
-        await supabase
-          .from('subscribers')
-          .update({ push_token: token.value })
-          .eq('user_id', user.id);
-      });
     };
     setupPush();
-    return () => { PushNotifications.removeAllListeners(); };
+    return () => {
+      try {
+        PushNotifications.removeAllListeners();
+      } catch (e) {}
+    };
   }, [session, user]);
 
   const openBooking = useCallback((pkgId?: string) => {
@@ -184,8 +194,7 @@ function AppContent() {
   useEffect(() => {
     if (!authLoading && session && route === 'home') {
       if (userRole === 'rider') setRoute('rider-dashboard');
-      else if (userRole === 'owner') setRoute('provider-dashboard');
-      else if (userRole === 'subscriber') setRoute('subscriber-dashboard');
+      else setRoute('subscriber-dashboard');
     }
   }, [authLoading, session, userRole, route]);
 
@@ -256,30 +265,34 @@ function AppContent() {
       {route === 'rider-dashboard' && <RiderDashboard onExit={() => setRoute('home')} />}
 
       {route === 'today' && (
-        <div className="bg-[#F5F3EB] min-h-screen pb-24">
+        <div className="bg-[#F5F3EB] min-h-screen pb-24 pt-20">
+          <Navbar onBookClick={openBooking} onSubscribeClick={openSubscribe} />
           <MyRhythm />
           <BottomNav />
         </div>
       )}
 
       {route === 'community' && (
-        <div className="bg-[#F5F3EB] min-h-screen pb-24">
+        <div className="bg-[#F5F3EB] min-h-screen pb-24 pt-20">
+          <Navbar onBookClick={openBooking} onSubscribeClick={openSubscribe} />
           <CommunityPage />
           <BottomNav />
         </div>
       )}
 
       {route === 'rewards' && (
-        <div className="bg-[#F5F3EB] min-h-screen pb-24">
+        <div className="bg-[#F5F3EB] min-h-screen pb-24 pt-20">
+          <Navbar onBookClick={openBooking} onSubscribeClick={openSubscribe} />
           <RewardsPage />
           <BottomNav />
         </div>
       )}
 
       {route === 'subscriber-dashboard' && (
-        <div className="bg-[#F5F3EB] min-h-screen pb-24">
+        <div className="bg-[#F5F3EB] min-h-screen pb-24 pt-20">
+          <Navbar onBookClick={openBooking} onSubscribeClick={openSubscribe} />
           <SubscriberDashboard />
-          {session && userRole === 'subscriber' && <BottomNav />}
+          {session && <BottomNav />}
         </div>
       )}
 

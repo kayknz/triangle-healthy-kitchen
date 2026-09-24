@@ -35,7 +35,8 @@ export default function ProviderAuth({ onBack, onSuccess }: ProviderAuthProps) {
       if (result.error) {
         setError(result.error);
       } else {
-        onSuccess(result.role ?? (role as UserRole), result.dual ?? false);
+        const dualAccess = 'dual' in result ? result.dual : false;
+        onSuccess(result.role ?? (role as UserRole), dualAccess ?? false);
       }
     } catch (err: any) {
       setError('Login failed. Please check your credentials.');

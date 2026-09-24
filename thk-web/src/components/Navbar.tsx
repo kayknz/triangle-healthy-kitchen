@@ -210,15 +210,15 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
               <div className="mt-auto space-y-6 pt-10 border-t border-primary/10 relative z-10">
                 {!user ? (
                   <>
-                    <Link to="/login" onClick={() => setIsOpen(false)} className="block text-center py-2 text-xs font-black uppercase tracking-[0.4em] text-primary/60">AUTHORIZE</Link>
-                    <button onClick={() => { setIsOpen(false); onSubscribeClick(); }} className="w-full btn-primary py-5 text-[10px] tracking-[0.3em] shadow-xl">INITIALIZE</button>
+                    <Link to="/login" onClick={() => setIsOpen(false)} className="block text-center py-2 text-xs font-black uppercase tracking-[0.4em] text-primary/60">SIGN IN</Link>
+                    <button onClick={() => { setIsOpen(false); onSubscribeClick(); }} className="w-full btn-primary py-5 text-[10px] tracking-[0.3em] shadow-xl">GET STARTED</button>
                   </>
                 ) : (
                   <>
                     <Link to={accountPath} onClick={() => setIsOpen(false)} className="w-full btn-primary py-5 text-center text-[10px] tracking-[0.3em] block shadow-2xl">
-                       {accessMode === 'work' ? (userRole === 'owner' ? 'COMMAND CENTER' : 'RIDER OPS') : 'MY PROTOCOL'}
+                       {accessMode === 'work' ? (userRole === 'owner' ? 'COMMAND CENTER' : 'RIDER OPS') : 'MY SUBSCRIPTION'}
                     </Link>
-                    <button onClick={() => { setIsOpen(false); handleSignOut(); }} className="w-full text-center py-4 text-[9px] font-black uppercase tracking-[0.5em] text-red-500/60 hover:text-red-600 transition-colors">Terminate Session</button>
+                    <button onClick={() => { setIsOpen(false); handleSignOut(); }} className="w-full text-center py-4 text-[9px] font-black uppercase tracking-[0.5em] text-red-500/60 hover:text-red-600 transition-colors">Log Out</button>
                   </>
                 )}
               </div>

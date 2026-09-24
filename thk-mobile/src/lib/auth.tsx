@@ -53,8 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             user_id: userId,
             email: '',
             status: 'active',
-            membership_type: 'premium',
-            reward_tier: 'diamond',
+            is_owner: true,
           });
       }
     } catch (error) {

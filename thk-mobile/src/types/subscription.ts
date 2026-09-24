@@ -122,7 +122,6 @@ export interface Subscriber {
   building_number: string | null;
   street: string | null;
   area: string | null;
-  zone_number: string | null;
   maid_number: string | null;
   latitude: number | null;
   longitude: number | null;

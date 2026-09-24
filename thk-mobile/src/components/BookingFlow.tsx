@@ -5,7 +5,7 @@ import {
   Clock, Navigation, CheckCircle, Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { safeHaptics } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
 import { TIME_SLOTS, FITNESS_GOALS, type BookingData } from '@/types/booking';
 import { useLanguage } from '@/lib/LanguageContext';
@@ -62,7 +62,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
   const detectLocation = async () => {
     setLocating(true);
     setLocationError(null);
-    await Haptics.impact({ style: ImpactStyle.Light });
+    await safeHaptics.impact();
     if (!navigator.geolocation) {
       setLocationError("Location signal blocked.");
       setLocating(false);

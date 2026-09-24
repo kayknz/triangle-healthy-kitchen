@@ -4,7 +4,7 @@ import {
   Shield, Star, RefreshCcw, Activity, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { safeHaptics } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
 import { invokeFunction } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -100,12 +100,12 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const currentStep = STEPS[step];
 
   const handleNext = async () => {
-    await Haptics.impact({ style: ImpactStyle.Light });
-    if (currentStep.id === 'assessment' && (!assessment.weight || !assessment.height)) return setError(t('error_metrics'));
-    if (currentStep.id === 'plan' && !pkgId) return setError(t('error_select_package'));
-    if (currentStep.id === 'address' && (!address.building_number || !address.street)) return setError('Supply logistics detail required.');
-    if (currentStep.id === 'identity' && (!email || !password)) return setError(t('error_email'));
-    if (currentStep.id === 'payment' && !termsAccepted) return setError(t('legal_error'));
+    await safeHaptics.impact();
+    if (currentStep.id === 'assessment' && (!assessment.weight || !assessment.height)) return setError(t('error_metrics') || 'Please enter weight and height.');
+    if (currentStep.id === 'plan' && !pkgId) return setError(t('error_select_package') || 'Please select a package.');
+    if (currentStep.id === 'address' && (!address.building_number || !address.street)) return setError('Building number and street are required.');
+    if (currentStep.id === 'identity' && (!email || !password)) return setError(t('error_email') || 'Please enter email and password.');
+    if (currentStep.id === 'payment' && !termsAccepted) return setError(t('legal_error') || 'Please accept terms to proceed.');
     setError(null);
     setStep(s => Math.min(s + 1, STEPS.length - 1));
   };
@@ -114,7 +114,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     setLocating(true);
     setError(null);
     if (!navigator.geolocation) {
-       setError("Signal blocked by device protocols.");
+       setError("Location access denied on your device.");
        setLocating(false);
        return;
     }
@@ -135,11 +135,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
               zone: addr.postcode || '',
             }));
           } else {
-            setError("Address signal weak, please refine manually.");
+            setError("Could not automatically locate address, please enter manually.");
           }
         } catch (e) {
            console.warn('Coordinates locked.');
-           setError("Address signal weak, please refine manually.");
+           setError("Could not automatically locate address, please enter manually.");
         } finally { setLocating(false); }
       },
       (err) => {
@@ -151,7 +151,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   };
 
   const handleSubscribe = async () => {
-    await Haptics.impact({ style: ImpactStyle.Medium });
+    await safeHaptics.impact();
 
     let activeUser = user;
     setSubmitting(true);
@@ -182,7 +182,6 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
           building_number: address.building_number,
           street: address.street,
           area: address.area,
-          zone_number: address.zone,
           latitude: address.latitude,
           longitude: address.longitude,
           status: 'trialing',
@@ -225,7 +224,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   <div className="w-24 h-24 rounded-[2.5rem] bg-[#0a3030] flex items-center justify-center mb-8 shadow-2xl">
                     <Check className="w-12 h-12 text-[#C5A059]" />
                   </div>
-                  <h3 className="text-3xl font-black uppercase italic text-[#0a3030] tracking-tighter mb-4">Protocol Secured.</h3>
+                  <h3 className="text-3xl font-black uppercase italic text-[#0a3030] tracking-tighter mb-4">Subscription Confirmed!</h3>
                   <p className="text-gray-500 font-medium mb-12 max-w-sm leading-relaxed">
                     You can now select your menu from your Dashboard.
                   </p>
@@ -277,7 +276,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                {PACKAGES.map((p) => (
                  <button key={p.id} onClick={() => setPkgId(p.id)} className={`text-left p-12 rounded-[3.5rem] border-2 transition-all duration-500 relative overflow-hidden group ${pkgId === p.id ? 'border-primary bg-primary text-white shadow-4xl scale-[1.02]' : 'border-primary/5 bg-white/40 hover:border-gold/30 shadow-xl'}`}>
                    <h4 className="text-2xl font-black uppercase tracking-tight mb-2 italic">{t(p.id)}</h4>
-                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gold mb-10">{p.kcals} KCAL Protocol</p>
+                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gold mb-10">{p.kcals} KCAL / Day</p>
                    <p className="text-3xl font-black italic tracking-tighter leading-none">{p.price} <span className="opacity-40 text-xs font-bold uppercase not-italic ml-1">QAR</span></p>
                  </button>
                ))}
@@ -402,7 +401,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         </div>
 
         <div className={`px-12 py-10 border-t border-primary/5 flex items-center justify-between bg-white/80 backdrop-blur-md flex-shrink-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
-          <button onClick={() => { Haptics.impact({style:ImpactStyle.Light}); setStep(s => s - 1); }} disabled={step === 0} className="text-[11px] font-black uppercase tracking-[0.5em] text-primary/30 hover:text-primary transition-colors disabled:opacity-0">Back</button>
+          <button onClick={() => { safeHaptics.impact(); setStep(s => s - 1); }} disabled={step === 0} className="text-[11px] font-black uppercase tracking-[0.5em] text-primary/30 hover:text-primary transition-colors disabled:opacity-0">Back</button>
           <button onClick={step === STEPS.length - 1 ? handleSubscribe : handleNext} disabled={submitting} className="btn-primary !px-16 !py-7 text-[11px] tracking-[0.5em] shadow-4xl active:scale-95 flex items-center gap-6 transition-all group">
             {step === STEPS.length - 1 ? 'AUTHORIZE' : 'PROCEED'}
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />

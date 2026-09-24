@@ -46,7 +46,7 @@ const RewardsPage: React.FC = () => {
     const fetchData = async () => {
       if (!user) return;
       try {
-        const { data: sub } = await supabase.from('subscribers').select('id, user_id, email, full_name, phone, package_id, package_name, status, building_number, street, area, zone_number, maid_number, latitude, longitude, delivery_notes, breakfast_window, lunch_window, dinner_window, subscription_start, current_period_end, is_owner, is_paused, paused_until, allergies, dislikes, activity_level, referral_code, weight_kg, height_cm, fitness_goal, points, referral_count, taste_profile, preferred_region_id, membership_type, reward_tier, points_balance, current_streak, longest_streak, onboarding_completed, gender').eq('user_id', user.id).maybeSingle();
+        const { data: sub } = await supabase.from('subscribers').select('*').eq('user_id', user.id).maybeSingle();
         setSubscriber(sub);
 
         if (sub) {
@@ -56,7 +56,7 @@ const RewardsPage: React.FC = () => {
         }
 
         const [{ data: rewardsList }, { data: ledgerData }] = await Promise.all([
-          supabase.from('rewards').select('*').order('points_cost', { ascending: true }),
+          supabase.from('rewards').select('*').order('point_cost', { ascending: true }),
           supabase.from('points_ledger').select('*').eq('subscriber_id', sub?.id).order('created_at', { ascending: false }).limit(20)
         ]);
 

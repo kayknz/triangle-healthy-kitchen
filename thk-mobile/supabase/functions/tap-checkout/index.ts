@@ -104,25 +104,29 @@ Deno.serve(async (req: Request) => {
     }
 
     const packageId =
-      typeof body?.packageId === "string"
+      (typeof body?.packageId === "string" && body.packageId.trim())
         ? body.packageId.trim()
+        : (typeof body?.package_id === "string" && body.package_id.trim())
+        ? body.package_id.trim()
         : "";
 
     const subscriberId =
-      typeof body?.subscriberId === "string"
+      (typeof body?.subscriberId === "string" && body.subscriberId.trim())
         ? body.subscriberId.trim()
+        : (typeof body?.subscriber_id === "string" && body.subscriber_id.trim())
+        ? body.subscriber_id.trim()
         : "";
 
     if (!packageId) {
       return jsonResponse(
-        { error: "packageId is required." },
+        { error: "packageId or package_id is required." },
         400,
       );
     }
 
     if (!subscriberId) {
       return jsonResponse(
-        { error: "subscriberId is required." },
+        { error: "subscriberId or subscriber_id is required." },
         400,
       );
     }
@@ -475,6 +479,7 @@ Deno.serve(async (req: Request) => {
         transaction_id: transaction.id,
         charge_id: chargeId,
         checkout_url: checkoutUrl,
+        url: checkoutUrl,
         amount,
         currency,
         package_id: pkg.id,

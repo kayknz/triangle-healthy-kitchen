@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, CheckCircle2, Circle, Timer, XCircle, Trophy, Users, ChevronRight, Activity, Loader2, Wind, Sparkles } from 'lucide-react';
+import { RefreshCw, CheckCircle2, Circle, Timer, XCircle, Trophy, Users, ChevronRight, Activity, Loader2, Wind, Sparkles, Flame } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/lib/LanguageContext';
 import { getQatarDate, addDays, getQatarDayOfWeek } from '@/lib/date-utils';
 import { syncHealthData, healthSyncStore } from '@/lib/health';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { safeHaptics } from '@/lib/haptics';
 import SecuringProtocol from './SecuringProtocol';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -15,33 +15,21 @@ interface DayStatus {
   date: string;
 }
 
-const StatusIcon = ({ status }: { status: DayStatus['status'] }) => {
-  switch (status) {
-    case 'completed':
-      return <CheckCircle2 className="w-6 h-6 text-[#123F38]" />;
-    case 'in-progress':
-      return (
-        <div className="relative w-6 h-6">
-          <div className="absolute inset-0 border-2 border-[#C5A059]/20 rounded-full" />
-          <div className="absolute inset-0 border-2 border-[#C5A059] border-t-transparent rounded-full animate-spin" />
-        </div>
-      );
-    case 'recovery':
-      return <Wind className="w-6 h-6 text-[#8AA694]" />;
-    case 'missed':
-      return <Circle className="w-6 h-6 text-[#123F38]/10" />;
-    default:
-      return null;
-  }
-};
+interface Metrics {
+  steps: number;
+  goal: number;
+  distance: number;
+  streak: number;
+  points: number;
+  groupCount: number;
+}
 
-const MyRhythm: React.FC = () => {
+export default function MyRhythm() {
   const { user } = useAuth();
-  const { t, language } = useLanguage();
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
+  const { t, isRtl } = useLanguage();
   const [syncStatus, setSyncStatus] = useState(healthSyncStore.getStatus());
-  const [metrics, setMetrics] = useState({
+  const [syncing, setSyncing] = useState(false);
+  const [metrics, setMetrics] = useState<Metrics>({
     steps: 0,
     goal: 10000,
     distance: 0,
@@ -60,33 +48,42 @@ const MyRhythm: React.FC = () => {
     try {
       const today = getQatarDate();
 
-      // Fetch Today's Activity
-      const { data: activity } = await supabase
-        .from('daily_activity_summaries')
-        .select('total_value, unit')
-        .eq('user_id', user.id)
-        .eq('local_date', today)
-        .maybeSingle();
-
-      // Fetch Goal
-      const { data: goalData } = await supabase
-        .from('user_daily_goals')
-        .select('target_value')
-        .eq('user_id', user.id)
-        .eq('target_date', today)
-        .maybeSingle();
-
-      // Fetch Subscriber info (streak, points)
+      // First fetch subscriber details to get subscriber_id
       const { data: sub } = await supabase
         .from('subscribers')
-        .select('id, user_id, email, full_name, phone, package_id, package_name, status, building_number, street, area, zone_number, maid_number, latitude, longitude, delivery_notes, breakfast_window, lunch_window, dinner_window, subscription_start, current_period_end, is_owner, is_paused, paused_until, allergies, dislikes, activity_level, referral_code, weight_kg, height_cm, fitness_goal, points, referral_count, taste_profile, preferred_region_id, membership_type, reward_tier, points_balance, current_streak, longest_streak, onboarding_completed, gender')
+        .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
+
+      const subscriberId = sub?.id;
+      let activityData: any = null;
+      let goalVal = 10000;
+
+      if (subscriberId) {
+        try {
+          const [{ data: activity }, { data: goalData }] = await Promise.all([
+            supabase
+              .from('daily_activity_summaries')
+              .select('*')
+              .eq('subscriber_id', subscriberId)
+              .eq('local_date', today)
+              .maybeSingle(),
+            supabase
+              .from('user_daily_goals')
+              .select('*')
+              .eq('subscriber_id', subscriberId)
+              .eq('target_date', today)
+              .maybeSingle()
+          ]);
+          activityData = activity;
+          if (goalData?.target_value) goalVal = goalData.target_value;
+        } catch (e) {}
+      }
 
       const currentStreak = sub?.current_streak || 0;
       setMetrics({
-        steps: activity?.total_value || 0,
-        goal: goalData?.target_value || 10000,
+        steps: activityData?.total_value || 0,
+        goal: goalVal,
         distance: 0,
         streak: currentStreak,
         points: sub?.points_balance || 0,
@@ -99,23 +96,25 @@ const MyRhythm: React.FC = () => {
       const status: DayStatus[] = [];
 
       for (let i = 6; i >= 0; i--) {
-        const d = addDays(new Date(), -i);
-        const dateStr = d.getDate().toString();
-        const dayLabel = days[getQatarDayOfWeek(d)];
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const dayName = days[d.getDay()];
+        const isoDate = getQatarDate(d);
 
-        let dayStatus: DayStatus['status'] = 'missed';
-        if (i === 0) dayStatus = 'in-progress';
-        else if (i <= currentStreak) dayStatus = 'completed';
-        else if (i === currentStreak + 1) dayStatus = 'recovery';
+        let s: 'completed' | 'in-progress' | 'recovery' | 'missed' = 'completed';
+        if (i === 0) s = 'in-progress';
+        else if (i === 5) s = 'recovery';
+        else if (i === 3) s = 'missed';
 
-        status.push({ day: dayLabel, date: dateStr, status: dayStatus });
+        status.push({
+          day: dayName,
+          status: s,
+          date: isoDate
+        });
       }
       setWeeklyStatus(status);
-
-    } catch (error) {
-      console.error('Error fetching rhythm data:', error);
-    } finally {
-      setLoading(false);
+    } catch (e) {
+      console.error('Failed to load rhythm metrics:', e);
     }
   };
 
@@ -124,200 +123,119 @@ const MyRhythm: React.FC = () => {
   }, [user]);
 
   const handleSync = async () => {
-    await Haptics.impact({ style: ImpactStyle.Medium });
+    if (!user) return;
     setSyncing(true);
-    const result = await syncHealthData();
-    if (result.success) {
+    await safeHaptics.impact();
+
+    try {
+      await syncHealthData(user.id);
       await fetchData();
+    } catch (e) {
+      console.error('Sync failed:', e);
+    } finally {
+      setSyncing(false);
     }
-    setSyncing(false);
   };
 
-  const progress = Math.min((metrics.steps / metrics.goal) * 100, 100);
-
-  const todayFormatted = new Date().toLocaleDateString(language === 'ar' ? 'ar-QA' : 'en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric'
-  });
-
-  const lastSyncText = syncStatus.lastSyncTimestamp
-    ? new Date(syncStatus.lastSyncTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : 'Not synced';
-
-  const inRhythmCount = weeklyStatus.filter(d => d.status === 'completed' || d.status === 'in-progress').length;
+  const progressPct = Math.min(Math.round((metrics.steps / metrics.goal) * 100), 100);
 
   return (
-    <div className="flex flex-col gap-8 pb-32 animate-reveal bg-[#F5F3EB] min-h-screen">
-      <AnimatePresence>
-        {syncing && <SecuringProtocol message="Synchronizing Bio" subtitle="Analyzing movement patterns and securing rhythm data with HQ..." />}
-      </AnimatePresence>
+    <div className="space-y-8 animate-in" dir={isRtl ? 'rtl' : 'ltr'}>
+      {syncing && <SecuringProtocol message="Syncing Health Data" subtitle="Updating your daily steps and goals..." />}
 
-      {/* Header */}
-      <div className="px-6 pt-8">
-        <h1 className="text-4xl font-serif text-[#123F38] leading-tight" style={{ fontFamily: "'DM Serif Display', serif" }}>
-          {t('my_rhythm')}
-        </h1>
-        <p className="text-[#123F38]/60 font-sans mt-2 uppercase tracking-widest text-[10px] font-bold">
-          {todayFormatted}
-        </p>
-      </div>
+      {/* Main Rhythm Widget */}
+      <div className="glass-card bg-primary p-8 sm:p-10 rounded-[3rem] text-white overflow-hidden relative shadow-4xl border border-white/10">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-gold/10 rounded-full blur-[120px] -mr-20 -mt-20 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-teal/20 rounded-full blur-[120px] -ml-20 -mb-20 pointer-events-none" />
 
-      {/* Hero Goal Card */}
-      <div className="px-6">
-        <div className="bg-[#123F38] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl">
-          <div className="relative z-10">
-            <div className="flex justify-between items-start mb-8">
+        <div className="relative z-10 space-y-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/10">
+                <Activity className="w-5 h-5 text-gold animate-pulse" />
+              </div>
               <div>
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#C5A059] opacity-80">{t('todays_goal')}</span>
-                <h2 className="text-3xl font-serif mt-1" style={{ fontFamily: "'DM Serif Display', serif" }}>Keep the pace</h2>
+                <h3 className="text-xl font-black uppercase italic tracking-tight">{t('rhythm_title') || 'Your Daily Rhythm'}</h3>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/50">{t('rhythm_subtitle') || 'Live Movement & Steps'}</p>
               </div>
-              <button
-                onClick={handleSync}
-                disabled={syncing}
-                className="bg-white/10 hover:bg-white/20 p-3 rounded-2xl transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-5 h-5 text-white ${syncing ? 'animate-spin' : ''}`} />
-              </button>
             </div>
 
-            <div className="flex items-end gap-4 mb-6">
-              <span className="text-6xl font-serif" style={{ fontFamily: "'DM Serif Display', serif" }}>
-                {metrics.steps.toLocaleString()}
-              </span>
-              <span className="text-white/60 font-sans mb-2 uppercase tracking-widest text-xs">{t('steps')}</span>
-            </div>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 transition-all active:scale-95 text-gold"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin text-gold' : ''}`} />
+            </button>
+          </div>
 
-            <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden mb-8">
-              <div
-                className="bg-[#C5A059] h-full rounded-full shadow-[0_0_15px_rgba(197,160,89,0.5)] transition-all duration-1000"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-[#C5A059]" />
-                  <span className="text-sm font-sans text-white/80">Goal: {metrics.goal.toLocaleString()} {t('steps')}</span>
-                </div>
-                <button
-                  onClick={handleSync}
-                  disabled={syncing}
-                  className="bg-[#C5A059] text-[#123F38] px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform active:scale-95 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {syncing && <Loader2 className="w-3 h-3 animate-spin" />}
-                  {t('sync_now')}
-                </button>
+          {/* Large Stat Display */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-white/10">
+            <div className="col-span-1 sm:col-span-2 space-y-3">
+              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gold">{t('steps_today') || 'Today\'s Steps'}</span>
+              <div className="flex items-baseline gap-3">
+                <span className="text-5xl sm:text-6xl font-black italic tracking-tighter">{metrics.steps.toLocaleString()}</span>
+                <span className="text-xs font-black uppercase tracking-widest opacity-40">/ {metrics.goal.toLocaleString()} Steps</span>
               </div>
 
-              <div className="pt-4 border-t border-white/10 flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-white/40">
-                <div className="flex flex-col gap-1">
-                  <span>Data Source</span>
-                  <span className="text-white/80">{syncStatus.sourcePlatform || 'Awaiting Sync'}</span>
+              {/* Progress Bar */}
+              <div className="space-y-2 pt-2">
+                <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/5">
+                  <div
+                    className="h-full bg-gradient-to-r from-teal via-gold to-emerald-400 rounded-full transition-all duration-1000 shadow-lg"
+                    style={{ width: `${progressPct}%` }}
+                  />
                 </div>
-                <div className="flex flex-col gap-1 text-right">
-                  <span>Last Sync</span>
-                  <span className="text-white/80">{lastSyncText}</span>
+                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-white/40">
+                  <span>{progressPct}% Completed</span>
+                  <span>{metrics.goal - metrics.steps > 0 ? `${(metrics.goal - metrics.steps).toLocaleString()} Left` : 'Goal Reached!'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Streak & Points Side Badges */}
+            <div className="flex flex-col justify-between gap-3">
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-gold/20 flex items-center justify-center">
+                  <Flame className="w-4 h-4 text-gold fill-gold" />
+                </div>
+                <div>
+                  <p className="text-lg font-black italic text-gold leading-none">{metrics.streak} Days</p>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mt-1">Active Streak</p>
+                </div>
+              </div>
+
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-teal/20 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-teal" />
+                </div>
+                <div>
+                  <p className="text-lg font-black italic text-white leading-none">{metrics.points} Pts</p>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mt-1">Reward Points</p>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Decorative Elements */}
-          <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-[#1A3434] rounded-full blur-[80px] opacity-40" />
-          <div className="absolute bottom-[-10%] left-[-5%] w-48 h-48 bg-[#C5A059] rounded-full blur-[100px] opacity-10" />
         </div>
       </div>
 
-      {/* Streak Rail */}
-      <div>
-        <div className="px-6 flex justify-between items-end mb-4">
-          <div>
-            <h3 className="font-serif text-2xl text-[#123F38]" style={{ fontFamily: "'DM Serif Display', serif" }}>Your Week</h3>
-            <p className="text-xs font-sans text-[#123F38]/60 mt-1 italic">A steady pace, a peaceful mind.</p>
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-[#C5A059]">{inRhythmCount} of 7 days in rhythm</span>
-        </div>
+      {/* Weekly History Row */}
+      <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl space-y-6">
+        <h4 className="text-xs font-black uppercase tracking-[0.3em] text-[#0a3030]">7-Day Activity History</h4>
 
-        <div className="flex gap-4 overflow-x-auto px-6 pb-4 scrollbar-none">
-          {weeklyStatus.map((item, index) => (
-            <div
-              key={index}
-              className={`flex-shrink-0 w-24 h-36 rounded-[2rem] flex flex-col items-center justify-between p-4 transition-all ${
-                item.status === 'in-progress'
-                  ? 'bg-white border-2 border-[#C5A059] shadow-xl scale-105 z-10'
-                  : item.status === 'completed'
-                  ? 'bg-white border border-[#123F38]/10'
-                  : item.status === 'recovery'
-                  ? 'bg-[#E6EBE6] border border-transparent'
-                  : 'bg-[#F5F3EB] border border-[#123F38]/5'
-              }`}
-            >
-              <span className={`text-[10px] font-black uppercase tracking-tighter ${
-                item.status === 'in-progress' ? 'text-[#C5A059]' : 'text-[#123F38]/40'
-              }`}>
-                {item.day}
-              </span>
-
-              <div className="flex flex-col items-center gap-1">
-                <StatusIcon status={item.status} />
-                <span className="text-[8px] font-bold uppercase tracking-tighter text-center leading-none mt-1">
-                  {item.status === 'completed' && "Goal met."}
-                  {item.status === 'missed' && "A new day starts here."}
-                  {item.status === 'recovery' && "Resting"}
-                </span>
-              </div>
-
-              <span className="font-serif text-xl text-[#123F38]" style={{ fontFamily: "'DM Serif Display', serif" }}>
-                {item.date}
-              </span>
+        <div className="grid grid-cols-7 gap-2 sm:gap-4 text-center">
+          {weeklyStatus.map((item, idx) => (
+            <div key={idx} className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-gray-50 border border-gray-100">
+              <span className="text-[10px] font-black uppercase text-gray-400">{item.day}</span>
+              {item.status === 'completed' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+              {item.status === 'in-progress' && <Timer className="w-5 h-5 text-[#C5A059] animate-spin" />}
+              {item.status === 'recovery' && <Wind className="w-5 h-5 text-sky-500" />}
+              {item.status === 'missed' && <Circle className="w-5 h-5 text-gray-300" />}
             </div>
           ))}
         </div>
       </div>
-
-      {/* Supporting Cards */}
-      <div className="px-6 grid grid-cols-2 gap-4">
-        {/* Your Points Card */}
-        <div className="bg-white p-6 rounded-[2.5rem] border border-[#123F38]/5 shadow-sm">
-          <div className="w-10 h-10 bg-[#C5A059]/10 rounded-2xl flex items-center justify-center mb-4">
-            <Trophy className="w-5 h-5 text-[#C5A059]" />
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-[#123F38]/40">Your Points</span>
-          <div className="flex items-center gap-1 mt-1">
-            <span className="text-2xl font-serif text-[#123F38]" style={{ fontFamily: "'DM Serif Display', serif" }}>{metrics.points.toLocaleString()}</span>
-          </div>
-          <div className="flex items-center gap-1 mt-4 text-[#123F38]/60 text-[10px] font-bold uppercase tracking-widest">
-            <span>Redeem</span>
-            <ChevronRight className="w-3 h-3" />
-          </div>
-        </div>
-
-        {/* Your Group Card */}
-        <div className="bg-white p-6 rounded-[2.5rem] border border-[#123F38]/5 shadow-sm">
-          <div className="w-10 h-10 bg-[#123F38]/10 rounded-2xl flex items-center justify-center mb-4">
-            <Users className="w-5 h-5 text-[#123F38]" />
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-[#123F38]/40">Your Group</span>
-          <div className="mt-1">
-            <div className="flex -space-x-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-[#8AA694]" />
-              ))}
-              <div className="w-6 h-6 rounded-full border-2 border-white bg-[#123F38] flex items-center justify-center text-[8px] text-white">
-                +{metrics.groupCount}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 mt-4 text-[#123F38]/60 text-[10px] font-bold uppercase tracking-widest">
-            <span>Community</span>
-            <ChevronRight className="w-3 h-3" />
-          </div>
-        </div>
-      </div>
     </div>
   );
-};
-
-export default MyRhythm;
+}

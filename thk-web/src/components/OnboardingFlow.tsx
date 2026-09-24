@@ -30,7 +30,20 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           status: 'pending'
         }, { onConflict: 'user_id' });
 
-      if (error) throw error;
+      if (error && error.message?.includes('gender')) {
+        const { error: fallbackError } = await supabase
+          .from('subscribers')
+          .upsert({
+            user_id: user.id,
+            onboarding_completed: true,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || 'Member',
+            status: 'pending'
+          }, { onConflict: 'user_id' });
+        if (fallbackError) throw fallbackError;
+      } else if (error) {
+        throw error;
+      }
 
       await refreshAuth();
       onComplete();
@@ -91,7 +104,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
              disabled={submitting}
              className="w-full btn-primary py-8 shadow-4xl text-sm flex items-center justify-center gap-4 active:scale-95"
            >
-             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'INITIALIZE PROTOCOL'}
+             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'GET STARTED'}
            </button>
 
            <p className="text-center text-[10px] font-black text-primary/20 uppercase tracking-[0.5em]">

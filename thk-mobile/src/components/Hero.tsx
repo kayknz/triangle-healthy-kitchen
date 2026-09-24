@@ -1,4 +1,4 @@
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { safeHaptics } from '@/lib/haptics';
 import { motion } from 'framer-motion';
 import { Star, ArrowRight, Sparkles } from 'lucide-react';
 import { useLanguage } from '@/lib/LanguageContext';
@@ -12,17 +12,17 @@ export default function Hero({ onBookClick, onSubscribeClick }: HeroProps) {
   const { t, isRtl } = useLanguage();
 
   const handleBookClick = async () => {
-    await Haptics.impact({ style: ImpactStyle.Light });
+    await safeHaptics.impact();
     onBookClick();
   };
 
   const handleSubscribeClick = async () => {
-    await Haptics.impact({ style: ImpactStyle.Light });
+    await safeHaptics.impact();
     onSubscribeClick();
   };
 
   const handlePackagesClick = async () => {
-    await Haptics.impact({ style: ImpactStyle.Light });
+    await safeHaptics.impact();
     window.location.hash = '#packages';
   };
 
@@ -94,15 +94,15 @@ export default function Hero({ onBookClick, onSubscribeClick }: HeroProps) {
           <div className="grid grid-cols-3 gap-6 mt-16 pt-10 border-t border-primary/5">
             <div>
               <p className="text-primary text-2xl font-black italic tracking-tighter leading-none">500+</p>
-              <p className="text-primary/30 text-[8px] uppercase font-black tracking-widest mt-2">{t('members_count')}</p>
+              <p className="text-primary/30 text-[8px] uppercase font-black tracking-widest mt-2">{t('members_count') || 'Members'}</p>
             </div>
             <div>
               <p className="text-primary text-2xl font-black italic tracking-tighter leading-none">3</p>
-              <p className="text-primary/30 text-[8px] uppercase font-black tracking-widest mt-2">{t('cities_count')}</p>
+              <p className="text-primary/30 text-[8px] uppercase font-black tracking-widest mt-2">{t('cities_count') || 'Cities'}</p>
             </div>
             <div>
               <p className="text-primary text-2xl font-black italic tracking-tighter leading-none">7</p>
-              <p className="text-primary/30 text-[8px] uppercase font-black tracking-widest mt-2">{t('plans_count')}</p>
+              <p className="text-primary/30 text-[8px] uppercase font-black tracking-widest mt-2">{t('plans_count') || 'Plans'}</p>
             </div>
           </div>
         </motion.div>

@@ -42,7 +42,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
 
       if (mode === 'signup') {
         if (password.length < 6) {
-          setError(t('error_generic') || 'Password must be at least 6 characters.');
+          setError('Password must be at least 6 characters.');
           return;
         }
         const result = await signUp(email, password, name);
@@ -60,7 +60,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
         }
       }
     } catch (e: any) {
-      setError(e.message || t('error_generic'));
+      setError(e.message || 'An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -70,8 +70,8 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
     <EditorialPanel
       isOpen={isOpen}
       onClose={onClose}
-      title={mode === 'signup' ? t('sign_up') : mode === 'signin' ? t('sign_in') : t('securing_protocol')}
-      badge={t('membership_protocol')}
+      title={mode === 'signup' ? 'Create Account' : mode === 'signin' ? 'Sign In' : 'Reset Password'}
+      badge="Active Plan"
       maxWidth="max-w-md"
     >
       <div className="p-8 sm:p-10">
@@ -80,10 +80,10 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
             <span className="text-[#C5A059] font-black text-xl italic">TK</span>
           </div>
           <h2 className="text-[#0a3030] font-black text-2xl uppercase italic tracking-tight leading-none">
-            {mode === 'signup' ? t('begin_protocol') : mode === 'signin' ? t('authorize_session') : t('securing_protocol')}
+            {mode === 'signup' ? 'Start Your Plan' : mode === 'signin' ? 'Welcome Back' : 'Password Recovery'}
           </h2>
           <p className="text-gray-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-3">
-            {mode === 'signup' ? t('precision_protocol') : t('secure_gateway')}
+            {mode === 'signup' ? 'Join Triangle Healthy Kitchen' : mode === 'signin' ? 'Access your meal plan & account' : 'Enter your email to receive a reset link'}
           </p>
         </div>
 
@@ -97,7 +97,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
         {resetSent && (
           <div className="mb-6 bg-emerald-50 border border-emerald-100 rounded-2xl px-5 py-4 text-emerald-700 text-xs font-semibold flex items-start gap-3 animate-in">
             <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-emerald-500" />
-            <span>{t('booking_locked') || 'Reset link sent.'}</span>
+            <span>Password reset link sent to your email.</span>
           </div>
         )}
 
@@ -105,7 +105,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
           {mode === 'signup' && (
             <div className="space-y-2">
               <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40 ml-1">
-                {t('full_name')}
+                Full Name
               </label>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
@@ -113,7 +113,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Name"
+                  placeholder="Full Name"
                   className="w-full bg-white border border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:border-[#0a3030] transition-all"
                   required
                 />
@@ -123,7 +123,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
 
           <div className="space-y-2">
             <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40 ml-1">
-              {t('email_identifier')}
+              Email Address
             </label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
@@ -131,7 +131,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
+                placeholder="Email Address"
                 className="w-full bg-white border border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:border-[#0a3030] transition-all"
                 required
               />
@@ -141,7 +141,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
           {mode !== 'forgot' && (
             <div className="space-y-2">
               <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40 ml-1">
-                {t('secure_passkey')}
+                Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
@@ -162,7 +162,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
             disabled={loading}
             className="w-full bg-[#0a3030] text-white font-black py-5 rounded-[2rem] text-[11px] uppercase tracking-[0.4em] transition-all hover:shadow-2xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'signup' ? t('sign_up') : mode === 'signin' ? t('sign_in') : t('proceed'))}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'signup' ? 'Start Plan' : mode === 'signin' ? 'Sign In' : 'Send Reset Link')}
           </button>
         </form>
 
@@ -172,7 +172,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
               onClick={() => { setMode('forgot'); setError(null); setResetSent(false); }}
               className="text-gray-400 hover:text-[#0a3030] text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 w-full"
             >
-              <KeyRound className="w-4 h-4 opacity-40" /> {t('questions') || 'Forgot password?'}
+              <KeyRound className="w-4 h-4 opacity-40" /> Forgot password?
             </button>
           )}
 
@@ -185,7 +185,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
               }}
               className="text-[#0a3030] text-[10px] font-black uppercase tracking-widest hover:underline"
             >
-              {mode === 'signup' ? t('login') : t('sign_up')}
+              {mode === 'signup' ? 'Already have an account? Sign In' : 'Need an account? Start Plan'}
             </button>
 
             <div className="pt-6 border-t border-gray-50">
@@ -193,7 +193,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
                 onClick={() => window.location.hash = '#provider'}
                 className="text-gray-300 hover:text-[#C5A059] text-[9px] font-black uppercase tracking-[0.3em] transition-all"
               >
-                {t('rider_access')}
+                Kitchen Staff & Driver Access
               </button>
             </div>
           </div>
