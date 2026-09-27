@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Triangle Healthy Kitchen System</title>
+  <link rel="stylesheet" href="styles.css?v=20260703-03">
+</head>
+<body class="locked-app">
+  <div class="login-screen" id="loginScreen">
+    <div class="login-box portal-login-box">
+      <div class="login-head"><div class="brand login-brand"><img class="brand-logo login-logo" src="triangle-logo-web.png" alt="Triangle Healthy Kitchen logo"><div><strong>Triangle</strong><span>Healthy Kitchen</span></div></div><button class="team-login-icon login-tab" type="button" data-login-tab="team" aria-label="Team Login" title="Team Login">ST</button></div>
+      <div class="login-tabs"><button class="login-tab active" type="button" data-login-tab="customer">Customer Portal</button><button class="login-tab" type="button" data-login-tab="register">Register</button></div>
+      <form id="loginForm" class="login-panel" data-login-panel="team">
+        <h1>Account Login</h1>
+        <label><span>Account</span><select id="loginRole"><option value="boss">Boss</option><option value="admin">Admin</option><option value="kitchen">Kitchen Team</option><option value="driver">Drivers Team</option></select></label>
+        <label><span>Password</span><div class="password-field"><input id="loginPassword" type="password" placeholder="Enter password" autocomplete="current-password"><button type="button" id="togglePassword" aria-label="Show password">Show</button></div></label>
+        <button class="primary-btn wide" type="submit">Open Dashboard</button>
+        <small id="loginError"></small>
+      </form>
+      <form id="customerLoginForm" class="login-panel active" data-login-panel="customer">
+        <h1>Customer Login</h1>
+        <label><span>Mobile / WhatsApp</span><input id="customerLoginPhone" placeholder="Demo: 55510001" autocomplete="username"></label>
+        <label><span>Password</span><div class="password-field"><input id="customerLoginPassword" type="password" placeholder="Enter customer password" autocomplete="current-password"><button type="button" id="toggleCustomerPassword" aria-label="Show customer password">Show</button></div></label>
+        <p class="demo-login-note">Demo customer: 55510001 / customer123</p>
+        <button class="primary-btn wide" type="submit">Open Customer Portal</button><button class="primary-btn green wide" type="button" id="openDemoMenu">Open Demo Menu Selection</button>
+        <small id="customerLoginError"></small>
+      </form>
+      <form id="customerRegisterForm" class="login-panel" data-login-panel="register">
+        <div class="reg-progress"><button type="button" class="reg-back" id="regBack" aria-label="Back">Back</button><span id="regStepLabel">Step 1 of 11</span><i><b id="regProgressBar"></b></i></div>
+        <div class="register-step active" data-reg-step="1">
+          <h1>Create Account</h1>
+          <p class="step-sub">Let's get you started.</p>
+          <div class="register-grid one input-list">
+            <label><span>Full Name</span><input id="regName" required placeholder="Full name"></label>
+            <label><span>Mobile / WhatsApp</span><input id="regPhone" required placeholder="+974 phone number"></label>
+            <label><span>Password</span><input id="regPassword" required type="password" placeholder="Create password"></label>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Create Account</button>
+        </div>
+        <div class="register-step" data-reg-step="2">
+          <h1>Personal Information</h1>
+          <p class="step-sub">Please provide your personal details.</p>
+          <div class="register-grid one">
+            <label><span>Date of Birth</span><input id="regDob" required type="date"></label>
+            <div class="choice-grid two avatar-choice">
+              <label class="choice-card"><input type="radio" name="regGenderChoice" value="male"><strong>Boy</strong><span>Male calculation</span></label>
+              <label class="choice-card"><input type="radio" name="regGenderChoice" value="female" checked><strong>Girl</strong><span>Female calculation</span></label>
+            </div>
+            <select id="regGender" class="hidden-field"><option value="female">Female</option><option value="male">Male</option></select>
+            <div class="info-note">We will automatically calculate your BMI and calories.</div>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="3">
+          <h1>Body Information</h1>
+          <p class="step-sub">Tell us about your body.</p>
+          <div class="register-grid one">
+            <label><span>Height (cm)</span><input id="regHeight" required type="number" min="100" max="230" placeholder="Example: 170"></label>
+            <label><span>Weight (kg)</span><input id="regWeight" required type="number" min="30" max="250" placeholder="Example: 75"></label>
+            <div class="wide-field bmi-preview" id="regBmiPreview"><strong>Your Summary</strong><span>Enter age, height and weight to calculate.</span></div>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="4">
+          <h1>What is Your Goal?</h1>
+          <p class="step-sub">This helps us personalize your nutrition plan.</p>
+          <div class="choice-list">
+            <label class="choice-row"><input type="radio" name="regGoal" value="Lose Weight"><b>Lose Weight</b><span>Calorie controlled meals to help weight loss</span></label>
+            <label class="choice-row"><input type="radio" name="regGoal" value="Build Muscle" checked><b>Build Muscle</b><span>High protein meals to build and repair muscles</span></label>
+            <label class="choice-row"><input type="radio" name="regGoal" value="Maintain Weight"><b>Maintain Weight</b><span>Balanced meals to maintain your weight</span></label>
+            <label class="choice-row"><input type="radio" name="regGoal" value="Eat Healthy"><b>Eat Healthy</b><span>Balanced meals for a healthy lifestyle</span></label>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="5">
+          <h1>Activity Level</h1>
+          <p class="step-sub">This helps us calculate your daily calorie needs.</p>
+          <select id="regActivity" class="hidden-field"><option value="1.2">Sedentary</option><option value="1.375">Lightly Active</option><option value="1.55">Active</option><option value="1.725">Very Active</option><option value="1.9">Athlete</option></select>
+          <div class="choice-list">
+            <label class="choice-row"><input type="radio" name="regActivityChoice" value="1.2"><b>Sedentary</b><span>Little or no exercise</span></label>
+            <label class="choice-row"><input type="radio" name="regActivityChoice" value="1.375"><b>Lightly Active</b><span>Light exercise 1-3 days/week</span></label>
+            <label class="choice-row"><input type="radio" name="regActivityChoice" value="1.55" checked><b>Active</b><span>Moderate exercise 3-5 days/week</span></label>
+            <label class="choice-row"><input type="radio" name="regActivityChoice" value="1.725"><b>Very Active</b><span>Hard exercise 6-7 days/week</span></label>
+            <label class="choice-row"><input type="radio" name="regActivityChoice" value="1.9"><b>Athlete</b><span>Very intense training daily</span></label>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="6">
+          <h1>Any Allergies?</h1>
+          <p class="step-sub">Select all that apply.</p>
+          <div class="tile-grid">
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Eggs"><span>Eggs</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Dairy"><span>Dairy</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Nuts"><span>Nuts</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Peanuts"><span>Peanuts</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Seafood"><span>Seafood</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Gluten"><span>Gluten</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Soy"><span>Soy</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Shellfish"><span>Shellfish</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Wheat"><span>Wheat</span></label>
+          </div>
+          <div class="info-note">Don't worry, we take allergies very seriously.</div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="7">
+          <h1>Ingredients You Don't Like</h1>
+          <p class="step-sub">Select all that apply.</p>
+          <div class="tile-grid">
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No onion"><span>Onion</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No garlic"><span>Garlic</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No spicy"><span>Spicy</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No mushroom"><span>Mushroom</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No cheese"><span>Cheese</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No coriander"><span>Coriander</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No capsicum"><span>Capsicum</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No corn"><span>Corn</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No eggplant"><span>Eggplant</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No tomato"><span>Tomato</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No olives"><span>Olives</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No mint"><span>Mint</span></label>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="8">
+          <h1>Diet Preference</h1>
+          <p class="step-sub">Select your preferred diet and package.</p>
+          <div class="tile-grid diet-grid">
+            <label class="mini-tile"><input type="radio" name="regDiet" value="Balanced" checked><span>Balanced</span></label>
+            <label class="mini-tile"><input type="radio" name="regDiet" value="High Protein"><span>High Protein</span></label>
+            <label class="mini-tile"><input type="radio" name="regDiet" value="Low Carb"><span>Low Carb</span></label>
+            <label class="mini-tile"><input type="radio" name="regDiet" value="Keto"><span>Keto</span></label>
+            <label class="mini-tile"><input type="radio" name="regDiet" value="Vegetarian"><span>Vegetarian</span></label>
+            <label class="mini-tile"><input type="radio" name="regDiet" value="Vegan"><span>Vegan</span></label>
+          </div>
+          <div class="register-grid one compact-fields">
+            <label><span>Subscription Package</span><select id="regPlan"><option>1000 QTR Package</option><option>1200 QTR Package</option><option>1500 QTR Package</option><option>1700 QTR Package</option><option>2000 QTR Package</option><option>2200 QTR Package</option><option>Custom Package</option></select></label>
+            <label><span>Meal Package</span><select id="regMealPackage"></select></label>
+            <label class="inline-check"><span>Friday Delivery</span><input id="regIncludeFriday" type="checkbox"><b>Include Friday if selected by customer</b></label>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="9">
+          <h1>Delivery Preference</h1>
+          <p class="step-sub">Where would you like to receive your meals?</p>
+          <div class="choice-list destination-list">
+            <label class="choice-row"><input type="radio" name="regDeliveryType" value="Home" checked><b>Home</b><span>Deliver to my home</span></label>
+            <label class="choice-row"><input type="radio" name="regDeliveryType" value="Office"><b>Office</b><span>Deliver to my office</span></label>
+            <label class="choice-row"><input type="radio" name="regDeliveryType" value="Gym"><b>Gym</b><span>Deliver to my gym</span></label>
+          </div>
+          <div class="register-grid one compact-fields">
+            <label><span>Zone</span><select id="regZone"></select></label>
+            <label><span>Area</span><select id="regArea"></select></label>
+            <label><span>Preferred Delivery Time</span><input id="regDeliveryTime" placeholder="08:30 AM"></label>
+            <label><span>Address / Building</span><input id="regAddress" placeholder="Enter your full address"></label>
+            <label><span>Google Location Link</span><input id="regLocation" placeholder="Paste Google Maps link if available"></label>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="10">
+          <h1>Medical Conditions</h1>
+          <p class="step-sub">Optional. Select all that apply.</p>
+          <div class="tile-grid medical-grid">
+            <label class="mini-tile"><input type="checkbox" name="regMedical" value="Diabetes"><span>Diabetes</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regMedical" value="Hypertension"><span>Hypertension</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regMedical" value="High Cholesterol"><span>High Cholesterol</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regMedical" value="Thyroid"><span>Thyroid</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regMedical" value="Gluten Intolerance"><span>Gluten Intolerance</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regMedical" value="Lactose Intolerance"><span>Lactose Intolerance</span></label>
+          </div>
+          <label class="choice-row none-choice"><input type="checkbox" name="regMedical" value="None"><b>None of the above</b><span>No medical conditions selected</span></label>
+          <label class="register-grid one compact-fields"><span>Extra Kitchen Notes</span><textarea id="regNotes" rows="3" placeholder="Anything special for kitchen team"></textarea></label>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step welcome-step" data-reg-step="11">
+          <div class="welcome-card">
+            <img src="triangle-logo-web.png" alt="Triangle Healthy Kitchen logo">
+            <h1>Welcome!</h1>
+            <p>We've created your nutrition plan summary.</p>
+            <div class="reg-summary-card" id="regFinalSummary"></div>
+            <div class="reg-summary-card welcome-summary" id="regWelcomeSummary"></div>
+          </div>
+          <button class="primary-btn wide" type="submit">Send Registration Request</button>
+        </div>
+        <small id="customerRegisterMsg"></small>
+        <div id="postRegisterMenu" class="register-menu-box post-register-menu hidden"></div>
+      </form>
+    </div>
+  </div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><img class="brand-logo" src="triangle-logo-web.png" alt="Triangle Healthy Kitchen logo"><div><strong>Triangle</strong><span>Healthy Kitchen</span></div></div>
+      <div class="account-card"><span>Logged in</span><strong id="accountName">Not signed in</strong><button class="primary-btn light" id="logoutBtn">Logout</button></div>
+      <nav class="nav-list">
+        <button class="nav-item active" data-module="dashboard" onclick="openModule('dashboard')"><span>DB</span>Dashboard</button>
+        <button class="nav-item" data-module="customers" onclick="openModule('customers')"><span>CU</span>Customers</button>
+        <button class="nav-item" data-module="subscriptions" onclick="openModule('subscriptions')"><span>SB</span>Subscriptions</button>
+        <button class="nav-item" data-module="mealplans" onclick="openModule('mealplans')"><span>MP</span>Meal Plans</button>
+        <button class="nav-item" data-module="kitchen" onclick="openModule('kitchen')"><span>KT</span>Kitchen</button>
+        <button class="nav-item" data-module="delivery" onclick="openModule('delivery')"><span>DL</span>Delivery</button>
+        <button class="nav-item" data-module="packing" onclick="openModule('packing')"><span>PK</span>Packing</button>
+        <button class="nav-item" data-module="drivers" onclick="openModule('drivers')"><span>DR</span>Drivers</button>
+        <button class="nav-item" data-module="payments" onclick="openModule('payments')"><span>QR</span>Payments</button>
+        <button class="nav-item" data-module="reminders" onclick="openModule('reminders')"><span>RM</span>Reminders</button>
+        <button class="nav-item" data-module="reports" onclick="openModule('reports')"><span>RP</span>Reports</button>
+        <button class="nav-item" data-module="settings" onclick="openModule('settings')"><span>ST</span>Settings</button>
+      </nav>
+      <section class="sidebar-card">
+        <h2>Today At A Glance</h2>
+        <div class="mini-row"><span>Customers</span><strong id="sideCustomers">318</strong></div>
+        <div class="mini-row"><span>Meals</span><strong id="sideMeals">1,286</strong></div>
+        <div class="mini-row"><span>Deliveries</span><strong id="sideDeliveries">224</strong></div>
+        <div class="mini-row"><span>Kitchen Notes</span><strong id="sideNotes">46</strong></div>
+      </section>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div><p class="eyebrow">Qatar Operations</p><h1 id="pageTitle">Triangle Healthy Kitchen Dashboard</h1></div>
+        <div class="top-actions">
+          <div class="notification-wrap" id="notificationWrap">
+            <button class="bell-btn" id="notificationBtn" type="button" aria-label="Notifications" title="Notifications">
+              <span class="bell-shape"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16v-5a6 6 0 0 0-12 0v5l-2 2v1h16v-1l-2-2Zm-8 5h4a2 2 0 0 1-4 0Z"/></svg></span><b id="notificationCount">0</b>
+            </button>
+            <div class="notification-menu" id="notificationMenu" aria-label="Notification requests"></div>
+          </div>
+          <label class="date-filter"><span>Date</span><input type="date" id="dateInput" value="2026-06-29"></label>
+          <button class="primary-btn" id="printBtn">Print</button>
+        </div>
+      </header>
+      <section id="workspace" class="workspace"></section>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js?v=20260703-03"></script>
+</body>
+</html>

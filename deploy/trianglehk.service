@@ -1,0 +1,29 @@
+[Unit]
+Description=Triangle Healthy Kitchen Application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=trianglehk
+Group=trianglehk
+WorkingDirectory=/var/www/trianglehk
+EnvironmentFile=/etc/trianglehk/trianglehk.env
+ExecStart=/usr/bin/node /var/www/trianglehk/server.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/lib/trianglehk
+
+[Install]
+WantedBy=multi-user.target

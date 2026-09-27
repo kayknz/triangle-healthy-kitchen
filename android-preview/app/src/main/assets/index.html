@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Triangle Healthy Kitchen System</title>
+  <link rel="stylesheet" href="src/design-system/tokens/index.css?v=20260720-01">
+  <link rel="stylesheet" href="styles.css?v=20260806-mobile-glitch02">
+  <script>
+    window.addEventListener('error', function (event) {
+      var box = document.getElementById('loginError') || document.getElementById('customerLoginError');
+      if (box) box.textContent = 'System error: please refresh and try again.';
+      console.error(event.error || event.message);
+    });
+  </script>
+</head>
+<body class="locked-app">
+  <div class="language-switch" id="languageSwitch" aria-label="Language selector">
+    <button type="button" data-lang-switch="en">English</button>
+    <span>|</span>
+    <button type="button" data-lang-switch="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</button>
+  </div>
+  <div class="login-screen" id="loginScreen">
+    <div class="login-box portal-login-box">
+      <div class="login-head"><div class="brand login-brand"><img class="brand-logo login-logo" src="triangle-logo-badge-v2.png?v=20260712-13" alt="Triangle Healthy Kitchen logo"><div><strong>Triangle</strong><span>Healthy Kitchen</span></div></div><button class="team-login-icon login-tab" type="button" data-login-tab="team" aria-label="Team Login" title="Team Login">ST</button></div>
+      <div class="login-tabs"><button class="login-tab active" type="button" data-login-tab="customer"><span class="auth-tab-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>Customer Portal</button><button class="login-tab" type="button" data-login-tab="register"><span class="auth-tab-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></span>Create Account</button></div>
+      <form id="loginForm" class="login-panel" data-login-panel="team">
+        <h1>Account Login</h1>
+        <label><span>Account</span><select id="loginRole"><option value="boss">CEO</option><option value="admin">Admin</option><option value="transport">Transportation Manager</option><option value="kitchen">Kitchen Team</option><option value="driver">Drivers Team</option></select></label>
+        <label><span>Password</span><div class="password-field"><input id="loginPassword" type="password" placeholder="Enter password" autocomplete="current-password"><button type="button" id="togglePassword" aria-label="Show password">Show</button></div></label>
+        <button id="loginSubmitBtn" class="primary-btn wide" type="submit">Open Dashboard</button>
+        <small id="loginError"></small>
+      </form>
+      <form id="customerLoginForm" class="login-panel customer-auth-panel active" data-login-panel="customer">
+        <div class="auth-section-title"><span class="auth-section-icon"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg></span><div><h1>Customer Login</h1><p>Mobile / WhatsApp</p></div></div>
+        <label class="auth-field"><span>Mobile / WhatsApp Number</span><div class="auth-input-row"><span class="auth-input-icon"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.32 1.77.59 2.61a2 2 0 0 1-.45 2.11L8 9.69a16 16 0 0 0 6.31 6.31l1.25-1.25a2 2 0 0 1 2.11-.45c.84.27 1.71.47 2.61.59A2 2 0 0 1 22 16.92Z"/></svg></span><input id="customerLoginPhone" placeholder="Enter mobile number" autocomplete="username" inputmode="tel"></div></label>
+        <label class="auth-field"><span>Password</span><div class="password-field auth-input-row"><span class="auth-input-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><input id="customerLoginPassword" type="password" placeholder="Enter password" autocomplete="current-password"><button type="button" id="toggleCustomerPassword" aria-label="Show customer password"><span class="auth-show-icon"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></span>Show</button></div></label>
+        <button class="forgot-password-link" type="button" id="customerForgotPassword">Forgot Password?</button>
+        <button class="primary-btn wide auth-submit-btn" type="submit"><span class="auth-btn-icon"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg></span>Open Customer Portal</button>
+        <small id="customerLoginError"></small>
+        <div class="auth-help-divider"><span>Need help?</span></div>
+        <button class="auth-support-card" type="button" onclick="window.open('https://wa.me/97466655759','_blank')"><span><svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M18 19c0 1.1-.9 2-2 2h-3"/><rect x="2" y="13" width="4" height="6" rx="2"/><rect x="18" y="13" width="4" height="6" rx="2"/></svg></span><strong>Contact Support Team<small>We're here to help you</small></strong><b aria-hidden="true">›</b></button>
+      </form>
+      <form id="customerRegisterForm" class="login-panel" data-login-panel="register">
+        <div class="reg-progress"><button type="button" class="reg-back" id="regBack" aria-label="Back">Back</button><span id="regStepLabel">Step 1 of 11</span><button type="button" class="reg-home hidden" id="regHome" aria-label="Home" title="Home">Home</button><i><b id="regProgressBar"></b></i></div>
+        <div class="register-step active onboarding-welcome-step" data-reg-step="1">
+          <div class="onboarding-welcome">
+            <span class="welcome-leaf" aria-hidden="true"></span>
+            <h1>Welcome to the Triangle family</h1>
+            <p>We'll ask a few simple questions to prepare the right plan for you.</p>
+            <div class="welcome-language-pill">
+              <button type="button" data-lang-switch="en">English</button>
+              <i></i>
+              <button type="button" data-lang-switch="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</button>
+            </div>
+            <div class="secure-note">
+              <span aria-hidden="true">Lock</span>
+              <b>Your information is private and secure.</b>
+            </div>
+            <button class="welcome-explore-menu" type="button" data-explore-menu>
+              <span aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z"/><path d="M8 7h8M8 11h7M8 15h5"/></svg>
+              </span>
+              <b>Explore Menu</b>
+            </button>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Let's Get Started</button>
+          <div class="welcome-time-note" aria-label="It only takes 2 minutes">
+            <span aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.4-2.8 8.4-7 10-4.2-1.6-7-5.6-7-10V6l7-3Z"/><path d="M9 12l2 2 4-5"/></svg>
+            </span>
+            <b>It only takes 2 minutes</b>
+          </div>
+        </div>
+        <div class="register-step" data-reg-step="2">
+          <h1>What should we call you?</h1>
+          <p class="step-sub">We'd love to know your name.</p>
+          <div class="register-grid one input-list">
+            <label><span>Full Name</span><input id="regName" required placeholder="Full name"></label>
+            <label class="phone-country-field"><span>Mobile / WhatsApp</span>
+              <div class="phone-entry">
+                <button class="country-code-btn" id="regCountryBtn" type="button" aria-expanded="false" aria-controls="regCountryMenu"><img id="regCountryFlag" class="country-flag-img" src="https://flagcdn.com/w40/qa.png" alt="Qatar flag"><b id="regCountryCode">+974</b><i aria-hidden="true"></i></button>
+                <input id="regPhoneLocal" required inputmode="numeric" autocomplete="tel-national" pattern="[0-9]*" maxlength="15" placeholder="Phone number">
+                <input id="regPhone" type="hidden" value="+974">
+              </div>
+              <small class="phone-rule-note" id="regPhoneRule"></small>
+              <div class="phone-otp-card" id="regOtpCard" aria-live="polite">
+                <button class="otp-send-btn" id="regSendOtp" type="button">Send Verification Code</button>
+                <button class="otp-open-link hidden" id="regOpenOtpAgain" type="button">Open code again</button>
+                <button class="otp-change-btn hidden" id="regChangePhone" type="button">Change number</button>
+                <small class="otp-status-note" id="regOtpStatus">Send a code to verify this mobile number.</small>
+              </div>
+              <div class="country-menu" id="regCountryMenu" hidden>
+                <input id="regCountrySearch" type="search" placeholder="Search country or code" autocomplete="off">
+                <div class="country-list" id="regCountryList"></div>
+              </div>
+            </label>
+            <label class="verified-password-field locked" id="regPasswordLabel"><span>Password</span><div class="password-field"><input id="regPassword" required type="password" placeholder="Verify mobile first" autocomplete="new-password" disabled><button type="button" id="toggleRegPassword" aria-label="Show password" disabled>Show</button></div></label>
+            <label class="verified-password-field locked" id="regConfirmPasswordLabel"><span>Confirm Password</span><div class="password-field"><input id="regConfirmPassword" required type="password" placeholder="Verify mobile first" autocomplete="new-password" disabled><button type="button" id="toggleRegConfirmPassword" aria-label="Show confirm password" disabled>Show</button></div></label>
+            <small class="password-lock-note" id="regPasswordLockNote">Verify your mobile number to create your password.</small>
+            <small class="password-match-note" id="regPasswordMatch"></small>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">That's Me</button>
+        </div>
+        <div class="register-step" data-reg-step="3">
+          <h1>Tell us a little about yourself</h1>
+          <p class="step-sub">This helps us prepare the right portions for you.</p>
+          <div class="register-grid one">
+            <label class="premium-date-field"><span>Date of Birth</span><i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></i><input id="regDob" required type="date" min="1900-01-01" max="9999-12-31"></label>
+            <div class="premium-gender-options">
+              <label class="premium-gender-card male-card">
+                <input type="radio" name="regGenderChoice" value="male" checked>
+                <b class="gender-selected-check" aria-hidden="true">&#10003;</b>
+                <div class="gender-avatar-ring reg-male-avatar" aria-hidden="true">
+                  <img class="gender-avatar-art" src="assets/gender-male-360.jpg" alt="">
+                </div>
+                <div class="gender-content"><strong>Male</strong><span>Male calculation</span><em class="gender-symbol male-symbol" aria-hidden="true">&#9794;</em></div>
+              </label>
+              <label class="premium-gender-card female-card">
+                <input type="radio" name="regGenderChoice" value="female">
+                <b class="gender-selected-check" aria-hidden="true">&#10003;</b>
+                <div class="gender-avatar-ring reg-female-avatar" aria-hidden="true">
+                  <img class="gender-avatar-art" src="assets/gender-female-360.jpg" alt="">
+                </div>
+                <div class="gender-content"><strong>Female</strong><span>Female calculation</span><em class="gender-symbol female-symbol" aria-hidden="true">&#9792;</em></div>
+              </label>
+            </div>
+            <select id="regGender" class="hidden-field"><option value="female">Female</option><option value="male">Male</option></select>
+            <div class="info-note">We will automatically calculate your BMI and calories.</div>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="6">
+          <h1>Your health details</h1>
+          <p class="step-sub">Tell us about your body.</p>
+          <div class="register-grid one">
+            <label><span>Height (cm)</span><input id="regHeight" required type="number" min="100" max="230" placeholder="Example: 170"></label>
+            <label><span>Weight (kg)</span><input id="regWeight" required type="number" min="30" max="250" placeholder="Example: 75"></label>
+            <section class="report-upload health-report-card" aria-label="BMI body report upload">
+              <div class="health-report-head">
+                <span class="health-report-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M7 3h10l2 3v15H5V6l2-3Z"/><path d="M9 12h6M12 9v6M8 6h8"/></svg>
+                </span>
+                <div>
+                  <strong>BMI / Body Report</strong>
+                  <small>Upload your latest body report to track your health progress.</small>
+                </div>
+              </div>
+              <input id="regBmiReport" type="file" accept=".pdf,.jpg,.jpeg,.png,image/jpeg,image/png,application/pdf">
+              <div class="health-upload-zone" id="regBmiDrop" tabindex="0" role="button" aria-label="Upload BMI or body report">
+                <span class="upload-cloud" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M8 18H7a5 5 0 0 1 0-10 6 6 0 0 1 11.5 2.2A4 4 0 0 1 18 18h-2"/><path d="M12 18V10M8.8 13.2 12 10l3.2 3.2"/></svg>
+                </span>
+                <h3>Upload BMI / Body Report</h3>
+                <p>Upload report from your phone.</p>
+                <div class="upload-actions">
+                  <button type="button" class="upload-primary" id="chooseBmiReport">Choose from Phone</button>
+                  <span>OR</span>
+                  <button type="button" class="upload-secondary" id="browseBmiReport">Browse Files</button>
+                </div>
+                <small class="upload-rules">PDF - JPG - PNG<br>Maximum file size: 10MB</small>
+                <div class="upload-selected" id="regBmiReportName">No report uploaded yet</div>
+                <small class="auto-read-note">Boss/Admin will review this body report.</small>
+                <div class="upload-preview hidden" id="regBmiPreviewFile"></div>
+                <button type="button" class="upload-remove-report hidden" id="removeBmiReport">Remove Report</button>
+    </div>
+            <section class="health-analysis-panel customer-hidden-report-values" id="regReportAnalysis">
+              <div class="analysis-head">
+                <span>Report Values</span>
+                <b>Enter values from uploaded report</b>
+              </div>
+              <div class="report-value-grid">
+                <label><span>Report BMI</span><input id="reportBmi" type="number" step="0.1" placeholder="Example: 26.8"></label>
+                <label><span>Body Fat %</span><input id="reportBodyFat" type="number" step="0.1" placeholder="Example: 24"></label>
+                <label><span>Muscle Mass kg</span><input id="reportMuscle" type="number" step="0.1" placeholder="Example: 34"></label>
+                <label><span>Visceral Fat</span><input id="reportVisceral" type="number" step="0.1" placeholder="Example: 8"></label>
+                <label><span>BMR / Calories</span><input id="reportBmr" type="number" placeholder="Example: 1650"></label>
+                <label><span>Body Age</span><input id="reportBodyAge" type="number" placeholder="Example: 30"></label>
+              </div>
+              <div class="analysis-grid" id="reportAnalysisResult">
+                <article><small>BMI Status</small><strong>-</strong></article>
+                <article><small>Body Fat</small><strong>-</strong></article>
+                <article><small>Report Review</small><strong>-</strong></article>
+              </div>
+              <p>Upload the report, then enter its values here. The analysis will use these report values.</p>
+            </section>
+            <div class="wide-field bmi-preview" id="regBmiPreview"><strong>Your Summary</strong><span>Enter age, height and weight to calculate.</span></div>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="4">
+          <h1>What would you love to achieve?</h1>
+          <p class="step-sub">Choose the goal that matters most to you.</p>
+          <div class="choice-list">
+            <label class="choice-row"><input type="radio" name="regGoal" value="Lose Weight"><b>Lose Weight</b><span>Calorie controlled meals to help weight loss</span></label>
+            <label class="choice-row"><input type="radio" name="regGoal" value="Build Muscle" checked><b>Build Muscle</b><span>High protein meals to build and repair muscles</span></label>
+            <label class="choice-row"><input type="radio" name="regGoal" value="Maintain Weight"><b>Maintain Weight</b><span>Balanced meals to maintain your weight</span></label>
+            <label class="choice-row"><input type="radio" name="regGoal" value="Eat Healthy"><b>Eat Healthy</b><span>Balanced meals for a healthy lifestyle</span></label>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="5">
+          <h1>Activity Level</h1>
+          <p class="step-sub">This helps us calculate your daily calorie needs.</p>
+          <select id="regActivity" class="hidden-field"><option value="1.2">Sedentary</option><option value="1.375">Lightly Active</option><option value="1.55">Active</option><option value="1.725">Very Active</option><option value="1.9">Athlete</option></select>
+          <div class="choice-list">
+            <label class="choice-row"><input type="radio" name="regActivityChoice" value="1.2"><b>Sedentary</b><span>Little or no exercise</span></label>
+            <label class="choice-row"><input type="radio" name="regActivityChoice" value="1.375"><b>Lightly Active</b><span>Light exercise 1-3 days/week</span></label>
+            <label class="choice-row"><input type="radio" name="regActivityChoice" value="1.55" checked><b>Active</b><span>Moderate exercise 3-5 days/week</span></label>
+            <label class="choice-row"><input type="radio" name="regActivityChoice" value="1.725"><b>Very Active</b><span>Hard exercise 6-7 days/week</span></label>
+            <label class="choice-row"><input type="radio" name="regActivityChoice" value="1.9"><b>Athlete</b><span>Very intense training daily</span></label>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="7">
+          <h1>Any Allergies?</h1>
+          <p class="step-sub">Select all that apply.</p>
+          <div class="tile-grid">
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Eggs"><em class="tile-icon icon-egg"></em><span>Eggs</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Dairy"><em class="tile-icon icon-dairy"></em><span>Dairy</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Nuts"><em class="tile-icon icon-nuts"></em><span>Nuts</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Peanuts"><em class="tile-icon icon-peanut"></em><span>Peanuts</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Seafood"><em class="tile-icon icon-seafood"></em><span>Seafood</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Gluten"><em class="tile-icon icon-gluten"></em><span>Gluten</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Soy"><em class="tile-icon icon-soy"></em><span>Soy</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Shellfish"><em class="tile-icon icon-shellfish"></em><span>Shellfish</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regAllergy" value="Wheat"><em class="tile-icon icon-wheat"></em><span>Wheat</span></label>
+          </div>
+          <div class="info-note">Don't worry, we take allergies very seriously.</div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="8">
+          <h1>Ingredients You Don't Like</h1>
+          <p class="step-sub">Select all that apply.</p>
+          <div class="tile-grid">
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No onion"><em class="tile-icon icon-onion"></em><span>Onion</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No garlic"><em class="tile-icon icon-garlic"></em><span>Garlic</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No spicy"><em class="tile-icon icon-spicy"></em><span>Spicy</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No mushroom"><em class="tile-icon icon-mushroom"></em><span>Mushroom</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No cheese"><em class="tile-icon icon-cheese"></em><span>Cheese</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No coriander"><em class="tile-icon icon-herb"></em><span>Coriander</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No capsicum"><em class="tile-icon icon-capsicum"></em><span>Capsicum</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No corn"><em class="tile-icon icon-corn"></em><span>Corn</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No eggplant"><em class="tile-icon icon-eggplant"></em><span>Eggplant</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No tomato"><em class="tile-icon icon-tomato"></em><span>Tomato</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No olives"><em class="tile-icon icon-olive"></em><span>Olives</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regDislike" value="No mint"><em class="tile-icon icon-mint"></em><span>Mint</span></label>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="9">
+          <h1>Diet Preference</h1>
+          <p class="step-sub">Select your preferred diet and package.</p>
+          <div class="tile-grid diet-grid">
+            <label class="mini-tile"><input type="radio" name="regDiet" value="Balanced" checked><em class="tile-icon icon-balanced"></em><span>Balanced</span></label>
+        <label class="mini-tile"><input type="radio" name="regDiet" value="Keto"><em class="tile-icon icon-keto"></em><span>Keto</span></label>
+            <label class="mini-tile"><input type="radio" name="regDiet" value="Vegetarian"><em class="tile-icon icon-leaf"></em><span>Vegetarian</span></label>
+            <label class="mini-tile"><input type="radio" name="regDiet" value="Vegan"><em class="tile-icon icon-sprout"></em><span>Vegan</span></label>
+          </div>
+          <div class="register-grid one compact-fields">
+            <div id="regPackageRecommendation" class="package-recommendation-card" aria-live="polite"></div>
+            <div id="regPackageWarning" class="package-warning-card hidden" aria-live="polite"></div>
+            <label><span>Meal Package</span><select id="regMealPackage"></select></label>
+            <label><span>Subscription Package</span><select id="regPlan" disabled><option>1700 QTR Package</option><option>2000 QTR Package</option><option>2200 QTR Package</option><option>2400 QTR Package</option><option>2600 QTR Package</option><option>2800 QTR Package</option><option>3000 QTR Package</option><option>Custom Package</option></select></label>
+            <div class="custom-package-fields hidden" id="regCustomPackageFields">
+              <label><span>Custom Meals</span><input id="regCustomMeals" type="number" min="0" placeholder="How many meals"></label>
+              <label><span>Custom Snacks</span><input id="regCustomSnacks" type="number" min="0" placeholder="How many snacks"></label>
+              <small>CEO/Admin will confirm the custom package price during review.</small>
+            </div>
+            <section class="register-delivery-days" aria-labelledby="regDeliveryDaysTitle">
+              <div>
+                <strong id="regDeliveryDaysTitle">Delivery Days</strong>
+                <span>Select the days you want to receive meals. Friday uses Thursday menu options.</span>
+              </div>
+              <div class="register-delivery-day-grid" id="regDeliveryDayGrid">
+                <label><input type="checkbox" name="regDeliveryDay" value="Saturday" checked><span>Sat</span><b>Saturday</b></label>
+                <label><input type="checkbox" name="regDeliveryDay" value="Sunday" checked><span>Sun</span><b>Sunday</b></label>
+                <label><input type="checkbox" name="regDeliveryDay" value="Monday" checked><span>Mon</span><b>Monday</b></label>
+                <label><input type="checkbox" name="regDeliveryDay" value="Tuesday" checked><span>Tue</span><b>Tuesday</b></label>
+                <label><input type="checkbox" name="regDeliveryDay" value="Wednesday" checked><span>Wed</span><b>Wednesday</b></label>
+                <label><input type="checkbox" name="regDeliveryDay" value="Thursday" checked><span>Thu</span><b>Thursday</b></label>
+                <label><input type="checkbox" name="regDeliveryDay" value="Friday"><span>Fri</span><b>Friday</b></label>
+              </div>
+              <p id="regDeliveryDaysHint">Standard schedule: Saturday to Thursday. Friday is optional.</p>
+              <input id="regIncludeFriday" type="checkbox" hidden>
+            </section>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step delivery-preference-step" data-reg-step="10">
+          <h1>Delivery Preference</h1>
+          <p class="step-sub">Where would you like to receive your meals?</p>
+          <section class="delivery-premium-panel">
+            <div class="delivery-section-head">
+              <em class="delivery-section-icon icon-home"></em>
+              <div><strong>Delivery Place</strong><span>Choose the place where our driver should meet you.</span></div>
+            </div>
+            <div class="delivery-place-grid">
+              <label class="choice-row delivery-choice"><input type="radio" name="regDeliveryType" value="Home" checked><em class="row-icon icon-home"></em><b>Home</b><span>Deliver to my home</span></label>
+              <label class="choice-row delivery-choice"><input type="radio" name="regDeliveryType" value="Office"><em class="row-icon icon-office"></em><b>Office</b><span>Deliver to my office</span></label>
+              <label class="choice-row delivery-choice"><input type="radio" name="regDeliveryType" value="Gym"><em class="row-icon icon-gym"></em><b>Gym</b><span>Deliver to my gym</span></label>
+            </div>
+          </section>
+          <section class="delivery-premium-panel">
+            <div class="delivery-section-head">
+              <em class="delivery-section-icon icon-location"></em>
+              <div><strong>Qatar Zone & Area</strong><span>Choose the Qatar zone number, then select the matching area name.</span></div>
+            </div>
+            <div class="delivery-field-stack">
+              <div class="delivery-two-col">
+                <label class="delivery-field"><span>Qatar Zone Number</span><input id="regZone" list="regZoneList" required placeholder="Search zone number, e.g. 50"><datalist id="regZoneList"></datalist></label>
+                <label class="delivery-field"><span>Zone Name</span><input id="regZoneName" readonly placeholder="Auto-filled zone name"></label>
+              </div>
+              <label class="delivery-field"><span>Area Name</span><select id="regArea" required></select><small class="area-rule-note" id="regAreaHint"></small></label>
+            </div>
+          </section>
+          <section class="delivery-premium-panel">
+            <div class="delivery-section-head">
+              <em class="delivery-section-icon icon-clock"></em>
+              <div><strong>Preferred Delivery Time</strong><span>Select one available delivery slot from 5:00 AM to 12:00 PM.</span></div>
+            </div>
+            <label class="delivery-field delivery-time-field"><span>Delivery Slot</span>
+              <div class="delivery-time-control">
+                <input id="regDeliveryTime" readonly required value="08:30 AM">
+                <button type="button" id="openDeliveryTimeSheet">Choose Time</button>
+              </div>
+            </label>
+          </section>
+          <section class="delivery-premium-panel">
+            <div class="delivery-section-head">
+              <em class="delivery-section-icon icon-building"></em>
+              <div><strong>Address Details</strong><span>Keep each detail separate so delivery, kitchen and support teams can read it clearly.</span></div>
+            </div>
+            <div class="delivery-address-grid">
+              <label class="delivery-field"><span>Street Number</span><input id="regStreetNumber" required placeholder="Street number"></label>
+              <label class="delivery-field"><span>Building Number</span><input id="regBuildingNumber" required placeholder="Building number"></label>
+              <label class="delivery-field"><span>Floor Number</span><input id="regFloorNumber" placeholder="Optional"></label>
+              <label class="delivery-field"><span>Apartment / Villa Number</span><input id="regUnitNumber" placeholder="Optional"></label>
+            </div>
+            <input id="regAddress" type="hidden">
+            <label class="delivery-field delivery-map-field"><span>Google Maps Location</span>
+              <div class="delivery-map-row">
+                <input id="regLocation" placeholder="Paste Google Maps link">
+                <button type="button" id="regLocationBtn">Open Map</button>
+              </div>
+              <small class="location-auto-note" id="regLocationHint"></small>
+              <small class="location-auto-note" id="regMapStatus">Map link not added yet.</small>
+            </label>
+            <label class="delivery-field"><span>Delivery Notes</span><textarea id="regDeliveryNote" rows="3" placeholder="Optional: call before coming, gate number, leave at reception"></textarea></label>
+          </section>
+          <div class="delivery-time-sheet" id="deliveryTimeSheet" hidden>
+            <div class="delivery-time-backdrop" data-close-delivery-time></div>
+            <div class="delivery-time-card" role="dialog" aria-modal="true" aria-labelledby="deliveryTimeTitle">
+              <div class="delivery-time-head">
+                <div><strong id="deliveryTimeTitle">Choose Delivery Time</strong><span>Available slots from 5:00 AM to 12:00 PM</span></div>
+                <button type="button" data-close-delivery-time aria-label="Close time selector">Close</button>
+              </div>
+              <div class="delivery-time-slots" id="deliveryTimeSlots"></div>
+            </div>
+          </div>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step" data-reg-step="11">
+          <h1>Medical Conditions</h1>
+          <p class="step-sub">Optional. Select all that apply.</p>
+          <div class="tile-grid medical-grid">
+            <label class="mini-tile"><input type="checkbox" name="regMedical" value="Diabetes"><em class="tile-icon icon-diabetes"></em><span>Diabetes</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regMedical" value="Hypertension"><em class="tile-icon icon-heart"></em><span>Hypertension</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regMedical" value="High Cholesterol"><em class="tile-icon icon-heartbeat"></em><span>High Cholesterol</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regMedical" value="Thyroid"><em class="tile-icon icon-thyroid"></em><span>Thyroid</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regMedical" value="Gluten Intolerance"><em class="tile-icon icon-gluten"></em><span>Gluten Intolerance</span></label>
+            <label class="mini-tile"><input type="checkbox" name="regMedical" value="Lactose Intolerance"><em class="tile-icon icon-dairy"></em><span>Lactose Intolerance</span></label>
+          </div>
+          <label class="choice-row none-choice"><input type="checkbox" name="regMedical" value="None"><em class="row-icon icon-leaf"></em><b>None of the above</b><span>No medical conditions selected</span></label>
+          <button class="primary-btn wide reg-next" type="button">Continue</button>
+        </div>
+        <div class="register-step plan-payment-step" data-reg-step="12">
+          <h1>Plan, Menu & Payment</h1>
+          <p class="step-sub">Choose trial or subscription, review your menu, and confirm the payment option.</p>
+          <div id="regPlanPayment" class="plan-payment-demo" aria-live="polite"></div>
+          <button class="primary-btn wide register-submit-btn" type="submit">Send Registration Request</button>
+        </div>
+        <small id="customerRegisterMsg"></small>
+        <div id="postRegisterMenu" class="register-menu-box post-register-menu hidden"></div>
+      </form>
+    </div>
+  </div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><img class="brand-logo" src="triangle-logo-badge-v2.png?v=20260712-13" alt="Triangle Healthy Kitchen logo"><div><strong>Triangle</strong><span>Healthy Kitchen</span></div></div>
+      <nav class="nav-list" aria-label="Main navigation">
+        <button class="nav-item active" data-module="dashboard" onclick="openModule('dashboard')"><span>DB</span>Dashboard</button>
+        <button class="nav-item" data-module="customers" onclick="openModule('customers')"><span>CU</span>Customers</button>
+        <button class="nav-item" data-module="customerreview" onclick="openModule('customerreview')"><span>CR</span>Customer Review</button>
+        <button class="nav-item" data-module="nutritionplans" onclick="openModule('nutritionplans')"><span>NP</span>Nutrition Plans</button>
+        <button class="nav-item" data-module="subscriptions" onclick="openModule('subscriptions')"><span>SB</span>Subscriptions</button>
+        <button class="nav-item" data-module="deliveries" onclick="openModule('deliveries')"><span>DL</span>Deliveries</button>
+        <button class="nav-item" data-module="payments" onclick="openModule('payments')"><span>PY</span>Payments</button>
+        <button class="nav-item" data-module="reports" onclick="openModule('reports')"><span>RP</span>Reports</button>
+        <button class="nav-item" data-module="team" onclick="openModule('team')"><span>TM</span>Team</button>
+        <button class="nav-item" data-module="settings" onclick="openModule('settings')"><span>ST</span>Settings</button>
+      </nav>
+      <div class="nav-right-tools">
+        <button class="nav-refresh-btn" id="refreshViewBtn" type="button" aria-label="Refresh current page" title="Refresh">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.4 6.4L3 16"/><path d="M3 21v-5h5"/><path d="M3 12A9 9 0 0 1 18.4 5.6L21 8"/><path d="M21 3v5h-5"/></svg>
+          <span>Refresh</span>
+        </button>
+        <div class="notification-wrap" id="notificationWrap">
+          <button class="bell-btn" id="notificationBtn" type="button" aria-label="Notifications" title="Notifications">
+            <span class="bell-shape"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16v-5a6 6 0 0 0-12 0v5l-2 2v1h16v-1l-2-2Zm-8 5h4a2 2 0 0 1-4 0Z"/></svg></span><b id="notificationCount">0</b>
+          </button>
+          <div class="notification-menu" id="notificationMenu" aria-label="Notification requests"></div>
+        </div>
+        <div class="profile-menu-wrap" id="profileMenuWrap">
+          <button class="profile-pill" id="profileMenuBtn" type="button" aria-label="Profile menu" aria-expanded="false" aria-controls="profileMenu">
+            <span class="profile-avatar">TH</span>
+            <span class="profile-text"><strong id="accountName">Not signed in</strong><small id="accountRoleText">Team</small></span>
+            <span class="profile-chevron">&#709;</span>
+          </button>
+          <div class="profile-menu" id="profileMenu" role="menu" aria-label="Account menu">
+            <div class="profile-menu-head">
+              <span class="profile-menu-avatar" id="profileMenuAvatar">TH</span>
+              <span><strong id="profileMenuName">Not signed in</strong><small id="profileMenuRole">Team</small></span>
+            </div>
+            <button class="profile-menu-logout" id="profileLogoutBtn" type="button" role="menuitem" onclick="logoutAll()">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M14 4h4a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-4"/></svg>
+              Logout
+            </button>
+          </div>
+        </div>
+        <div class="header-language-switch" aria-label="Language selector">
+          <button type="button" data-lang-switch="en">English</button>
+          <span>|</span>
+          <button type="button" data-lang-switch="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</button>
+        </div>
+        <button class="primary-btn light nav-logout" id="logoutBtn">Logout</button>
+      </div>
+      <section class="sidebar-card">
+        <h2>Today At A Glance</h2>
+        <div class="mini-row"><span>Customers</span><strong id="sideCustomers">0</strong></div>
+        <div class="mini-row"><span>Meals</span><strong id="sideMeals">0</strong></div>
+        <div class="mini-row"><span>Deliveries</span><strong id="sideDeliveries">0</strong></div>
+        <div class="mini-row"><span>Kitchen Notes</span><strong id="sideNotes">0</strong></div>
+      </section>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div><h1 id="pageTitle">Triangle Healthy Kitchen Dashboard</h1></div>
+        <div class="top-actions">
+          <label class="date-filter"><span>Date</span><input type="date" id="dateInput"></label>
+          <button class="primary-btn" id="printBtn">Print</button>
+        </div>
+      </header>
+      <section id="workspace" class="workspace"></section>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="otp-modal-layer" id="regOtpModalLayer" hidden>
+    <div class="otp-modal" id="regOtpModal" role="dialog" aria-modal="true" aria-labelledby="regOtpTitle" aria-describedby="regOtpText" tabindex="-1">
+      <button class="otp-modal-close" id="regOtpClose" type="button" aria-label="Close verification">&times;</button>
+      <div class="otp-modal-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/><path d="M8 9h8M8 13h5"/></svg>
+      </div>
+      <h2 id="regOtpTitle">Verify Your Number</h2>
+      <p id="regOtpText">We have sent a 6-digit verification code to +974 XXXXXXXX.</p>
+      <div class="otp-six-grid" id="regOtpInputs" aria-label="6 digit verification code">
+        <input class="otp-digit" inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Digit 1">
+        <input class="otp-digit" inputmode="numeric" maxlength="1" aria-label="Digit 2">
+        <input class="otp-digit" inputmode="numeric" maxlength="1" aria-label="Digit 3">
+        <input class="otp-digit" inputmode="numeric" maxlength="1" aria-label="Digit 4">
+        <input class="otp-digit" inputmode="numeric" maxlength="1" aria-label="Digit 5">
+        <input class="otp-digit" inputmode="numeric" maxlength="1" aria-label="Digit 6">
+      </div>
+      <small class="otp-modal-status" id="regOtpModalStatus">Enter the code to verify your mobile number.</small>
+      <button class="otp-resend-btn" id="regOtpResend" type="button" disabled>Resend code in 00:45</button>
+      <div class="otp-modal-actions">
+        <button class="otp-cancel-btn" id="regOtpCancel" type="button">Cancel</button>
+        <button class="otp-confirm-btn" id="regOtpConfirm" type="button" disabled>Verify</button>
+      </div>
+    </div>
+  </div>
+  <script src="config.js?v=20260805-real01"></script>
+  <script src="api-client.js?v=20260805-real01"></script>
+  <script src="app.js?v=20260806-mobile-glitch01"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,17 @@
+HOW TO OPEN THE WEBSITE
+
+This is still a local website preview, not a published online link yet.
+
+To open it later:
+1. Open this folder:
+   C:\Users\Windows\Documents\Codex\2026-06-29\thi
+2. Double-click:
+   Open Triangle Website.bat
+3. The website will open at:
+   http://127.0.0.1:4173/
+
+Keep the black server window open while using the website.
+If you close that window, the website address will stop working until you open it again.
+
+If the browser says "This site can't be reached", it means the local server is closed.
+Open "Open Triangle Website.bat" again, then refresh the browser.
