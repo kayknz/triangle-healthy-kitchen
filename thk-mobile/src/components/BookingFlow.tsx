@@ -333,13 +333,13 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                     <Target className="w-5 h-5 text-[#C5A059]" /> {t('critical_intel')}
                   </h3>
                   <FormEntry label={t('dietary_restrictions')} sub={t('optional')}>
-                    <textarea value={data.dietary_restrictions} onChange={(e) => update({ dietary_restrictions: e.target.value })} placeholder="Allergies, intolerances..." className="input-field py-4 min-h-[100px] resize-none" />
+                    <textarea value={data.dietary_restrictions} onChange={(e) => update({ dietary_restrictions: e.target.value })} placeholder={t('allergies_placeholder') || "Allergies, intolerances..."} className="input-field py-4 min-h-[100px] resize-none" />
                   </FormEntry>
                   <FormEntry label={t('exercise_routine')} sub={t('optional')}>
-                    <textarea value={data.exercise_routine} onChange={(e) => update({ exercise_routine: e.target.value })} placeholder="Current training frequency..." className="input-field py-4 min-h-[100px] resize-none" />
+                    <textarea value={data.exercise_routine} onChange={(e) => update({ exercise_routine: e.target.value })} placeholder={t('exercise_placeholder') || "Current training frequency..."} className="input-field py-4 min-h-[100px] resize-none" />
                   </FormEntry>
                   <FormEntry label={t('health_notes')} sub={t('clinical_context')}>
-                    <input type="text" value={data.health_notes} onChange={(e) => update({ health_notes: e.target.value })} placeholder="Any relevant medical history..." className="input-field py-5" />
+                    <input type="text" value={data.health_notes} onChange={(e) => update({ health_notes: e.target.value })} placeholder={t('history_placeholder') || "Any relevant medical history..."} className="input-field py-5" />
                   </FormEntry>
                 </div>
               </div>
@@ -411,15 +411,15 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                     className={`w-full flex items-center justify-center gap-4 bg-white border border-primary/10 py-6 rounded-3xl text-[10px] font-black uppercase tracking-[0.3em] shadow-sm active:scale-95 disabled:opacity-50 ${locating ? 'animate-pulse' : ''}`}
                   >
                     {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4 text-[#C5A059]" />}
-                    {locating ? 'Syncing...' : 'Verify Location (Optional)'}
+                    {locating ? t('syncing') : (t('verify_location_optional') || 'Verify Location (Optional)')}
                   </button>
                   {locationError && <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest ml-4">{locationError}</p>}
                 </div>
                 <FormEntry label={t('full_name')} sub={t('passport_id')}>
-                  <input type="text" autoCapitalize="words" value={data.client_name} onChange={(e) => update({ client_name: e.target.value })} placeholder="Enter Full Name" className="input-field py-5 font-black" />
+                  <input type="text" autoCapitalize="words" value={data.client_name} onChange={(e) => update({ client_name: e.target.value })} placeholder={t('enter_full_name') || "Enter Full Name"} className="input-field py-5 font-black" />
                 </FormEntry>
                 <FormEntry label={t('email_address')} sub={t('official')}>
-                  <input type="email" value={data.client_email} onChange={(e) => update({ client_email: e.target.value })} placeholder="Enter Email" className="input-field py-5 font-black" />
+                  <input type="email" value={data.client_email} onChange={(e) => update({ client_email: e.target.value })} placeholder={t('enter_email') || "Enter Email"} className="input-field py-5 font-black" />
                 </FormEntry>
                 <FormEntry label={t('mobile_number')} sub={t('whatsapp_linked')}>
                   <input type="tel" value={data.client_phone} onChange={(e) => update({ client_phone: e.target.value })} placeholder="+974" className="input-field py-5 font-black" />

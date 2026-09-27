@@ -92,29 +92,33 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
     setLoading(true);
     try {
       const isAvailable = await Health.isAvailable();
-      if (!isAvailable.value) {
+      if (!isAvailable.available) {
         alert("Health data sync not available on this device.");
         setLoading(false);
         return;
       }
 
-      await Health.requestPermissions({
-        read: ['steps', 'calories', 'weight', 'water']
+      await Health.requestAuthorization({
+        read: ['steps', 'calories', 'weight']
       });
 
       const startOfDay = getQatarStartOfDay();
       const endOfDay = getUTCISO();
 
-      const [steps, calories, weight] = await Promise.all([
-        Health.query({ type: 'steps', startDate: startOfDay, endDate: endOfDay }),
-        Health.query({ type: 'calories', startDate: startOfDay, endDate: endOfDay }),
-        Health.query({ type: 'weight', startDate: startOfDay, endDate: endOfDay }),
+      const [stepsRes, caloriesRes, weightRes] = await Promise.all([
+        Health.readSamples({ dataType: 'steps', startDate: startOfDay, endDate: endOfDay }),
+        Health.readSamples({ dataType: 'calories', startDate: startOfDay, endDate: endOfDay }),
+        Health.readSamples({ dataType: 'weight', startDate: startOfDay, endDate: endOfDay }),
       ]);
 
+      const totalSteps = stepsRes.samples.reduce((sum, s) => sum + (s.value || 0), 0);
+      const totalCalories = caloriesRes.samples.reduce((sum, s) => sum + (s.value || 0), 0);
+      const latestWeight = weightRes.samples.length > 0 ? weightRes.samples[weightRes.samples.length - 1].value : null;
+
       const payload: any = { native_sync: true };
-      if (steps.data?.[0]) payload.steps = steps.data[0].value;
-      if (calories.data?.[0]) payload.calories_burned = calories.data[0].value;
-      if (weight.data?.[0]) payload.weight_kg = weight.data[0].value;
+      if (totalSteps > 0) payload.steps = Math.round(totalSteps);
+      if (totalCalories > 0) payload.calories_burned = Math.round(totalCalories);
+      if (latestWeight) payload.weight_kg = latestWeight;
 
       await supabase.from('health_data').insert({
         subscriber_id: subscriber.id,
@@ -317,25 +321,25 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
       {/* Log Entry Form */}
       {showForm && (
         <div className="bg-[#0d3838] rounded-2xl p-5 space-y-4">
-          <h3 className="text-white font-semibold text-sm">Log Today's Health Data</h3>
+          <h3 className="text-white font-semibold text-sm">{t('log_today_health') || "Log Today's Health Data"}</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <MetricInput icon={<Weight className="w-3 h-3" />} label="Weight (kg)" value={form.weight_kg} onChange={(v) => setForm({ ...form, weight_kg: v })} placeholder="72.5" type="decimal" />
-            <MetricInput icon={<Footprints className="w-3 h-3" />} label="Steps" value={form.steps} onChange={(v) => setForm({ ...form, steps: v })} placeholder="8000" type="integer" />
-            <MetricInput icon={<Flame className="w-3 h-3" />} label="Burned (kcal)" value={form.calories_burned} onChange={(v) => setForm({ ...form, calories_burned: v })} placeholder="500" type="integer" />
-            <MetricInput icon={<Utensils className="w-3 h-3" />} label="Eaten (kcal)" value={form.calories_consumed} onChange={(v) => setForm({ ...form, calories_consumed: v })} placeholder="1800" type="integer" />
-            <MetricInput icon={<Moon className="w-3 h-3" />} label="Sleep (hrs)" value={form.sleep_hours} onChange={(v) => setForm({ ...form, sleep_hours: v })} placeholder="7.5" type="decimal" />
-            <MetricInput icon={<Droplet className="w-3 h-3" />} label="Water (ml)" value={form.water_ml} onChange={(v) => setForm({ ...form, water_ml: v })} placeholder="2000" type="integer" />
+            <MetricInput icon={<Weight className="w-3 h-3" />} label={t('weight_kg') || "Weight (kg)"} value={form.weight_kg} onChange={(v) => setForm({ ...form, weight_kg: v })} placeholder="72.5" type="decimal" />
+            <MetricInput icon={<Footprints className="w-3 h-3" />} label={t('steps_label') || "Steps"} value={form.steps} onChange={(v) => setForm({ ...form, steps: v })} placeholder="8000" type="integer" />
+            <MetricInput icon={<Flame className="w-3 h-3" />} label={t('burned_kcal') || "Burned (kcal)"} value={form.calories_burned} onChange={(v) => setForm({ ...form, calories_burned: v })} placeholder="500" type="integer" />
+            <MetricInput icon={<Utensils className="w-3 h-3" />} label={t('eaten_kcal') || "Eaten (kcal)"} value={form.calories_consumed} onChange={(v) => setForm({ ...form, calories_consumed: v })} placeholder="1800" type="integer" />
+            <MetricInput icon={<Moon className="w-3 h-3" />} label={t('sleep_hrs') || "Sleep (hrs)"} value={form.sleep_hours} onChange={(v) => setForm({ ...form, sleep_hours: v })} placeholder="7.5" type="decimal" />
+            <MetricInput icon={<Droplet className="w-3 h-3" />} label={t('water_ml') || "Water (ml)"} value={form.water_ml} onChange={(v) => setForm({ ...form, water_ml: v })} placeholder="2000" type="integer" />
           </div>
           <div>
-            <label className="text-white/60 text-xs uppercase tracking-wider mb-2 block">Notes (optional)</label>
-            <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Post-workout, feeling energized" className="input-field" />
+            <label className="text-white/60 text-xs uppercase tracking-wider mb-2 block">{t('notes_optional') || "Notes (optional)"}</label>
+            <input type="text" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder={t('health_notes_placeholder') || "Post-workout, feeling energized"} className="input-field" />
           </div>
           <button
             onClick={addEntry}
             disabled={saving || (!form.weight_kg && !form.steps && !form.calories_burned && !form.calories_consumed && !form.sleep_hours && !form.water_ml)}
             className="w-full bg-[#D4A843] hover:bg-[#c09535] text-[#0a3030] font-bold py-2.5 rounded-full text-sm transition-all disabled:opacity-60 flex items-center justify-center gap-2"
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> Save Entry</>}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {t('commit_data') || "Save Entry"}</>}
           </button>
         </div>
       )}

@@ -22,21 +22,22 @@ const config: CapacitorConfig = {
   },
   android: {
     allowMixedContent: true,
-    backgroundColor: '#F9FBF9',
-    // Important for geolocation + payments
-    webContentsDebuggingEnabled: false,
+    backgroundColor: '#F5F3EB',
+    // Important for geolocation + payments and remote debugging
+    webContentsDebuggingEnabled: true,
   },
   ios: {
-    backgroundColor: '#0a3030',
+    backgroundColor: '#F5F3EB',
     contentInset: 'automatic',
     allowsLinkPreview: false,
     scrollEnabled: true,
+    webContentsDebuggingEnabled: true,
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 0,
+      launchShowDuration: 1000,
       launchAutoHide: true,
-      backgroundColor: '#0a3030',
+      backgroundColor: '#F5F3EB',
       androidSplashResourceName: 'splash',
       showSpinner: false,
       splashFullScreen: true,

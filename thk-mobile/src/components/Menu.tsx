@@ -47,18 +47,21 @@ export default function Menu() {
     };
 
     Object.entries(day.items).forEach(([meal, dishes]: [string, any]) => {
-      newItems[meal] = dishes.filter((d: any) => d.name.toLowerCase().includes(term));
+      newItems[meal] = dishes.filter((d: any) =>
+        d.name.toLowerCase().includes(term) ||
+        (d.name_ar && d.name_ar.toLowerCase().includes(term))
+      );
     });
 
     return newItems;
   }, [day, searchTerm]);
 
   return (
-    <section id="menu" className="bg-[#F9FBF9] py-32 px-6 sm:px-8 lg:px-12">
+    <section id="menu" className="bg-[#F9FBF9] py-32 px-6 sm:px-8 lg:px-12" dir={isRtl ? 'rtl' : 'ltr'}>
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-5xl sm:text-6xl font-black text-[#0a3030] mb-6 tracking-tighter">
-            {t('menu_title') || (isRtl ? 'ماذا يوجد في المنيو' : 'What\'s on the Menu')}
+            {t('menu_title') || (isRtl ? 'ماذا يوجد في المنيو' : "What's on the Menu")}
           </h2>
           <p className="text-gray-400 text-xl max-w-2xl mx-auto font-medium">
             {t('menu_subtitle') || (isRtl ? 'وجبات طازجة يحضرها الشيف أسبوعياً.' : 'Fresh healthy meals prepared daily by our chefs in Doha.')}
@@ -66,7 +69,7 @@ export default function Menu() {
         </div>
 
         {/* Collection Selector */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-none">
+        <div className={`flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-none ${isRtl ? 'flex-row-reverse' : ''}`}>
           {COLLECTIONS.map((c) => (
             <button
               key={c.id}
@@ -81,25 +84,25 @@ export default function Menu() {
                   : 'bg-white text-gray-400 border border-gray-100 hover:border-[#C5A059]/30'
               }`}
             >
-              {t(c.name) || (isRtl ? c.label_ar : c.label)}
+              {isRtl ? c.label_ar : (t(c.name) || c.label)}
             </button>
           ))}
         </div>
 
         {/* Search */}
         <div className="relative mb-12">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
+          <Search className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300 ${isRtl ? 'right-5' : 'left-5'}`} />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={t('menu_search_placeholder') || (isRtl ? 'بحث عن طعام...' : 'Search for food or ingredients...')}
-            className="w-full bg-white border border-gray-100 shadow-sm rounded-3xl py-4 pl-12 pr-6 text-[#0a3030] text-sm outline-none"
+            className={`w-full bg-white border border-gray-100 shadow-sm rounded-3xl py-4 text-[#0a3030] text-sm outline-none ${isRtl ? 'pr-12 pl-6 text-right' : 'pl-12 pr-6 text-left'}`}
           />
         </div>
 
         {/* Days */}
-        <div className="flex gap-3 overflow-x-auto pb-4 mb-12 scrollbar-none">
+        <div className={`flex gap-3 overflow-x-auto pb-4 mb-12 scrollbar-none ${isRtl ? 'flex-row-reverse' : ''}`}>
           {currentMenu.map((d, i) => (
             <button
               key={`${d.day}-${i}`}
@@ -126,9 +129,9 @@ export default function Menu() {
                   await safeHaptics.impact();
                   setExpandedMeal(expandedMeal === meal ? null : meal);
                 }}
-                className="w-full flex items-center justify-between px-8 py-6 group"
+                className={`w-full flex items-center justify-between px-8 py-6 group ${isRtl ? 'flex-row-reverse' : ''}`}
               >
-                <div className="flex items-center gap-4">
+                <div className={`flex items-center gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
                   <div className={`w-2 h-2 rounded-full ${expandedMeal === meal ? 'bg-[#C5A059]' : 'bg-gray-200'}`} />
                   <span className={`text-sm font-black uppercase tracking-[0.2em] ${MEAL_COLORS[meal]}`}>
                     {t(meal) || meal}
@@ -139,14 +142,14 @@ export default function Menu() {
               </button>
 
               {expandedMeal === meal && dishes.length > 0 && (
-                <div className="px-8 pb-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="px-8 pb-8 grid grid-cols-1 sm:grid-cols-2 gap-4" dir={isRtl ? 'rtl' : 'ltr'}>
                   {dishes.map((d: any) => (
                     <div key={d.name} className="bg-gray-50/50 border border-gray-100 rounded-[1.5rem] p-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <span className="text-[#0a3030] font-black text-base">
+                      <div className={`flex items-start justify-between gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <span className={`text-[#0a3030] font-black text-base ${isRtl ? 'text-right' : 'text-left'}`}>
                           {isRtl && d.name_ar ? d.name_ar : d.name}
                         </span>
-                        <span className={`text-xs font-black ${MEAL_COLORS[meal]}`}>{d.kcals} {t('kcal') || 'Kcal'}</span>
+                        <span className={`text-xs font-black flex-shrink-0 ${MEAL_COLORS[meal]}`}>{d.kcals} {t('kcal') || 'Kcal'}</span>
                       </div>
                     </div>
                   ))}
@@ -156,7 +159,7 @@ export default function Menu() {
           ))}
         </div>
 
-        <div className="mt-16 p-8 bg-gray-50 rounded-3xl border border-gray-100 flex items-start gap-4">
+        <div className={`mt-16 p-8 bg-gray-50 rounded-3xl border border-gray-100 flex items-start gap-4 ${isRtl ? 'flex-row-reverse text-right' : ''}`}>
           <Sparkles className="w-6 h-6 text-[#C5A059] flex-shrink-0" />
           <p className="text-gray-400 text-xs font-medium leading-relaxed">
             {t('menu_disclaimer') || 'All meals are prepared fresh daily in our municipality-approved Doha kitchen.'}

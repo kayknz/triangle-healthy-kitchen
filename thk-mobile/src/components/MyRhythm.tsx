@@ -40,7 +40,8 @@ export default function MyRhythm() {
   const [weeklyStatus, setWeeklyStatus] = useState<DayStatus[]>([]);
 
   useEffect(() => {
-    return healthSyncStore.subscribe(setSyncStatus);
+    const unsubscribe = healthSyncStore.subscribe(setSyncStatus);
+    return () => { unsubscribe(); };
   }, []);
 
   const fetchData = async () => {
@@ -128,7 +129,7 @@ export default function MyRhythm() {
     await safeHaptics.impact();
 
     try {
-      await syncHealthData(user.id);
+      await syncHealthData();
       await fetchData();
     } catch (e) {
       console.error('Sync failed:', e);

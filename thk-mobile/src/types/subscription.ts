@@ -177,6 +177,23 @@ export interface HealthEntry {
   received_at: string;
 }
 
+export interface RegionalCommunity {
+  id: string;
+  name: string;
+  description?: string;
+  member_count?: number;
+}
+
+export interface CommunityPost {
+  id: string;
+  community_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  likes_count?: number;
+  user_name?: string;
+}
+
 export const HEALTH_METRICS = [
   { id: 'weight_kg', label: 'Weight', unit: 'kg', icon: 'weight', color: '#D4A843' },
   { id: 'steps', label: 'Steps', unit: '', icon: 'steps', color: '#5BA889' },

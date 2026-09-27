@@ -24,26 +24,13 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         .upsert({
           user_id: user.id,
           onboarding_completed: true,
-          gender,
+          taste_profile: { gender },
           email: user.email,
           full_name: user.user_metadata?.full_name || 'Member',
           status: 'pending'
         }, { onConflict: 'user_id' });
 
-      if (error && error.message?.includes('gender')) {
-        const { error: fallbackError } = await supabase
-          .from('subscribers')
-          .upsert({
-            user_id: user.id,
-            onboarding_completed: true,
-            email: user.email,
-            full_name: user.user_metadata?.full_name || 'Member',
-            status: 'pending'
-          }, { onConflict: 'user_id' });
-        if (fallbackError) throw fallbackError;
-      } else if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       await refreshAuth();
       onComplete();

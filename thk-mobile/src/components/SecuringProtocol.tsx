@@ -11,10 +11,10 @@ export default function SecuringProtocol({
   subtitle = "Connecting to your account..."
 }: SecuringProtocolProps) {
   return (
-    <div className="fixed inset-0 z-[300] flex flex-col items-center justify-center bg-[#123F38] overflow-hidden p-6">
+    <div className="fixed inset-0 z-[300] flex flex-col items-center justify-center bg-[#F5F3EB] overflow-hidden p-6">
       {/* Background Glow */}
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#C5A059]/10 rounded-full blur-[140px] -mr-40 -mt-40 animate-pulse" />
-      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-[#F5F3EB]/5 rounded-full blur-[140px] -ml-40 -mb-40 animate-pulse" />
+      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-[#123F38]/5 rounded-full blur-[140px] -ml-40 -mb-40 animate-pulse" />
 
       {/* Center Shield Structure */}
       <div className="relative flex flex-col items-center max-w-md text-center animate-reveal">
@@ -29,14 +29,14 @@ export default function SecuringProtocol({
 
         {/* Text Polish */}
         <h2
-          className="text-3xl md:text-4xl font-serif text-[#F5F3EB] tracking-tight italic mb-3"
+          className="text-3xl md:text-4xl font-serif text-[#123F38] tracking-tight italic mb-3"
           style={{ fontFamily: "'DM Serif Display', serif" }}
         >
           {message}
         </h2>
 
         <p
-          className="text-[#F5F3EB]/70 text-sm font-medium leading-relaxed max-w-xs"
+          className="text-[#123F38]/70 text-sm font-medium leading-relaxed max-w-xs"
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           {subtitle}
@@ -45,7 +45,7 @@ export default function SecuringProtocol({
 
       {/* Premium Shimmer Indicator */}
       <div className="absolute bottom-24 left-1/2 -translate-x-1/2 w-56 flex flex-col items-center">
-        <div className="h-[3px] w-full bg-[#F5F3EB]/10 rounded-full overflow-hidden p-[1px]">
+        <div className="h-[3px] w-full bg-[#123F38]/10 rounded-full overflow-hidden p-[1px]">
           <div className="h-full bg-gradient-to-r from-transparent via-[#C5A059] to-transparent w-3/4 animate-shimmer" />
         </div>
         <span

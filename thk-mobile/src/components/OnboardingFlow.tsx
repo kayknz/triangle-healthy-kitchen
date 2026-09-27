@@ -26,19 +26,11 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         .upsert({
           user_id: user.id,
           onboarding_completed: true,
-          gender,
+          taste_profile: { gender },
           email: user.email || ''
         }, { onConflict: 'user_id' });
 
-      if (error && error.message?.includes('gender')) {
-        await supabase
-          .from('subscribers')
-          .upsert({
-            user_id: user.id,
-            onboarding_completed: true,
-            email: user.email || ''
-          }, { onConflict: 'user_id' });
-      }
+      if (error) throw error;
       onComplete();
     } catch (e) {
       console.error(e);

@@ -12,7 +12,7 @@ interface ProviderAuthProps {
 
 export default function ProviderAuth({ isOpen = true, onClose, onSuccess }: ProviderAuthProps) {
   const { signIn, signUp } = useAuth();
-  const { t } = useLanguage();
+  const { t, isRtl } = useLanguage();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [role, setRole] = useState<'owner' | 'rider'>('owner');
   const [email, setEmail] = useState('');
@@ -55,7 +55,7 @@ export default function ProviderAuth({ isOpen = true, onClose, onSuccess }: Prov
       badge={t('ops_console')}
       maxWidth="max-w-md"
     >
-      <div className="p-8 sm:p-10">
+      <div className="p-8 sm:p-10" dir={isRtl ? 'rtl' : 'ltr'}>
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-[2rem] bg-[#0a3030] flex items-center justify-center mx-auto mb-6 shadow-xl border border-white/10">
             <ChefHat className="w-8 h-8 text-[#C5A059]" />
@@ -98,62 +98,62 @@ export default function ProviderAuth({ isOpen = true, onClose, onSuccess }: Prov
         <form onSubmit={handleSubmit} className="space-y-6">
           {mode === 'signup' && (
             <div className="space-y-2">
-              <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40 ml-1">
+              <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
                 {t('full_name')}
               </label>
               <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                <User className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder={role === 'rider' ? "Enter Unit Identifier" : "Full Name"}
+                  placeholder={role === 'rider' ? (t('unit_identifier') || "Unit Identifier") : (t('full_name') || "Full Name")}
                   required
-                  className="w-full bg-white border border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:border-[#0a3030] transition-all"
+                  className={`w-full bg-white border border-gray-100 rounded-2xl py-4 text-sm font-bold focus:border-[#0a3030] transition-all ${isRtl ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'}`}
                 />
               </div>
             </div>
           )}
           {mode === 'signup' && role === 'rider' && (
             <div className="space-y-2">
-              <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40 ml-1">
+              <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
                 {t('mobile_number')}
               </label>
               <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                <Phone className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
                 <input
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Mobile Signal (+974)"
+                  placeholder="+974"
                   required
-                  className="w-full bg-white border border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:border-[#0a3030] transition-all"
+                  className={`w-full bg-white border border-gray-100 rounded-2xl py-4 text-sm font-bold focus:border-[#0a3030] transition-all ${isRtl ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'}`}
                 />
               </div>
             </div>
           )}
           <div className="space-y-2">
-            <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40 ml-1">
+            <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
               {t('email_identifier')}
             </label>
             <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+              <Mail className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
+                placeholder={t('email_address') || "Email"}
                 required
-                className="w-full bg-white border border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:border-[#0a3030] transition-all"
+                className={`w-full bg-white border border-gray-100 rounded-2xl py-4 text-sm font-bold focus:border-[#0a3030] transition-all ${isRtl ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'}`}
               />
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40 ml-1">
+            <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
               {t('secure_passkey')}
             </label>
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+              <Lock className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
               <input
                 type="password"
                 value={password}
@@ -161,7 +161,7 @@ export default function ProviderAuth({ isOpen = true, onClose, onSuccess }: Prov
                 placeholder="••••••••"
                 required
                 minLength={6}
-                className="w-full bg-white border border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:border-[#0a3030] transition-all"
+                className={`w-full bg-white border border-gray-100 rounded-2xl py-4 text-sm font-bold focus:border-[#0a3030] transition-all ${isRtl ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'}`}
               />
             </div>
           </div>

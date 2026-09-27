@@ -17,8 +17,37 @@
     <meta name="twitter:title" content="Triangle Healthy Kitchen" />
     <meta name="twitter:description" content="Chef-crafted meal plans delivered in Doha, Qatar." />
     <meta name="twitter:image" content="https://bolt.new/static/og_default.png" />
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        var errDiv = document.getElementById('debug-error');
+        if (!errDiv) {
+          errDiv = document.createElement('div');
+          errDiv.id = 'debug-error';
+          errDiv.style.position = 'fixed';
+          errDiv.style.top = '0';
+          errDiv.style.left = '0';
+          errDiv.style.right = '0';
+          errDiv.style.bottom = '0';
+          errDiv.style.zIndex = '999999';
+          errDiv.style.backgroundColor = '#1a0000';
+          errDiv.style.color = '#ff6b6b';
+          errDiv.style.padding = '24px';
+          errDiv.style.fontSize = '13px';
+          errDiv.style.fontFamily = 'monospace';
+          errDiv.style.overflow = 'auto';
+          errDiv.style.wordBreak = 'break-all';
+          document.body.appendChild(errDiv);
+        }
+        errDiv.innerHTML += '<h3 style="color:#ff4d4d;margin-top:0">LAUNCH ERROR:</h3><p><b>' + msg + '</b></p><p>URL: ' + url + '<br>Line: ' + line + ':' + col + '</p><pre style="background:#2b0000;padding:10px;border-radius:6px;overflow:auto">' + (error && error.stack ? error.stack : 'No stack trace') + '</pre><hr style="border-color:#440000">';
+      };
+      window.onunhandledrejection = function(event) {
+        var err = event.reason;
+        var msg = err ? (err.message || err.toString()) : 'Unhandled Promise Rejection';
+        window.onerror(msg, '', 0, 0, err);
+      };
+    </script>
   </head>
-  <body style="background-color: #0a3030;">
+  <body style="background-color: #F5F3EB;">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

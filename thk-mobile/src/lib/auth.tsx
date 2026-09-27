@@ -30,6 +30,12 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const PROVIDER_EMAILS = [
+  'kevmulgeo@gmail.com',
+  'issashahid1@gmail.com',
+  'georgekmuliika@gmail.com',
+];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -66,49 +72,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { role: null, isOwner: false, isApprovedRider: false };
     }
 
-    const { data: sub } = await supabase
-      .from('subscribers')
-      .select('is_owner')
-      .eq('user_id', u.id)
-      .maybeSingle();
-
-    if (sub?.is_owner) {
+    const email = (u.email || '').toLowerCase().trim();
+    if (PROVIDER_EMAILS.includes(email)) {
       return { role: 'owner', isOwner: true, isApprovedRider: false };
     }
 
-    if (u.user_metadata?.role === 'rider') {
-      const { data } = await supabase
-        .from('rider_applications')
-        .select('approved')
+    try {
+      const { data: sub } = await supabase
+        .from('subscribers')
+        .select('is_owner')
         .eq('user_id', u.id)
         .maybeSingle();
 
-      return {
-        role: 'rider',
-        isOwner: false,
-        isApprovedRider: data?.approved === true || u.user_metadata?.approved === true,
-      };
+      if (sub?.is_owner) {
+        return { role: 'owner', isOwner: true, isApprovedRider: false };
+      }
+
+      if (u.user_metadata?.role === 'rider') {
+        const { data } = await supabase
+          .from('rider_applications')
+          .select('approved')
+          .eq('user_id', u.id)
+          .maybeSingle();
+
+        return {
+          role: 'rider',
+          isOwner: false,
+          isApprovedRider: data?.approved === true || u.user_metadata?.approved === true,
+        };
+      }
+    } catch (err) {
+      console.warn('Metadata fetch warning:', err);
     }
 
     return { role: 'subscriber', isOwner: false, isApprovedRider: false };
   };
 
   const applyAuthAccess = async (u: User | null) => {
-    const access = await getAuthAccess(u);
-    setUserRole(access.role);
-    setIsOwner(access.isOwner);
-    setIsApprovedRider(access.isApprovedRider);
-    return access;
+    try {
+      const access = await getAuthAccess(u);
+      setUserRole(access.role);
+      setIsOwner(access.isOwner);
+      setIsApprovedRider(access.isApprovedRider);
+      return access;
+    } catch (e) {
+      setUserRole('subscriber');
+      setIsOwner(false);
+      setIsApprovedRider(false);
+      return { role: 'subscriber' as UserRole, isOwner: false, isApprovedRider: false };
+    }
   };
 
   useEffect(() => {
     let mounted = true;
-    // Global safety timeout: ensure loading finishes within 4 seconds
+    // Global safety timeout: ensure loading finishes within 1 second
     const safetyTimeout = setTimeout(() => {
       if (mounted && loading) {
         setLoading(false);
       }
-    }, 4000);
+    }, 1000);
 
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;

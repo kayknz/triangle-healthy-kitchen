@@ -1,4 +1,4 @@
-import { Health } from '@capgo/capacitor-health';
+import { Health, type HealthDataType } from '@capgo/capacitor-health';
 import { supabase } from '@/lib/supabase';
 import { getQatarStartOfDay, getUTCISO } from '@/lib/date-utils';
 
@@ -34,7 +34,9 @@ export const healthSyncStore = {
   subscribe(listener: Listener) {
     listeners.add(listener);
     listener(syncStatus);
-    return () => listeners.delete(listener);
+    return () => {
+      listeners.delete(listener);
+    };
   },
   getStatus: () => syncStatus,
 };
@@ -60,12 +62,13 @@ export const checkHealthAvailability = async (): Promise<boolean> => {
 };
 
 /**
- * Requests permissions for steps, distance, and activity (workouts).
+ * Requests permissions for steps, distance, calories, and weight.
  */
 export const requestHealthPermissions = async (): Promise<boolean> => {
   try {
+    const readTypes: HealthDataType[] = ['steps', 'distance', 'calories', 'weight'];
     const result = await Health.requestAuthorization({
-      read: ['steps', 'distance', 'workouts'],
+      read: readTypes,
     });
 
     const hasErrors = result.readDenied.length > 0;
@@ -102,27 +105,23 @@ export const syncHealthData = async () => {
     const startOfDay = getQatarStartOfDay();
     const endOfDay = getUTCISO();
 
-    // Query aggregated data for today
+    // Query samples for today
     const [stepsData, distanceData] = await Promise.all([
-      Health.queryAggregated({
+      Health.readSamples({
         dataType: 'steps',
         startDate: startOfDay,
         endDate: endOfDay,
-        bucket: 'day',
-        aggregation: 'sum',
       }),
-      Health.queryAggregated({
+      Health.readSamples({
         dataType: 'distance',
         startDate: startOfDay,
         endDate: endOfDay,
-        bucket: 'day',
-        aggregation: 'sum',
       }),
     ]);
 
-    // Sum values in case multiple samples returned (usually one per day for bucket: 'day')
-    const steps = stepsData.samples.reduce((sum, s) => sum + (s.value || 0), 0);
-    const distance = distanceData.samples.reduce((sum, s) => sum + (s.value || 0), 0);
+    // Sum values in case multiple samples returned
+    const steps = stepsData.samples.reduce((sum: number, s) => sum + (s.value || 0), 0);
+    const distance = distanceData.samples.reduce((sum: number, s) => sum + (s.value || 0), 0);
 
     const payload = {
       steps: Math.round(steps),

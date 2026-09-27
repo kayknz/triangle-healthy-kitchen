@@ -246,7 +246,14 @@ function AppContent() {
       {/* Modals always accessible */}
       <BookingFlow open={bookingOpen} onClose={() => setBookingOpen(false)} preselectedPackage={preselectedPackage} />
       <SubscriptionFlow open={subscribeOpen} onClose={() => setSubscribeOpen(false)} preselectedPackage={preselectedPackage} />
-      <SubscriberAuth isOpen={route === 'subscriber-auth'} onClose={() => { setRoute('home'); window.location.hash = ''; }} onSuccess={() => { setRoute('home'); window.location.hash = ''; }} />
+      <SubscriberAuth
+        isOpen={route === 'subscriber-auth'}
+        onClose={() => { setRoute('home'); window.location.hash = ''; }}
+        onSuccess={() => {
+          setRoute('subscriber-dashboard');
+          window.location.hash = 'account';
+        }}
+      />
       <ProviderAuth
         isOpen={route === 'provider-auth'}
         onClose={() => { setRoute('home'); window.location.hash = ''; }}

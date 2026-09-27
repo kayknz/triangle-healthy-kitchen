@@ -285,52 +285,52 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
           {currentStep.id === 'duration' && (
             <div className="space-y-12">
-               <h3 className="text-xl font-black uppercase italic text-primary">Plan Duration</h3>
+               <h3 className="text-xl font-black uppercase italic text-primary">{t('duration_protocol') || 'Plan Duration'}</h3>
                <div className="grid grid-cols-1 gap-6">
                   <div className="p-10 rounded-[3rem] border-2 border-primary bg-primary/5 text-primary shadow-xl">
-                     <p className="text-2xl font-black uppercase italic tracking-tighter mb-2">28 Days</p>
-                     <p className="text-[10px] font-black uppercase tracking-widest text-gold">4-Week Healthy Plan</p>
+                     <p className="text-2xl font-black uppercase italic tracking-tighter mb-2">{t('4_weeks_28_boxes') || '28 Days'}</p>
+                     <p className="text-[10px] font-black uppercase tracking-widest text-gold">{t('duration_monthly') || '4-Week Healthy Plan'}</p>
                   </div>
                </div>
             </div>
           )}
 
           {currentStep.id === 'address' && (
-            <div className="space-y-12 animate-reveal">
+            <div className="space-y-12 animate-reveal" dir={isRtl ? 'rtl' : 'ltr'}>
                <div className="flex flex-col gap-6">
-                  <h3 className="text-xl font-black uppercase italic text-primary">Delivery Address</h3>
+                  <h3 className="text-xl font-black uppercase italic text-primary">{t('shipment_logistics') || 'Delivery Address'}</h3>
                   <button
                     onClick={detectLocation}
                     disabled={locating}
                     className={`w-full flex items-center justify-center gap-4 bg-white border border-primary/10 py-8 rounded-[2.5rem] text-[11px] font-black uppercase tracking-[0.4em] shadow-xl active:scale-95 group disabled:opacity-50 ${locating ? 'animate-pulse' : ''}`}
                   >
                     {locating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Navigation className="w-5 h-5 text-[#C5A059] group-hover:animate-pulse" />}
-                    {locating ? 'Checking...' : 'Find my location'}
+                    {locating ? t('syncing') : (t('find_location') || 'Find my location')}
                   </button>
                </div>
 
                <div className="grid grid-cols-1 gap-6 pt-8 border-t border-primary/5">
                   <div className="space-y-3">
-                     <p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Building / Unit</p>
-                     <input type="text" placeholder="BUILDING NUMBER" value={address.building_number} onChange={(e) => setAddress({...address, building_number: e.target.value})} className="input-field py-7 font-black bg-white/60" />
+                     <p className="text-[9px] font-black uppercase tracking-widest text-primary/40">{t('building') || 'Building / Unit'}</p>
+                     <input type="text" placeholder={t('building_number_placeholder') || "BUILDING NUMBER"} value={address.building_number} onChange={(e) => setAddress({...address, building_number: e.target.value})} className={`input-field py-7 font-black bg-white/60 ${isRtl ? 'text-right' : 'text-left'}`} />
                   </div>
                   <div className="space-y-3">
-                     <p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Street Name</p>
-                     <input type="text" placeholder="STREET NAME" value={address.street} onChange={(e) => setAddress({...address, street: e.target.value})} className="input-field py-7 font-black bg-white/60" />
+                     <p className="text-[9px] font-black uppercase tracking-widest text-primary/40">{t('street') || 'Street Name'}</p>
+                     <input type="text" placeholder={t('street_name_placeholder') || "STREET NAME"} value={address.street} onChange={(e) => setAddress({...address, street: e.target.value})} className={`input-field py-7 font-black bg-white/60 ${isRtl ? 'text-right' : 'text-left'}`} />
                   </div>
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-3">
-                       <p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Zone</p>
-                       <input type="text" placeholder="ZONE" value={address.zone} onChange={(e) => setAddress({...address, zone: e.target.value})} className="input-field py-7 font-black bg-white/60" />
+                       <p className="text-[9px] font-black uppercase tracking-widest text-primary/40">{t('zone_number') || 'Zone'}</p>
+                       <input type="text" placeholder={t('zone_placeholder') || "ZONE"} value={address.zone} onChange={(e) => setAddress({...address, zone: e.target.value})} className={`input-field py-7 font-black bg-white/60 ${isRtl ? 'text-right' : 'text-left'}`} />
                     </div>
                     <div className="space-y-3">
-                       <p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Area</p>
-                       <input type="text" placeholder="AREA" value={address.area} onChange={(e) => setAddress({...address, area: e.target.value})} className="input-field py-7 font-black bg-white/60" />
+                       <p className="text-[9px] font-black uppercase tracking-widest text-primary/40">{t('area_name') || 'Area'}</p>
+                       <input type="text" placeholder={t('area_placeholder') || "AREA"} value={address.area} onChange={(e) => setAddress({...address, area: e.target.value})} className={`input-field py-7 font-black bg-white/60 ${isRtl ? 'text-right' : 'text-left'}`} />
                     </div>
                   </div>
                   {(!address.building_number || !address.street) && !locating && (
-                    <p className="text-[9px] font-bold text-gold uppercase tracking-widest animate-pulse ml-2">
-                      Please enter your address to proceed.
+                    <p className="text-[9px] font-bold text-gold uppercase tracking-widest animate-pulse">
+                      {t('address_required') || 'Please enter your address to proceed.'}
                     </p>
                   )}
                </div>
@@ -338,23 +338,23 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
           )}
 
           {currentStep.id === 'identity' && (
-            <div className="space-y-12">
-               <h3 className="text-xl font-black uppercase italic text-primary">Create Account</h3>
+            <div className="space-y-12" dir={isRtl ? 'rtl' : 'ltr'}>
+               <h3 className="text-xl font-black uppercase italic text-primary">{t('create_account') || 'Create Account'}</h3>
                <div className="grid grid-cols-1 gap-8">
                   <div className="space-y-3">
-                     <p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Email</p>
-                     <input type="email" placeholder="EMAIL ADDRESS" value={email} onChange={(e) => setEmail(e.target.value)} className="input-field py-7 font-black bg-white/60" />
+                     <p className="text-[9px] font-black uppercase tracking-widest text-primary/40">{t('email_address') || 'Email'}</p>
+                     <input type="email" placeholder={t('enter_email') || "EMAIL ADDRESS"} value={email} onChange={(e) => setEmail(e.target.value)} className={`input-field py-7 font-black bg-white/60 ${isRtl ? 'text-right' : 'text-left'}`} />
                   </div>
                   <div className="space-y-3">
-                     <p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Password</p>
-                     <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="input-field py-7 font-black bg-white/60" />
+                     <p className="text-[9px] font-black uppercase tracking-widest text-primary/40">{t('secure_passkey') || 'Password'}</p>
+                     <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className={`input-field py-7 font-black bg-white/60 ${isRtl ? 'text-right' : 'text-left'}`} />
                   </div>
                </div>
             </div>
           )}
 
           {currentStep.id === 'payment' && (
-            <div className="space-y-8">
+            <div className="space-y-8" dir={isRtl ? 'rtl' : 'ltr'}>
                <div className="grid grid-cols-1 gap-4">
                   {PAYMENT_METHODS.map((method) => (
                     <button
@@ -367,11 +367,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${selectedPayment === method.id ? 'bg-white/10' : 'bg-primary/5'}`}>
                           <method.icon className={`w-7 h-7 ${selectedPayment === method.id ? 'text-gold' : 'text-primary'}`} />
                        </div>
-                       <div className="text-left">
-                          <p className="text-lg font-black uppercase tracking-tight italic leading-none">{method.label}</p>
-                          <p className={`text-[9px] uppercase tracking-[0.2em] mt-2 ${selectedPayment === method.id ? 'text-white/60' : 'text-primary/40'}`}>{method.sub}</p>
+                       <div className={isRtl ? 'text-right' : 'text-left'}>
+                          <p className="text-lg font-black uppercase tracking-tight italic leading-none">{t(method.id) || method.label}</p>
+                          <p className={`text-[9px] uppercase tracking-[0.2em] mt-2 ${selectedPayment === method.id ? 'text-white/60' : 'text-primary/40'}`}>{t(method.id + '_desc') || method.sub}</p>
                        </div>
-                       {selectedPayment === method.id && <div className="ml-auto w-6 h-6 rounded-full bg-gold flex items-center justify-center"><Check className="w-3.5 h-3.5 text-primary" /></div>}
+                       {selectedPayment === method.id && <div className={`${isRtl ? 'mr-auto' : 'ml-auto'} w-6 h-6 rounded-full bg-gold flex items-center justify-center`}><Check className="w-3.5 h-3.5 text-primary" /></div>}
                     </button>
                   ))}
                </div>
@@ -380,20 +380,20 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   <button type="button" onClick={() => setTermsAccepted(!termsAccepted)} className={`mt-0.5 w-10 h-10 rounded-[1.2rem] border-2 flex items-center justify-center transition-all ${termsAccepted ? 'border-primary bg-primary shadow-xl scale-110' : 'border-primary/10 bg-white'}`}>
                     {termsAccepted && <Check className="w-6 h-6 text-white" />}
                   </button>
-                  <span className="text-primary/40 text-[12px] italic font-medium leading-relaxed pt-1">I agree to the terms and the auto-renewal billing cycles.</span>
+                  <span className="text-primary/40 text-[12px] italic font-medium leading-relaxed pt-1">{t('terms_autorenewal') || 'I agree to the terms and the auto-renewal billing cycles.'}</span>
                 </label>
             </div>
           )}
 
           {currentStep.id === 'audit' && (
-            <div className="space-y-10">
+            <div className="space-y-10" dir={isRtl ? 'rtl' : 'ltr'}>
                <div className="glass-card p-0 overflow-hidden border-primary/10 bg-white/40 shadow-4xl rounded-[4rem]">
-                  <ReviewRow label="Selected Plan" value={t(pkg?.id || '')} />
-                  <ReviewRow label="Meal Cycle" value="28 Days" />
+                  <ReviewRow label={t('selected_plan') || "Selected Plan"} value={t(pkg?.id || '')} />
+                  <ReviewRow label={t('meal_cycle') || "Meal Cycle"} value={t('4_weeks_28_boxes') || "28 Days"} />
                </div>
                <div className="bg-primary rounded-[4rem] p-12 text-white flex items-center justify-between shadow-4xl relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-48 h-48 bg-gold/10 rounded-full blur-[80px]" />
-                  <div className="relative z-10"><p className="text-gold text-[10px] font-black uppercase tracking-[0.5em] mb-3">Total Cost</p><p className="text-6xl font-black italic tracking-tighter leading-none">{pkg?.price || 0} <span className="text-sm opacity-40 uppercase not-italic ml-2 tracking-widest font-sans">QAR</span></p></div>
+                  <div className="relative z-10"><p className="text-gold text-[10px] font-black uppercase tracking-[0.5em] mb-3">{t('total_cost') || "Total Cost"}</p><p className="text-6xl font-black italic tracking-tighter leading-none">{pkg?.price || 0} <span className="text-sm opacity-40 uppercase not-italic ml-2 tracking-widest font-sans">{t('qar')}</span></p></div>
                   <Banknote className="w-20 h-20 text-gold animate-glow relative z-10" />
                </div>
             </div>
@@ -401,10 +401,10 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         </div>
 
         <div className={`px-12 py-10 border-t border-primary/5 flex items-center justify-between bg-white/80 backdrop-blur-md flex-shrink-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
-          <button onClick={() => { safeHaptics.impact(); setStep(s => s - 1); }} disabled={step === 0} className="text-[11px] font-black uppercase tracking-[0.5em] text-primary/30 hover:text-primary transition-colors disabled:opacity-0">Back</button>
+          <button onClick={() => { safeHaptics.impact(); setStep(s => s - 1); }} disabled={step === 0} className="text-[11px] font-black uppercase tracking-[0.5em] text-primary/30 hover:text-primary transition-colors disabled:opacity-0">{t('back')}</button>
           <button onClick={step === STEPS.length - 1 ? handleSubscribe : handleNext} disabled={submitting} className="btn-primary !px-16 !py-7 text-[11px] tracking-[0.5em] shadow-4xl active:scale-95 flex items-center gap-6 transition-all group">
-            {step === STEPS.length - 1 ? 'AUTHORIZE' : 'PROCEED'}
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            {step === STEPS.length - 1 ? (t('authorize') || 'AUTHORIZE') : (t('proceed') || 'PROCEED')}
+            <ArrowRight className={`w-5 h-5 ${isRtl ? 'rotate-180 group-hover:-translate-x-1' : 'group-hover:translate-x-1'} transition-transform`} />
           </button>
         </div>
       </div>
