@@ -17,11 +17,13 @@ CREATE TABLE IF NOT EXISTS public.payment_transactions (
 ALTER TABLE public.payment_transactions ENABLE ROW LEVEL SECURITY;
 
 -- Only service_role and providers can see all transactions
+DROP POLICY IF EXISTS "providers_select_all_transactions" ON public.payment_transactions;
 CREATE POLICY "providers_select_all_transactions"
   ON public.payment_transactions FOR SELECT
   TO authenticated
   USING (public.is_provider());
 
+DROP POLICY IF EXISTS "users_select_own_transactions" ON public.payment_transactions;
 CREATE POLICY "users_select_own_transactions"
   ON public.payment_transactions FOR SELECT
   TO authenticated
@@ -40,12 +42,14 @@ CREATE TABLE IF NOT EXISTS public.payment_logs (
 ALTER TABLE public.payment_logs ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON public.payment_logs TO authenticated;
 -- Only providers can read logs
+DROP POLICY IF EXISTS "providers_select_logs" ON public.payment_logs;
 CREATE POLICY "providers_select_logs" ON public.payment_logs
   FOR SELECT TO authenticated USING (public.is_provider());
 
 -- 3. Idempotency Constraint on Subscribers
 -- Prevent concurrent updates to subscription status
 ALTER TABLE public.subscribers ADD COLUMN IF NOT EXISTS last_payment_id text;
+ALTER TABLE public.subscribers ADD COLUMN IF NOT EXISTS payment_provider text;
 
 -- 4. Unique Index for Idempotency in transactions
 -- (Already handled by UNIQUE on tap_charge_id)

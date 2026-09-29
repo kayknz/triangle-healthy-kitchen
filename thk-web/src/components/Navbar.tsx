@@ -23,23 +23,24 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const accountPath = accessMode === 'work'
-    ? (userRole === 'owner' ? '/dashboard' : '/rider')
-    : '/account';
+  const isOperationsStaff = !!userRole && ['owner', 'ceo', 'admin', 'kitchen', 'transport'].includes(userRole);
+  const accountPath = isOperationsStaff ? '/dashboard' : userRole === 'rider' ? '/rider' : '/account';
 
   const handleSignOut = async () => {
     await signOut();
     window.location.href = '/login';
   };
 
-  const navLinks = [
-    { label: t('nav_home'), path: '/' },
-    { label: t('nav_menu'), path: user ? '/account' : '/menu' },
-    { label: t('nav_packages'), path: '/plans' },
-    { label: t('Community'), path: '/community' },
-    { label: t('Rewards'), path: '/rewards' },
-    { label: t('nav_book'), onClick: () => { setIsOpen(false); onBookClick(); } }
-  ];
+  const navLinks = isOperationsStaff
+    ? [{ label: t('nav_dashboard'), path: '/dashboard' }]
+    : [
+      { label: t('nav_home'), path: '/' },
+      { label: t('nav_menu'), path: user ? (userRole === 'rider' ? '/rider' : '/account') : '/menu' },
+      { label: t('nav_packages'), path: '/plans' },
+      { label: t('Community'), path: '/community' },
+      { label: t('Rewards'), path: '/rewards' },
+      { label: t('nav_book'), onClick: () => { setIsOpen(false); onBookClick(); } }
+    ];
 
   return (
     <header
@@ -120,7 +121,7 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
                   className="btn-primary !py-3 !px-6 text-[9px] shadow-lg whitespace-nowrap flex items-center gap-2 min-w-fit"
                 >
                   <UserCircle className="w-3.5 h-3.5" />
-                  <span className="tracking-[0.1em]">{accessMode === 'work' ? (userRole === 'owner' ? 'COMMAND' : 'RIDER OPS') : 'MY PLAN'}</span>
+                  <span className="tracking-[0.1em]">{isOperationsStaff ? (userRole === 'owner' ? 'COMMAND' : 'OPERATIONS') : userRole === 'rider' ? 'RIDER OPS' : 'MY PLAN'}</span>
                 </Link>
                 <button
                   onClick={handleSignOut}
@@ -185,17 +186,6 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
                   )
                 ))}
 
-                {userRole === 'owner' && (
-                  <Link
-                    to="/rider"
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-3 text-[9px] font-black text-gold uppercase tracking-[0.2em] mt-4 p-4 rounded-2xl bg-gold/5 border border-gold/10 whitespace-nowrap"
-                  >
-                    <Truck className="w-4 h-4" />
-                    Rider Rosie View
-                  </Link>
-                )}
-
                 {hasDualAccess && (
                   <button
                     onClick={() => { setAccessMode(accessMode === 'work' ? 'personal' : 'work'); setIsOpen(false); }}
@@ -216,7 +206,7 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
                 ) : (
                   <>
                     <Link to={accountPath} onClick={() => setIsOpen(false)} className="w-full btn-primary py-5 text-center text-[10px] tracking-[0.3em] block shadow-2xl">
-                       {accessMode === 'work' ? (userRole === 'owner' ? 'COMMAND CENTER' : 'RIDER OPS') : 'MY SUBSCRIPTION'}
+                       {isOperationsStaff ? 'OPERATIONS' : userRole === 'rider' ? 'RIDER OPS' : 'MY SUBSCRIPTION'}
                     </Link>
                     <button onClick={() => { setIsOpen(false); handleSignOut(); }} className="w-full text-center py-4 text-[9px] font-black uppercase tracking-[0.5em] text-red-500/60 hover:text-red-600 transition-colors">Log Out</button>
                   </>

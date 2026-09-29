@@ -10,7 +10,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const TAP_WEBHOOK_SECRET = Deno.env.get("TAP_WEBHOOK_SECRET");
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   throw new Error("Supabase configuration missing.");
@@ -144,14 +143,9 @@ function buildTapHashString(event: any): string {
 async function verifyTapWebhook(
   event: any,
   providedHash: string,
+  secretKey: string,
 ): Promise<boolean> {
-  if (!TAP_WEBHOOK_SECRET) {
-    console.error(
-      "CRITICAL: TAP_WEBHOOK_SECRET is not configured.",
-    );
-
-    return false;
-  }
+  if (!secretKey) return false;
 
   if (!providedHash) {
     return false;
@@ -170,7 +164,7 @@ async function verifyTapWebhook(
 
   const key = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(TAP_WEBHOOK_SECRET),
+    encoder.encode(secretKey),
     {
       name: "HMAC",
       hash: "SHA-256",
@@ -209,25 +203,15 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // -------------------------------------------------------
-    // 1. FAIL CLOSED IF WEBHOOK SECRET IS MISSING
-    // -------------------------------------------------------
-
-    if (!TAP_WEBHOOK_SECRET) {
-      console.error(
-        "CRITICAL: TAP_WEBHOOK_SECRET missing.",
-      );
-
-      return jsonResponse(
-        {
-          error: "Webhook configuration unavailable.",
-        },
-        500,
-      );
+    const { data: tapConfig, error: tapConfigError } = await supabase.rpc("get_tap_config");
+    const tapSecretKey = tapConfig?.api_key;
+    if (tapConfigError || typeof tapSecretKey !== "string" || !tapSecretKey) {
+      console.error("Tap webhook configuration unavailable.", tapConfigError?.message);
+      return jsonResponse({ error: "Webhook configuration unavailable." }, 500);
     }
 
     // -------------------------------------------------------
-    // 2. READ RAW WEBHOOK BODY
+    // 1. READ RAW WEBHOOK BODY
     // -------------------------------------------------------
 
     const rawBody = await req.text();
@@ -276,10 +260,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const signatureValid = await verifyTapWebhook(
-      event,
-      tapHash,
-    );
+    const signatureValid = await verifyTapWebhook(event, tapHash, tapSecretKey);
 
     if (!signatureValid) {
       console.error(
@@ -342,7 +323,7 @@ Deno.serve(async (req: Request) => {
     } = await supabase
       .from("payment_transactions")
       .select(
-        "id, subscriber_id, amount, currency, status, tap_charge_id",
+        "id, subscriber_id, amount, currency, status, tap_charge_id, metadata",
       )
       .eq("tap_charge_id", chargeId)
       .maybeSingle();
@@ -527,6 +508,22 @@ Deno.serve(async (req: Request) => {
         },
         400,
       );
+    }
+
+    // Persist onboarding meal choices from our own transaction metadata only
+    // after Tap's signed webhook confirms capture. Ignore duplicates so a
+    // retried webhook cannot overwrite later customer edits.
+    if (status === "CAPTURED" && Array.isArray((tx.metadata as Record<string, unknown>)?.initial_menu_selections)) {
+      const choices = ((tx.metadata as Record<string, unknown>).initial_menu_selections as Record<string, unknown>[])
+        .filter((choice) => choice && typeof choice === "object")
+        .map((choice) => ({ ...choice, subscriber_id: tx.subscriber_id }));
+      if (choices.length) {
+        const { error: initialMenuError } = await supabase.from("weekly_menu_selections").upsert(choices, {
+          onConflict: "subscriber_id,week_start_date,day_of_week,meal_type",
+          ignoreDuplicates: true,
+        });
+        if (initialMenuError) throw new Error(`Initial menu selection persistence failed: ${initialMenuError.message}`);
+      }
     }
 
     // -------------------------------------------------------

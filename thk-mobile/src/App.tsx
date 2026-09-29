@@ -1,10 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Calendar, Users, Gift, User as UserIcon } from 'lucide-react';
+import { Calendar, Users, Gift, User as UserIcon, ExternalLink } from 'lucide-react';
 import Home from '@/pages/Home';
 import Navbar from '@/components/Navbar';
 import BookingFlow from '@/components/BookingFlow';
 import ProviderAuth from '@/components/ProviderAuth';
-import ProviderDashboard from '@/components/ProviderDashboard';
 import RiderDashboard from '@/components/RiderDashboard';
 import SubscriptionFlow from '@/components/SubscriptionFlow';
 import SubscriberAuth from '@/components/SubscriberAuth';
@@ -14,16 +13,22 @@ import RewardsPage from '@/pages/RewardsPage';
 import LegalPage from '@/components/LegalPage';
 import OnboardingFlow from '@/components/OnboardingFlow';
 import MyRhythm from '@/components/MyRhythm';
-import SplashScreenComponent from '@/components/SplashScreen';
 import SecuringProtocol from '@/components/SecuringProtocol';
 import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { supabase } from '@/lib/supabase';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { LanguageProvider, useLanguage } from '@/lib/LanguageContext';
 
-type Route = 'home' | 'provider-auth' | 'provider-dashboard' | 'rider-dashboard' | 'subscriber-auth' | 'subscriber-dashboard' | 'today' | 'community' | 'rewards' | 'privacy' | 'terms';
+type Route = 'home' | 'provider-auth' | 'operations-web' | 'rider-dashboard' | 'subscriber-auth' | 'subscriber-dashboard' | 'today' | 'community' | 'rewards' | 'privacy' | 'terms';
+
+const OPERATIONS_WEB_URL = import.meta.env.VITE_OPERATIONS_WEB_URL || 'https://trianglehealthy-kitchen.vercel.app';
+const getSignedInRoute = (role: string | null | undefined): Route =>
+  role === 'driver' || role === 'rider' ? 'rider-dashboard'
+    : ['ceo', 'admin', 'kitchen', 'transport', 'owner'].includes(role || '') ? 'operations-web'
+      : 'subscriber-dashboard';
 
 function AppContent() {
   const { session, loading: authLoading, user, userRole } = useAuth();
@@ -97,8 +102,8 @@ function AppContent() {
     const handleDeepLink = (event: any) => {
       const url = new URL(event.url);
       const path = url.pathname + url.hash;
-      if (path.includes('dashboard')) {
-        setRoute(userRole === 'rider' ? 'rider-dashboard' : 'provider-dashboard');
+      if (path.includes('dashboard') || path.includes('provider')) {
+        setRoute(getSignedInRoute(userRole));
       } else if (path.includes('my-plan') || path.includes('account')) {
         setRoute('subscriber-dashboard');
       } else if (path.includes('today')) {
@@ -127,9 +132,12 @@ function AppContent() {
       const target = hash || path;
 
       if (target === '#provider' || target === '#dashboard' || target === '/provider') {
-        setRoute(session ? (userRole === 'rider' ? 'rider-dashboard' : 'provider-dashboard') : 'provider-auth');
-      } else if (target === '#subscribe' || target === '#my-plan' || target === '#account' || target === '/my-plan') {
-        setRoute(session ? 'subscriber-dashboard' : 'subscriber-auth');
+        setRoute(session ? getSignedInRoute(userRole) : 'provider-auth');
+      } else if (target === '#subscribe') {
+        setRoute(session ? getSignedInRoute(userRole) : 'subscriber-auth');
+        if (session && (userRole === 'subscriber' || userRole === 'customer')) setSubscribeOpen(true);
+      } else if (target === '#my-plan' || target === '#account' || target === '/my-plan') {
+        setRoute(session ? getSignedInRoute(userRole) : 'subscriber-auth');
       } else if (target === '#today' || target === '/today') {
         setRoute(session ? 'today' : 'subscriber-auth');
       } else if (target === '#community' || target === '/community') {
@@ -191,10 +199,16 @@ function AppContent() {
     setSubscribeOpen(true);
   }, []);
 
+  // Precise Role Route Guard
   useEffect(() => {
     if (!authLoading && session && route === 'home') {
-      if (userRole === 'rider') setRoute('rider-dashboard');
-      else setRoute('subscriber-dashboard');
+      if (userRole === 'driver' || userRole === 'rider') {
+        setRoute('rider-dashboard');
+      } else if (['ceo', 'admin', 'kitchen', 'transport', 'owner'].includes(userRole || '')) {
+        setRoute('operations-web');
+      } else {
+        setRoute('subscriber-dashboard');
+      }
     }
   }, [authLoading, session, userRole, route]);
 
@@ -203,7 +217,7 @@ function AppContent() {
   }
 
   // Onboarding ONLY for subscribers
-  if (session && !onboardingComplete && userRole === 'subscriber') {
+  if (session && !onboardingComplete && (userRole === 'subscriber' || userRole === 'customer')) {
     return <OnboardingFlow onComplete={() => setOnboardingComplete(true)} />;
   }
 
@@ -231,15 +245,22 @@ function AppContent() {
         <span className="text-[9px] uppercase tracking-widest" style={{ fontFamily: "'Manrope', sans-serif" }}>{t('Rewards') || 'Rewards'}</span>
       </button>
       <button
-        onClick={() => { setRoute('subscriber-dashboard'); window.location.hash = 'account'; }}
-        className={`flex flex-col items-center gap-1 transition-all ${route === 'subscriber-dashboard' ? 'text-[#C5A059] scale-105 font-bold' : 'text-[#F5F3EB]/50 hover:text-[#F5F3EB]'}`}
+        onClick={() => {
+          if (['ceo', 'admin', 'kitchen', 'transport', 'owner'].includes(userRole || '')) {
+            setRoute('operations-web');
+            window.location.hash = 'dashboard';
+          } else {
+            setRoute('subscriber-dashboard');
+            window.location.hash = 'account';
+          }
+        }}
+        className={`flex flex-col items-center gap-1 transition-all ${route === 'subscriber-dashboard' || route === 'operations-web' ? 'text-[#C5A059] scale-105 font-bold' : 'text-[#F5F3EB]/50 hover:text-[#F5F3EB]'}`}
       >
         <UserIcon className="w-5 h-5" />
         <span className="text-[9px] uppercase tracking-widest" style={{ fontFamily: "'Manrope', sans-serif" }}>{t('Profile') || 'Profile'}</span>
       </button>
     </nav>
   );
-
 
   return (
     <>
@@ -258,8 +279,8 @@ function AppContent() {
         isOpen={route === 'provider-auth'}
         onClose={() => { setRoute('home'); window.location.hash = ''; }}
         onSuccess={(role) => {
-          setRoute(role === 'rider' ? 'rider-dashboard' : 'provider-dashboard');
-          window.location.hash = role === 'rider' ? '#rider' : '#dashboard';
+          setRoute(getSignedInRoute(role));
+          window.location.hash = role === 'driver' || role === 'rider' ? '#rider' : '#dashboard';
         }}
       />
 
@@ -268,7 +289,18 @@ function AppContent() {
       {route === 'subscriber-auth' && <Home onBookClick={openBooking} onSubscribeClick={openSubscribe} />}
       {route === 'provider-auth' && <Home onBookClick={openBooking} onSubscribeClick={openSubscribe} />}
 
-      {route === 'provider-dashboard' && <ProviderDashboard onExit={() => setRoute('home')} />}
+      {route === 'operations-web' && (
+        <main className="min-h-[70vh] bg-[#F5F3EB] px-6 py-16 flex items-center justify-center">
+          <section className="w-full max-w-lg rounded-[2rem] border border-[#0a3030]/10 bg-white p-8 text-center shadow-xl">
+            <ExternalLink className="mx-auto mb-5 h-9 w-9 text-[#C5A059]" />
+            <h1 className="mb-3 text-xl font-black uppercase italic text-[#0a3030]">Operations are managed on THK Web</h1>
+            <p className="mb-7 text-sm leading-6 text-gray-500">CEO, admin, kitchen, and transport tools are available in the web operations portal. Drivers continue using this app.</p>
+            <button onClick={() => void Browser.open({ url: `${OPERATIONS_WEB_URL}/login` })} className="rounded-2xl bg-[#0a3030] px-7 py-4 text-xs font-black uppercase tracking-widest text-white">
+              Open operations portal
+            </button>
+          </section>
+        </main>
+      )}
       {route === 'rider-dashboard' && <RiderDashboard onExit={() => setRoute('home')} />}
 
       {route === 'today' && (

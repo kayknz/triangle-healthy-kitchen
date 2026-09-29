@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Loader2, Mail, Lock, User, KeyRound, CheckCircle2, AlertCircle } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
+import { Loader2, Lock, User, KeyRound, CheckCircle2, AlertCircle, Smartphone, Mail } from 'lucide-react';
+import { useAuth, normalizePhoneNumber } from '@/lib/auth';
 import { useLanguage } from '@/lib/LanguageContext';
 import EditorialPanel from './EditorialPanel';
 
@@ -13,15 +13,46 @@ interface SubscriberAuthProps {
 type Mode = 'signin' | 'signup' | 'forgot';
 
 export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: SubscriberAuthProps) {
-  const { signIn, signUp, resetPassword } = useAuth();
+  const { signIn, signInPhone, signUp, completePhoneSignup, sendOtp, verifyOtp, resetPassword } = useAuth();
   const { t, isRtl } = useLanguage();
   const [mode, setMode] = useState<Mode>('signup');
-  const [email, setEmail] = useState('');
+
+  // Single Identifier Input (Email or Mobile)
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+
+  // OTP Step State
+  const [otpStep, setOtpStep] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
+
+  const isEmail = identifier.includes('@');
+  const formattedPhone = !isEmail ? normalizePhoneNumber(identifier) : '';
+
+  const handleSendOtp = async () => {
+    if (!identifier.trim()) {
+      setError(t('enter_valid_identifier') || 'Please enter your email or mobile phone number.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await sendOtp(formattedPhone || identifier, 'registration');
+      if (res.ok) {
+        setOtpStep(true);
+      } else {
+        setError(res.message);
+      }
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +62,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
 
     try {
       if (mode === 'forgot') {
-        const result = await resetPassword(email);
+        const result = await resetPassword(identifier);
         if (result.error) {
           setError(result.error);
         } else {
@@ -45,14 +76,42 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
           setError(t('password_length_error') || 'Password must be at least 6 characters.');
           return;
         }
-        const result = await signUp(email, password, name);
+
+        if (!isEmail && !otpStep) {
+          await handleSendOtp();
+          return;
+        }
+
+        if (!isEmail && otpStep) {
+          const verify = await verifyOtp(formattedPhone || identifier, otpCode, 'registration');
+          if (!verify.ok) {
+            setError(verify.error || 'Invalid code.');
+            return;
+          }
+          const result = await completePhoneSignup(formattedPhone || identifier, password, name);
+          if (result.error) {
+            setError(result.error);
+          } else {
+            onSuccess();
+          }
+          return;
+        }
+
+        const result = await signUp(isEmail ? identifier : '', password, name, 'customer', !isEmail ? formattedPhone || identifier : '');
         if (result.error) {
           setError(result.error);
         } else {
           onSuccess();
         }
       } else {
-        const result = await signIn(email, password);
+        // Sign In (Single OR situation)
+        let result;
+        if (isEmail) {
+          result = await signIn(identifier.trim(), password);
+        } else {
+          result = await signInPhone(formattedPhone || identifier.trim(), password);
+        }
+
         if (result.error) {
           setError(result.error);
         } else {
@@ -74,8 +133,8 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
       badge={t('essential_plan_access') || 'Active Plan'}
       maxWidth="max-w-md"
     >
-      <div className="p-8 sm:p-10" dir={isRtl ? 'rtl' : 'ltr'}>
-        <div className="text-center mb-10">
+      <div className="p-6 sm:p-10" dir={isRtl ? 'rtl' : 'ltr'}>
+        <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-[2rem] bg-[#0a3030] flex items-center justify-center mx-auto mb-6 shadow-xl border border-white/10">
             <span className="text-[#C5A059] font-black text-xl italic">TK</span>
           </div>
@@ -83,7 +142,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
             {mode === 'signup' ? (t('start_your_plan') || 'Start Your Plan') : mode === 'signin' ? (t('welcome_back') || 'Welcome Back') : (t('password_recovery') || 'Password Recovery')}
           </h2>
           <p className="text-gray-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-3">
-            {mode === 'signup' ? (t('join_triangle_desc') || 'Join Triangle Healthy Kitchen') : mode === 'signin' ? (t('access_plan_desc') || 'Access your meal plan & account') : (t('reset_email_desc') || 'Enter your email to receive a reset link')}
+            {mode === 'signup' ? (t('join_triangle_desc') || 'Join Triangle Healthy Kitchen') : mode === 'signin' ? (t('access_plan_desc') || 'Access your meal plan & account') : (t('reset_email_desc') || 'Enter your email or phone to receive a reset link')}
           </p>
         </div>
 
@@ -97,12 +156,12 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
         {resetSent && (
           <div className="mb-6 bg-emerald-50 border border-emerald-100 rounded-2xl px-5 py-4 text-emerald-700 text-xs font-semibold flex items-start gap-3 animate-in">
             <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-emerald-500" />
-            <span>{t('reset_link_sent') || 'Password reset link sent to your email.'}</span>
+            <span>{t('reset_link_sent') || 'Password reset link sent.'}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {mode === 'signup' && (
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {mode === 'signup' && !otpStep && (
             <div className="space-y-2">
               <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
                 {t('full_name') || 'Full Name'}
@@ -121,24 +180,56 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
             </div>
           )}
 
-          <div className="space-y-2">
-            <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
-              {t('email_address') || 'Email Address'}
-            </label>
-            <div className="relative">
-              <Mail className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={t('email_address') || 'Email Address'}
-                className={`w-full bg-white border border-gray-100 rounded-2xl py-4 text-sm font-bold focus:border-[#0a3030] transition-all ${isRtl ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'}`}
-                required
-              />
+          {/* Unified Input: Email or Phone */}
+          {!otpStep && (
+            <div className="space-y-2">
+              <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
+                {t('email_or_phone') || 'Email or Mobile Number'}
+              </label>
+              <div className="relative">
+                {isEmail ? (
+                  <Mail className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
+                ) : (
+                  <Smartphone className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-[#C5A059] ${isRtl ? 'right-4' : 'left-4'}`} />
+                )}
+                <input
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="email@example.com or +974 3312 3456"
+                  className={`w-full bg-white border border-gray-100 rounded-2xl py-4 text-sm font-bold focus:border-[#0a3030] transition-all ${isRtl ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'}`}
+                  required
+                />
+              </div>
             </div>
-          </div>
+          )}
 
-          {mode !== 'forgot' && (
+          {/* OTP Verification Input Step for Phone */}
+          {otpStep && (
+            <div className="space-y-4 animate-in">
+              <div className="text-center">
+                <p className="text-[#0a3030] text-xs font-bold">
+                  Code sent to <span className="font-black">{formattedPhone || identifier}</span>
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40 text-center block">
+                  6-Digit Verification Code
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  placeholder="123456"
+                  className="w-full bg-white border border-gray-100 rounded-2xl py-4 text-center text-xl font-black tracking-[0.5em] text-[#0a3030] outline-none"
+                  required
+                />
+              </div>
+            </div>
+          )}
+
+          {mode !== 'forgot' && !otpStep && (
             <div className="space-y-2">
               <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
                 {t('secure_passkey') || 'Password'}
@@ -162,14 +253,26 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
             disabled={loading}
             className="w-full bg-[#0a3030] text-white font-black py-5 rounded-[2rem] text-[11px] uppercase tracking-[0.4em] transition-all hover:shadow-2xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'signup' ? (t('start_today') || 'Start Plan') : mode === 'signin' ? (t('sign_in') || 'Sign In') : (t('send_reset_link') || 'Send Reset Link'))}
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : otpStep ? (
+              <>Verify & Start Plan <CheckCircle2 className="w-4 h-4" /></>
+            ) : mode === 'signup' && !isEmail ? (
+              <>Send Verification Code</>
+            ) : mode === 'signup' ? (
+              (t('start_today') || 'Start Plan')
+            ) : mode === 'signin' ? (
+              (t('sign_in') || 'Sign In')
+            ) : (
+              (t('send_reset_link') || 'Send Reset Link')
+            )}
           </button>
         </form>
 
-        <div className="mt-10 space-y-6 text-center">
+        <div className="mt-8 space-y-6 text-center">
           {mode === 'signin' && (
             <button
-              onClick={() => { setMode('forgot'); setError(null); setResetSent(false); }}
+              onClick={() => { setMode('forgot'); setError(null); setResetSent(false); setOtpStep(false); }}
               className="text-gray-400 hover:text-[#0a3030] text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 w-full"
             >
               <KeyRound className="w-4 h-4 opacity-40" /> {t('forgot_password_q') || 'Forgot password?'}
@@ -182,6 +285,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
                 setMode(mode === 'signup' ? 'signin' : 'signup');
                 setError(null);
                 setResetSent(false);
+                setOtpStep(false);
               }}
               className="text-[#0a3030] text-[10px] font-black uppercase tracking-widest hover:underline"
             >

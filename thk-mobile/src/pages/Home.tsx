@@ -14,7 +14,7 @@ interface HomeProps {
 }
 
 export default function Home({ onBookClick, onSubscribeClick }: HomeProps) {
-  const { t, isRtl } = useLanguage();
+  const { t } = useLanguage();
 
   return (
     <div className="bg-[#F5F3EB] min-h-screen text-[#123F38]" style={{ fontFamily: "'Manrope', sans-serif" }}>
@@ -78,8 +78,7 @@ export default function Home({ onBookClick, onSubscribeClick }: HomeProps) {
           <h2 className="text-4xl sm:text-6xl font-black uppercase italic tracking-tighter text-primary mb-4">
             {t('what_cost') || 'How much does it cost?'}
           </h2>
-          <p className="text-3xl font-black italic text-gold">{t('starting_from') || 'From QR 180/day'}</p>
-          <p className="text-muted font-medium italic mt-4">{t('price_calculation') || 'Simple pricing. No hidden fees.'}</p>
+          <p className="text-muted text-xl font-medium italic">{t('packages_subtitle') || 'Current plan prices are shown in QAR below.'}</p>
         </div>
         <Packages onSubscribeClick={onSubscribeClick} />
       </section>

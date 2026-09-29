@@ -305,6 +305,21 @@ Rules:
 - Search/filter row above table.
 - Do not make text overlap inside table cells.
 
+### Operations workspace compact components
+
+Operations pages use the existing Triangle palette and Tailwind design tokens,
+with compact controls sized for dense work screens. Reuse these shared classes
+from `thk-web/src/global.css`:
+
+- `.ops-surface`: white work surface with a soft brand border and `16px` radius.
+- `.ops-control`: white input/select with the existing border token and `12px` radius.
+- `.ops-button`: compact button with the existing primary green, white text, and `12px` radius.
+- `.ops-button-secondary`: compact neutral action with a white surface and `12px` radius.
+
+Use the existing `text-primary`, `bg-background`, and `text-gold` palette. Keep
+table rows compact, cards flat, and navigation horizontally scrollable on small
+screens.
+
 ### Badges
 
 Use badges for:

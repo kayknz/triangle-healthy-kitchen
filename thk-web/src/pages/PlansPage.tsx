@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check, ShieldCheck, Star, ArrowRight, RefreshCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PACKAGES } from '../types/booking';
+import { supabase } from '../supabase';
 import { useLanguage } from '../lib/LanguageContext';
 import { useAuth } from '../lib/auth';
 import AnimatedSection from '../components/AnimatedSection';
@@ -14,6 +15,45 @@ export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
   const { t, isRtl } = useLanguage();
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
+  const [packages, setPackages] = useState<Array<{ id: string; name: string; description: string | null; price: number; currency: string; kcals: number; duration: string | null }>>([]);
+  const [packagesLoading, setPackagesLoading] = useState(true);
+  const [packagesError, setPackagesError] = useState(false);
+  const [packagesRetryCount, setPackagesRetryCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (cancelled || settled) return;
+      settled = true;
+      setPackagesError(true);
+      setPackagesLoading(false);
+    }, 15000);
+    void Promise.resolve(supabase
+      .from('packages')
+      .select('id, name, description, price, currency, kcals, duration')
+      .eq('active', true)
+      .order('sort_order'))
+      .then(({ data, error }) => {
+        if (cancelled || settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        if (error) {
+          setPackagesError(true);
+        } else {
+          setPackages(data || []);
+        }
+        setPackagesLoading(false);
+      })
+      .catch(() => {
+        if (cancelled || settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        setPackagesError(true);
+        setPackagesLoading(false);
+      });
+    return () => { cancelled = true; window.clearTimeout(timeout); };
+  }, [packagesRetryCount]);
 
   const isSubscribed = user && userRole === 'subscriber';
 
@@ -61,35 +101,41 @@ export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
           </div>
         )}
 
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-32 ${isSubscribed ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
-          {PACKAGES.map((pkg) => (
+        {packagesLoading && <p className="text-center text-primary/60 mb-20" role="status">Loading meal plans…</p>}
+        {!packagesLoading && packagesError && <div className="text-center text-red-700 mb-20" role="alert"><p>Meal plans are temporarily unavailable. Please try again shortly.</p><button type="button" className="mt-3 underline" onClick={() => { setPackagesLoading(true); setPackagesError(false); setPackagesRetryCount((count) => count + 1); }}>Try again</button></div>}
+        {!packagesLoading && !packagesError && packages.length === 0 && <p className="text-center text-primary/60 mb-20">No meal plans are available right now.</p>}
+
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-32 ${isSubscribed ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
+          {packages.map((pkg) => {
+            const details = PACKAGES.find((item) => item.id === pkg.id);
+            const title = t(pkg.id) !== pkg.id ? t(pkg.id) : pkg.name;
+            return (
             <AnimatedSection key={pkg.id}>
-              <div className="glass-card h-full flex flex-col p-8 group border-white/20 bg-white/5 backdrop-blur-[80px] hover:border-gold/30 transition-all duration-700">
+              <div className="glass-card h-full flex flex-col p-6 sm:p-8 group border-white/20 bg-white/5 backdrop-blur-[80px] hover:border-gold/30 transition-all duration-700">
                 <div className="relative h-64 overflow-hidden rounded-[2.5rem] mb-10 shadow-3xl border border-white/10">
-                  <img src={pkg.image} alt={t(pkg.id)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[6s]" />
+                  <img src={details?.image || ''} alt={title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[6s]" />
                   <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-transparent to-transparent opacity-60 group-hover:opacity-100 transition-opacity" />
                   <div className="absolute bottom-8 left-8 right-8">
-                    <p className="text-gold text-[9px] font-black uppercase tracking-[0.4em] mb-2">{t(pkg.highlight)}</p>
-                    <h3 className="text-white text-2xl font-serif italic tracking-tight uppercase leading-none">{t(pkg.name)}</h3>
+                    <p className="text-gold text-[9px] font-black uppercase tracking-[0.4em] mb-2">{details ? t(details.highlight) : t('premium')}</p>
+                    <h3 className="text-white text-2xl font-serif italic tracking-tight uppercase leading-none">{title}</h3>
                   </div>
                 </div>
 
                 <div className="px-2 flex-1">
-                  <div className="flex items-center gap-3 mb-10 border-b border-primary/5 pb-8">
-                    <span className="text-5xl font-serif italic text-primary tracking-tighter">{pkg.price}</span>
-                    <div className="h-8 w-px bg-primary/5 mx-2" />
-                    <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em]">
-                      {pkg.duration === '1_day' ? t('day') : pkg.duration === '1_week' ? t('week') : t('month')}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-3 mb-10 border-b border-primary/5 pb-8">
+                    <span className="whitespace-nowrap shrink-0 text-3xl sm:text-4xl font-serif italic text-primary tracking-tighter">{pkg.price.toLocaleString()} <span className="text-xs sm:text-sm not-italic font-sans">{pkg.currency}</span></span>
+                    <div className="hidden sm:block h-8 w-px bg-primary/5" />
+                    <span className="min-w-0 flex-1 text-[10px] font-black text-gold uppercase tracking-[0.2em] sm:tracking-[0.3em] break-words">
+                      {pkg.id === 'daily_trial' ? '1 Day Trial' : pkg.id === 'weekly_reset' ? '6 Day Trial' : ['1100kcal', '1400kcal', '1500kcal'].includes(pkg.id) ? '24 Service Days' : pkg.duration || t('month')}
                     </span>
                   </div>
 
                   <div className="space-y-6 mb-12">
                      {[
-                       t(pkg.meals_key || '3_main_meals'),
+                       details ? t(details.meals_key || '3_main_meals') : pkg.description,
                        pkg.kcals + ' ' + t('kcal'),
-                       t('continuous_delivery'),
-                       'Regional Tribe Access'
-                     ].map((feature) => (
+                       t('continuous_delivery')
+                     ].filter(Boolean).map((feature) => (
                        <div key={feature} className="flex items-center gap-5 group/feature">
                          <div className="w-6 h-6 rounded-full bg-gold/10 flex items-center justify-center group-hover/feature:bg-gold transition-colors">
                            <Check className="w-3.5 h-3.5 text-gold group-hover:text-primary transition-colors" />
@@ -100,7 +146,7 @@ export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
                   </div>
                 </div>
 
-                <button
+              <button
                   onClick={() => onSubscribeClick(pkg.id)}
                   className="w-full btn-primary scale-105 active:scale-95 shadow-2xl"
                 >
@@ -108,7 +154,7 @@ export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
                 </button>
               </div>
             </AnimatedSection>
-          ))}
+          );})}
         </div>
 
         {isSubscribed && (

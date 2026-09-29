@@ -1,16 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import {
-  ArrowLeft, ArrowRight, Check, Loader2, Navigation, CreditCard, X, Banknote,
-  Shield, Star, RefreshCcw, Activity, AlertCircle
+  Loader2, Navigation, CreditCard, AlertCircle, CheckCircle2
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { safeHaptics } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
-import { invokeFunction } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { PACKAGES } from '@/types/booking';
 import { useLanguage } from '@/lib/LanguageContext';
-import EditorialPanel, { SecuringProtocol } from './EditorialPanel';
+import { PACKAGE_MEALS } from '@/types/subscription';
+import EditorialPanel from './EditorialPanel';
+import { resolveQatarDeliveryZone } from '@/lib/delivery-zone';
+
+type InitialMenuChoice = { dish_id: string; dish_name: string; dish_kcals: number; day_of_week: string; meal_type: string; menu_period: string };
+const SERVICE_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+const PACKAGE_MENU_MEALS = ['breakfast', 'lunch', 'dinner', 'snacks'];
+function upcomingServiceWeekStart() {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const date = new Date(`${today}T12:00:00Z`);
+  const daysUntilSaturday = (6 - date.getUTCDay() + 7) % 7 || 7;
+  date.setUTCDate(date.getUTCDate() + daysUntilSaturday);
+  return date.toISOString().slice(0, 10);
+}
+function currentMenuReleaseStart() {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const date = new Date(`${today}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 1) % 7));
+  return date.toISOString().slice(0, 10);
+}
 
 interface SubscriptionFlowProps {
   open: boolean;
@@ -24,18 +41,32 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [availablePackages, setAvailablePackages] = useState<Array<{ id: string; name: string; description: string; price: number; currency: string }>>([]);
+  const [waitingForPayment, setWaitingForPayment] = useState(false);
+  const [initialMenuOptions, setInitialMenuOptions] = useState<Record<string, Array<{ id: string; name: string; kcals: number }>>>({});
+  const [initialMenuSelections, setInitialMenuSelections] = useState<Record<string, InitialMenuChoice>>({});
+  const [menuPeriod, setMenuPeriod] = useState('autumn');
+  const [menuLoading, setMenuLoading] = useState(false);
 
   const [assessment, setAssessment] = useState({
+    age: 30,
+    gender: 'male' as 'male' | 'female',
     weight: 75,
     height: 180,
-    fitness_goal: 'maintain',
+    fitness_goal: 'weight_loss',
     activity_level: 'moderate',
   });
+  const [bmiReport, setBmiReport] = useState<File | null>(null);
 
   const [pkgId, setPkgId] = useState('');
+  const packageMenuMeals = PACKAGE_MEALS[pkgId] || PACKAGE_MENU_MEALS;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
+
   const [address, setAddress] = useState({
     building_number: '',
     street: '',
@@ -43,28 +74,23 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     zone: '',
     latitude: null as number | null,
     longitude: null as number | null,
+    delivery_notes: '',
   });
+  const [deliveryPlace, setDeliveryPlace] = useState<'home' | 'office' | 'gym' | 'other'>('home');
 
   const [locating, setLocating] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState('card');
-  const [termsAccepted, setTermsAccepted] = useState(false);
-
-  const PAYMENT_METHODS = [
-    { id: 'card', label: 'Credit Card', icon: CreditCard, sub: 'Tap Verified' },
-    { id: 'applepay', label: 'Apple Pay', icon: Shield, sub: 'Instant Sync' },
-    { id: 'cod', label: 'Cash on Delivery', icon: Banknote, sub: 'Doha Logistics' }
-  ];
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
 
   const getSteps = () => {
     const base = [
       { label: 'Your Info', id: 'assessment' },
-      { label: 'Pick Plan', id: 'plan' },
-      { label: 'Duration', id: 'duration' },
+      ...(!preselectedPackage ? [{ label: 'Pick Plan', id: 'plan' }] : []),
       { label: 'Delivery Address', id: 'address' },
     ];
     if (!user) {
       base.push({ label: 'Create Account', id: 'identity' });
     }
+    base.push({ label: t('select_weekly_menu'), id: 'menu' });
     base.push(
       { label: 'Payment', id: 'payment' },
       { label: 'Review', id: 'audit' }
@@ -74,77 +100,135 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
   const STEPS = getSteps();
 
-  const calculateMacros = () => {
-    const w = assessment.weight;
-    const h = assessment.height;
-    if (!w || !h) return null;
-    const bmr = 10 * w + 6.25 * h - 5 * 30;
-    const tdee = bmr * 1.5;
-    const target = assessment.fitness_goal === 'lose' ? tdee * 0.8 : assessment.fitness_goal === 'gain' ? tdee * 1.2 : tdee;
-    return { target: Math.round(target) };
-  };
-
-  const macroResults = calculateMacros();
-
   useEffect(() => {
     if (open) {
       setStep(0);
       setSuccess(false);
-      if (preselectedPackage) setPkgId(preselectedPackage);
+      setError(null);
+      setTermsAccepted(false);
+      void supabase.from('packages').select('id, name, description, price, currency').eq('active', true).order('sort_order').then(({ data, error: packageError }) => {
+        if (packageError) {
+          setError('Meal plans are temporarily unavailable. Please try again shortly.');
+          return;
+        }
+        const rows = data || [];
+        setAvailablePackages(rows);
+        setPkgId((current) => rows.some((row) => row.id === (preselectedPackage || current)) ? (preselectedPackage || current) : (rows[0]?.id || ''));
+      });
     }
   }, [open, preselectedPackage]);
 
+  useEffect(() => {
+    if (!open || !pkgId) return;
+    let cancelled = false;
+    const loadMenu = async () => {
+      setMenuLoading(true);
+      try {
+        const releaseStart = currentMenuReleaseStart();
+        const releaseEnd = new Date(`${releaseStart}T12:00:00Z`);
+        releaseEnd.setUTCDate(releaseEnd.getUTCDate() + 7);
+        const startAt = new Date(`${releaseStart}T00:00:00+03:00`).toISOString();
+        const endDate = releaseEnd.toISOString().slice(0, 10);
+        const endAt = new Date(`${endDate}T00:00:00+03:00`).toISOString();
+        const [{ data: settings }, { data: menu, error: menuError }] = await Promise.all([
+          supabase.from('global_settings').select('active_season').maybeSingle(),
+          supabase.from('menu_availability').select('week_number,dish_id,day_of_week,meal_period,collection,is_kitchen_choice,dishes(id,name,kcals)').eq('is_active', true).gte('available_from', startAt).lt('available_from', endAt),
+        ]);
+        if (menuError) throw menuError;
+        if (cancelled) return;
+        const collection = settings?.active_season || 'autumn';
+        const rows = (menu || []).filter((row: any) => row.collection === collection);
+        const options: Record<string, Array<{ id: string; name: string; kcals: number; kitchen_choice?: boolean }>> = {};
+        const defaults: Record<string, InitialMenuChoice> = {};
+        for (const day of SERVICE_DAYS) for (const meal of packageMenuMeals) {
+          const key = `${day}|${meal}`;
+          const matching = rows.filter((row: any) => row.day_of_week === day && row.meal_period === meal).flatMap((row: any) => {
+            const dish = Array.isArray(row.dishes) ? row.dishes[0] : row.dishes;
+            return dish ? [{ id: String(dish.id), name: String(dish.name), kcals: Number(dish.kcals || 0), kitchen_choice: Boolean(row.is_kitchen_choice) }] : [];
+          });
+          options[key] = matching;
+          const chosen = matching.find((item) => item.kitchen_choice) || matching[0];
+          if (chosen) defaults[key] = { dish_id: chosen.id, dish_name: chosen.name, dish_kcals: chosen.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal, menu_period: collection };
+        }
+        setMenuPeriod(collection); setInitialMenuOptions(options); setInitialMenuSelections(defaults);
+      } catch (menuError: any) {
+        if (!cancelled) { setInitialMenuOptions({}); setInitialMenuSelections({}); setError(menuError?.message || 'Menu is not available right now.'); }
+      } finally { if (!cancelled) setMenuLoading(false); }
+    };
+    void loadMenu();
+    return () => { cancelled = true; };
+  }, [open, pkgId]);
+
   if (!open) return null;
 
-  const pkg = PACKAGES.find((p) => p.id === pkgId);
-  const currentStep = STEPS[step];
+  const pkg = availablePackages.find((p) => p.id === pkgId);
+  const selectionWindowOpen = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Qatar', weekday: 'short' }).format(new Date()) !== 'Fri';
 
-  const handleNext = async () => {
-    await safeHaptics.impact();
-    if (currentStep.id === 'assessment' && (!assessment.weight || !assessment.height)) return setError(t('error_metrics') || 'Please enter weight and height.');
-    if (currentStep.id === 'plan' && !pkgId) return setError(t('error_select_package') || 'Please select a package.');
-    if (currentStep.id === 'address' && (!address.building_number || !address.street)) return setError('Building number and street are required.');
-    if (currentStep.id === 'identity' && (!email || !password)) return setError(t('error_email') || 'Please enter email and password.');
-    if (currentStep.id === 'payment' && !termsAccepted) return setError(t('legal_error') || 'Please accept terms to proceed.');
+  const handleNext = () => {
+    const currentStep = STEPS[step]?.id;
+    if (currentStep === 'assessment' && (!Number.isFinite(assessment.weight) || assessment.weight < 40 || assessment.weight > 150 || !Number.isFinite(assessment.height) || assessment.height < 140 || assessment.height > 220 || assessment.age < 13 || assessment.age > 110)) {
+      setError('Enter your age and a valid weight (40–150 kg) and height (140–220 cm).');
+      return;
+    }
+    if (currentStep === 'plan' && !pkg) {
+      setError('Select an available meal plan to continue.');
+      return;
+    }
+    if (currentStep === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) {
+      setError('Enter your phone number and complete the building, street, area, and zone details.');
+      return;
+    }
+    if (currentStep === 'identity' && (!name.trim() || !email.trim() || password.length < 6 || !phone.trim())) {
+      setError('Enter your name, email, phone number, and a password with at least 6 characters.');
+      return;
+    }
+    if (currentStep === 'menu' && Object.values(initialMenuOptions).some((items) => items.length > 0) && Object.keys(initialMenuSelections).length !== SERVICE_DAYS.length * packageMenuMeals.length) {
+      setError(t('select_each_meal_before_payment')); return;
+    }
+    if (currentStep === 'payment' && !termsAccepted) {
+      setError('Please accept the plan and payment terms to continue.');
+      return;
+    }
     setError(null);
-    setStep(s => Math.min(s + 1, STEPS.length - 1));
+    setStep((currentStepIndex) => Math.min(currentStepIndex + 1, STEPS.length - 1));
   };
 
-  const detectLocation = () => {
+  const locateUserAddress = () => {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser.");
+      return;
+    }
     setLocating(true);
     setError(null);
-    if (!navigator.geolocation) {
-       setError("Location access denied on your device.");
-       setLocating(false);
-       return;
-    }
+    setLocationMessage(null);
+
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        setAddress((a) => ({ ...a, latitude, longitude }));
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`);
-          const data = await res.json();
-          if (data && data.address) {
-            const addr = data.address;
-            setAddress(prev => ({
-              ...prev,
-              building_number: addr.house_number || addr.building || addr.amenity || '',
-              street: addr.road || '',
-              area: addr.suburb || addr.neighbourhood || addr.city_district || '',
-              zone: addr.postcode || '',
-            }));
-          } else {
-            setError("Could not automatically locate address, please enter manually.");
-          }
-        } catch (e) {
-           console.warn('Coordinates locked.');
-           setError("Could not automatically locate address, please enter manually.");
+          const [addressResponse, zoneNumber] = await Promise.all([
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`).then((response) => response.ok ? response.json() : null).catch(() => null),
+            resolveQatarDeliveryZone(latitude, longitude).catch(() => null),
+          ]);
+          const addr = addressResponse?.address || {};
+          setAddress((previous) => ({
+            ...previous,
+            building_number: addr.house_number || addr.building || addr.office || addr.amenity || addr.shop || '',
+            street: addr.road || addr.pedestrian || addr.residential || '',
+            area: addr.suburb || addr.neighbourhood || addr.quarter || addr.city_district || addr.city || '',
+            zone: zoneNumber || '',
+            delivery_notes: addr.amenity || addr.shop || addr.leisure || previous.delivery_notes,
+            latitude,
+            longitude,
+          }));
+          setLocationMessage(zoneNumber
+            ? `Location found. Delivery zone ${zoneNumber} filled automatically; review the other address fields.`
+            : 'Location found, but its zone could not be matched. Check the address and enter the zone number.');
         } finally { setLocating(false); }
       },
-      (err) => {
-         setError('Location access denied. Please enter details manually.');
-         setLocating(false);
+      () => {
+        setLocationMessage('Could not get your location. Enter the delivery address manually.');
+        setLocating(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -159,51 +243,72 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
     try {
       if (!activeUser) {
-        const { error: signUpErr } = await signUp(email, password, 'Triangle Member', 'subscriber');
+        const { error: signUpErr } = await signUp(email, password, name || 'Triangle Member', 'subscriber', phone);
         if (signUpErr) throw new Error(signUpErr);
 
         const { data: { user: newUser } } = await supabase.auth.getUser();
         activeUser = newUser;
+        if (!activeUser) throw new Error('Your account was created. Verify your email, sign in, then continue to Tap checkout.');
       }
 
       if (!activeUser) throw new Error("Identity verification failed.");
 
-      const { data: subData, error: subError } = await supabase
-        .from('subscribers')
-        .upsert({
-          user_id: activeUser.id,
-          full_name: activeUser.user_metadata?.full_name || 'Triangle Member',
-          email: activeUser.email,
-          package_id: pkg?.id,
-          package_name: pkg?.name,
-          weight_kg: assessment.weight,
-          height_cm: assessment.height,
-          fitness_goal: assessment.fitness_goal,
-          building_number: address.building_number,
-          street: address.street,
-          area: address.area,
-          latitude: address.latitude,
-          longitude: address.longitude,
-          status: 'trialing',
-          duration: pkg?.duration || '4_weeks',
-          onboarding_completed: true
-        }, { onConflict: 'user_id' })
-        .select('id').single();
-
-      if (subError) throw subError;
-
-      const { data: result, error: fetchErr } = await invokeFunction<{ checkout_url?: string }>('tap-checkout', {
-        packageId: pkg?.id,
-        subscriberId: subData.id,
+      if (!pkg) throw new Error('Select an available meal plan before continuing.');
+      let bmiReportPath: string | null = null;
+      if (bmiReport) {
+        const objectName = `${activeUser.id}/${crypto.randomUUID()}-${bmiReport.name.replace(/[^\w.-]/g, '_')}`;
+        const { error: uploadError } = await supabase.storage.from('bmi-reports').upload(objectName, bmiReport, { contentType: bmiReport.type, upsert: false });
+        if (uploadError) throw new Error(`BMI report upload failed: ${uploadError.message}`);
+        bmiReportPath = objectName;
+      }
+      const { data: checkout, error: checkoutError } = await supabase.functions.invoke('tap-checkout', {
+        body: {
+          package_id: pkg.id,
+            profile: {
+            full_name: name || activeUser.user_metadata?.full_name || 'Triangle Member',
+            age: assessment.age,
+            gender: assessment.gender,
+            bmi_report_path: bmiReportPath,
+            phone: phone || activeUser.user_metadata?.phone || '',
+            weight_kg: assessment.weight,
+            height_cm: assessment.height,
+            fitness_goal: assessment.fitness_goal,
+            building_number: address.building_number,
+            street: address.street,
+            area: address.area || 'Doha',
+            zone_number: address.zone,
+            delivery_notes: [`Deliver to: ${deliveryPlace}`, address.delivery_notes.trim()].filter(Boolean).join(' — '),
+            latitude: address.latitude,
+              longitude: address.longitude,
+            },
+            initial_menu_selections: Object.values(initialMenuSelections).map((choice) => ({ ...choice, week_start_date: upcomingServiceWeekStart() })),
+          },
       });
+      if (checkoutError) throw checkoutError;
+      if (!checkout?.checkout_url || !checkout?.transaction_id) throw new Error(checkout?.error || 'Tap did not return a valid checkout session.');
 
-      if (fetchErr) throw fetchErr;
-      if (!result?.checkout_url) throw new Error('Payment gateway did not return a checkout link.');
-      window.location.assign(result.checkout_url);
-
-    } catch (e: any) {
-      setError(e.message || "Gateway Offline");
+      if (Capacitor.isNativePlatform()) await Browser.open({ url: checkout.checkout_url });
+      else window.open(checkout.checkout_url, '_blank', 'noopener,noreferrer');
+      setWaitingForPayment(true);
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 3000));
+        const { data: transaction, error: statusError } = await supabase
+          .from('payment_transactions').select('status').eq('id', checkout.transaction_id).maybeSingle();
+        if (statusError) throw statusError;
+        if (transaction?.status === 'captured') {
+          setSuccess(true);
+          setWaitingForPayment(false);
+          return;
+        }
+        if (transaction && ['failed', 'cancelled', 'voided'].includes(transaction.status)) {
+          throw new Error('Tap did not capture the payment. You can try checkout again.');
+        }
+      }
+      setError('Payment is still being confirmed by Tap. Your plan will activate automatically after the verified payment arrives.');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Subscription Request Failed');
     } finally {
+      setWaitingForPayment(false);
       setSubmitting(false);
     }
   };
@@ -212,223 +317,303 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     <EditorialPanel
       isOpen={open}
       onClose={onClose}
-      title="Start your Plan"
+      title="Start Your Plan"
       badge="Verified Member"
+      maxWidth="max-w-xl"
     >
-      <div className="flex flex-col h-full overflow-hidden">
-        <AnimatePresence>
-          {(submitting || error || success) && (
-            <div className="absolute inset-0 z-50 bg-[#F5F3EB]">
-              {success ? (
-                <div className="flex flex-col items-center justify-center h-full p-12 text-center">
-                  <div className="w-24 h-24 rounded-[2.5rem] bg-[#0a3030] flex items-center justify-center mb-8 shadow-2xl">
-                    <Check className="w-12 h-12 text-[#C5A059]" />
-                  </div>
-                  <h3 className="text-3xl font-black uppercase italic text-[#0a3030] tracking-tighter mb-4">Subscription Confirmed!</h3>
-                  <p className="text-gray-500 font-medium mb-12 max-w-sm leading-relaxed">
-                    You can now select your menu from your Dashboard.
-                  </p>
-                  <button
-                    onClick={() => { onClose(); window.location.hash = 'account'; }}
-                    className="btn-primary w-full max-w-xs uppercase tracking-[0.3em] py-6 shadow-4xl"
-                  >
-                    Go to Menu Selection
-                  </button>
-                </div>
-              ) : (
-                <SecuringProtocol
-                  message={submitting ? "Starting Plan" : "Error"}
-                  subtitle={submitting ? "Connecting..." : null}
-                  error={error ?? undefined}
-                  onRetry={() => { setError(null); setSubmitting(false); }}
-                />
-              )}
+      <div className="p-6 sm:p-10" dir={isRtl ? 'rtl' : 'ltr'}>
+        {preselectedPackage && pkg && (
+          <div className="mb-6 rounded-2xl border border-[#C5A059]/30 bg-[#C5A059]/10 p-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-[#7b6332]">Selected plan</p>
+            <p className="mt-1 font-black text-[#0a3030]">{t(pkg.id)} · {pkg.price.toLocaleString()} {pkg.currency}</p>
+          </div>
+        )}
+        {success ? (
+          <div className="text-center py-10 space-y-6 animate-in">
+            <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto text-emerald-600 shadow-xl">
+              <CheckCircle2 className="w-10 h-10" />
             </div>
-          )}
-        </AnimatePresence>
+            <h3 className="text-2xl font-black text-[#0a3030] uppercase italic">Subscription Protocol Activated!</h3>
+            <p className="text-gray-500 text-sm max-w-md mx-auto">
+              Tap confirmed your payment. Your plan is now active and ready for operations review.
+            </p>
+            <button
+              onClick={() => { onClose(); window.location.hash = '#my-plan'; }}
+              className="bg-[#0a3030] text-white font-black px-8 py-4 rounded-2xl text-xs uppercase tracking-widest hover:bg-[#C5A059] transition-all shadow-xl"
+            >
+              Go to My Plan Dashboard
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Step Indicators */}
+            <div className="flex justify-between items-center bg-gray-100/80 p-2 rounded-2xl mb-6 overflow-x-auto">
+              {STEPS.map((s, idx) => (
+                <button
+                  key={s.id}
+                  onClick={() => { if (idx <= step) setStep(idx); }}
+                  disabled={idx > step}
+                  className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                    step === idx ? 'bg-[#0a3030] text-white shadow-md' : 'text-gray-400'
+                  }`}
+                >
+                  {idx + 1}. {s.label}
+                </button>
+              ))}
+            </div>
 
-        {/* Progress HUD */}
-        <div className="px-6 py-5 bg-gray-50/50 border-b border-primary/5 flex items-center gap-4 overflow-x-auto no-scrollbar scroll-smooth snap-x">
-           {STEPS.map((s, i) => (
-             <div key={i} className="flex items-center gap-3 flex-shrink-0 snap-start">
-                <div className={`w-8 h-8 rounded-2xl flex items-center justify-center text-[10px] font-black transition-all duration-500 ${step >= i ? 'bg-primary text-white shadow-lg' : 'bg-white text-gray-300 border border-gray-100'}`}>
-                  {step > i ? <Check className="w-4 h-4" /> : i + 1}
-                </div>
-                <span className={`text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap ${step >= i ? 'text-primary' : 'text-gray-300'}`}>{s.label}</span>
-                {i < STEPS.length - 1 && <div className={`w-6 h-0.5 rounded-full ${step > i ? 'bg-primary' : 'bg-gray-100'}`} />}
-             </div>
-           ))}
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-6 py-10 relative">
-          {currentStep.id === 'assessment' && (
-            <div className="space-y-12">
-              <h3 className="text-xl font-black uppercase italic text-primary tracking-tight">Your Health Info</h3>
-              <div className="space-y-16">
-                 <MetricPicker label="Weight" value={assessment.weight} unit="KG" min={40} max={150} onChange={(v:any) => setAssessment({...assessment, weight: v})} />
-                 <MetricPicker label="Height" value={assessment.height} unit="CM" min={140} max={220} onChange={(v:any) => setAssessment({...assessment, height: v})} />
+            {error && (
+              <div className="flex items-start gap-3 bg-red-50 border border-red-100 rounded-2xl p-4 text-red-700 text-xs font-semibold">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
               </div>
-            </div>
-          )}
+            )}
 
-          {currentStep.id === 'plan' && (
-            <div className="grid grid-cols-1 gap-6">
-               {PACKAGES.map((p) => (
-                 <button key={p.id} onClick={() => setPkgId(p.id)} className={`text-left p-12 rounded-[3.5rem] border-2 transition-all duration-500 relative overflow-hidden group ${pkgId === p.id ? 'border-primary bg-primary text-white shadow-4xl scale-[1.02]' : 'border-primary/5 bg-white/40 hover:border-gold/30 shadow-xl'}`}>
-                   <h4 className="text-2xl font-black uppercase tracking-tight mb-2 italic">{t(p.id)}</h4>
-                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gold mb-10">{p.kcals} KCAL / Day</p>
-                   <p className="text-3xl font-black italic tracking-tighter leading-none">{p.price} <span className="opacity-40 text-xs font-bold uppercase not-italic ml-1">QAR</span></p>
-                 </button>
-               ))}
-            </div>
-          )}
-
-          {currentStep.id === 'duration' && (
-            <div className="space-y-12">
-               <h3 className="text-xl font-black uppercase italic text-primary">{t('duration_protocol') || 'Plan Duration'}</h3>
-               <div className="grid grid-cols-1 gap-6">
-                  <div className="p-10 rounded-[3rem] border-2 border-primary bg-primary/5 text-primary shadow-xl">
-                     <p className="text-2xl font-black uppercase italic tracking-tighter mb-2">{t('4_weeks_28_boxes') || '28 Days'}</p>
-                     <p className="text-[10px] font-black uppercase tracking-widest text-gold">{t('duration_monthly') || '4-Week Healthy Plan'}</p>
+            {/* Step 0: Body Assessment */}
+            {STEPS[step]?.id === 'assessment' && (
+              <div className="space-y-4 animate-in">
+                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Health & Goal Assessment</h3>
+                <div className="grid grid-cols-2 gap-4"><label className="text-[10px] font-black uppercase text-gray-400">Gender<select value={assessment.gender} onChange={(event) => setAssessment({ ...assessment, gender: event.target.value as 'male' | 'female' })} className="input-field mt-2 py-3 text-sm font-semibold normal-case"><option value="male">Male</option><option value="female">Female</option></select></label><label className="text-[10px] font-black uppercase text-gray-400">Age<input type="number" min={13} max={110} value={assessment.age} onChange={(event) => setAssessment({ ...assessment, age: Number(event.target.value) })} className="input-field mt-2 py-3 font-bold" /></label></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400">Current Weight (kg)</label>
+                    <input
+                      type="number"
+                      value={assessment.weight}
+                      onChange={(e) => setAssessment({ ...assessment, weight: Number(e.target.value) })}
+                      className="input-field py-3 font-bold"
+                    />
                   </div>
-               </div>
-            </div>
-          )}
-
-          {currentStep.id === 'address' && (
-            <div className="space-y-12 animate-reveal" dir={isRtl ? 'rtl' : 'ltr'}>
-               <div className="flex flex-col gap-6">
-                  <h3 className="text-xl font-black uppercase italic text-primary">{t('shipment_logistics') || 'Delivery Address'}</h3>
-                  <button
-                    onClick={detectLocation}
-                    disabled={locating}
-                    className={`w-full flex items-center justify-center gap-4 bg-white border border-primary/10 py-8 rounded-[2.5rem] text-[11px] font-black uppercase tracking-[0.4em] shadow-xl active:scale-95 group disabled:opacity-50 ${locating ? 'animate-pulse' : ''}`}
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400">Standing Height (cm)</label>
+                    <input
+                      type="number"
+                      value={assessment.height}
+                      onChange={(e) => setAssessment({ ...assessment, height: Number(e.target.value) })}
+                      className="input-field py-3 font-bold"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-gray-400">Target Goal</label>
+                  <select
+                    value={assessment.fitness_goal}
+                    onChange={(e) => setAssessment({ ...assessment, fitness_goal: e.target.value })}
+                    className="input-field py-3 font-bold bg-white"
                   >
-                    {locating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Navigation className="w-5 h-5 text-[#C5A059] group-hover:animate-pulse" />}
-                    {locating ? t('syncing') : (t('find_location') || 'Find my location')}
-                  </button>
-               </div>
+                    <option value="weight_loss">Weight Loss (Calorie Deficit)</option>
+                    <option value="maintain">Maintenance & Wellness</option>
+                    <option value="gain">Muscle Gain (Calorie Surplus)</option>
+                  </select>
+                </div>
+                <label className="block rounded-2xl border border-primary/10 bg-white p-4"><span className="block text-[10px] font-black uppercase tracking-widest text-primary">BMI report <span className="font-medium normal-case text-gray-400">(optional)</span></span><span className="mt-1 block text-xs text-gray-500">Attach a recent clinic or body-composition report for nutrition review.</span><input type="file" accept="application/pdf,image/jpeg,image/png" className="mt-3 block w-full text-xs" onChange={(event) => { const file = event.target.files?.[0] || null; if (file && (!['application/pdf','image/jpeg','image/png'].includes(file.type) || file.size > 10 * 1024 * 1024)) { setError('Choose a PDF, JPG, or PNG report up to 10 MB.'); event.currentTarget.value = ''; setBmiReport(null); return; } setError(null); setBmiReport(file); }} />{bmiReport && <span className="mt-2 block text-xs font-semibold text-emerald-800">Selected: {bmiReport.name}</span>}</label>
+              </div>
+            )}
 
-               <div className="grid grid-cols-1 gap-6 pt-8 border-t border-primary/5">
-                  <div className="space-y-3">
-                     <p className="text-[9px] font-black uppercase tracking-widest text-primary/40">{t('building') || 'Building / Unit'}</p>
-                     <input type="text" placeholder={t('building_number_placeholder') || "BUILDING NUMBER"} value={address.building_number} onChange={(e) => setAddress({...address, building_number: e.target.value})} className={`input-field py-7 font-black bg-white/60 ${isRtl ? 'text-right' : 'text-left'}`} />
-                  </div>
-                  <div className="space-y-3">
-                     <p className="text-[9px] font-black uppercase tracking-widest text-primary/40">{t('street') || 'Street Name'}</p>
-                     <input type="text" placeholder={t('street_name_placeholder') || "STREET NAME"} value={address.street} onChange={(e) => setAddress({...address, street: e.target.value})} className={`input-field py-7 font-black bg-white/60 ${isRtl ? 'text-right' : 'text-left'}`} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                       <p className="text-[9px] font-black uppercase tracking-widest text-primary/40">{t('zone_number') || 'Zone'}</p>
-                       <input type="text" placeholder={t('zone_placeholder') || "ZONE"} value={address.zone} onChange={(e) => setAddress({...address, zone: e.target.value})} className={`input-field py-7 font-black bg-white/60 ${isRtl ? 'text-right' : 'text-left'}`} />
-                    </div>
-                    <div className="space-y-3">
-                       <p className="text-[9px] font-black uppercase tracking-widest text-primary/40">{t('area_name') || 'Area'}</p>
-                       <input type="text" placeholder={t('area_placeholder') || "AREA"} value={address.area} onChange={(e) => setAddress({...address, area: e.target.value})} className={`input-field py-7 font-black bg-white/60 ${isRtl ? 'text-right' : 'text-left'}`} />
-                    </div>
-                  </div>
-                  {(!address.building_number || !address.street) && !locating && (
-                    <p className="text-[9px] font-bold text-gold uppercase tracking-widest animate-pulse">
-                      {t('address_required') || 'Please enter your address to proceed.'}
-                    </p>
-                  )}
-               </div>
-            </div>
-          )}
-
-          {currentStep.id === 'identity' && (
-            <div className="space-y-12" dir={isRtl ? 'rtl' : 'ltr'}>
-               <h3 className="text-xl font-black uppercase italic text-primary">{t('create_account') || 'Create Account'}</h3>
-               <div className="grid grid-cols-1 gap-8">
-                  <div className="space-y-3">
-                     <p className="text-[9px] font-black uppercase tracking-widest text-primary/40">{t('email_address') || 'Email'}</p>
-                     <input type="email" placeholder={t('enter_email') || "EMAIL ADDRESS"} value={email} onChange={(e) => setEmail(e.target.value)} className={`input-field py-7 font-black bg-white/60 ${isRtl ? 'text-right' : 'text-left'}`} />
-                  </div>
-                  <div className="space-y-3">
-                     <p className="text-[9px] font-black uppercase tracking-widest text-primary/40">{t('secure_passkey') || 'Password'}</p>
-                     <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className={`input-field py-7 font-black bg-white/60 ${isRtl ? 'text-right' : 'text-left'}`} />
-                  </div>
-               </div>
-            </div>
-          )}
-
-          {currentStep.id === 'payment' && (
-            <div className="space-y-8" dir={isRtl ? 'rtl' : 'ltr'}>
-               <div className="grid grid-cols-1 gap-4">
-                  {PAYMENT_METHODS.map((method) => (
+            {/* Step 1: Pick Plan */}
+            {STEPS[step]?.id === 'plan' && (
+              <div className="space-y-4 animate-in">
+                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Select Plan Protocol</h3>
+                <div className="grid grid-cols-1 gap-3">
+                  {availablePackages.map((p) => (
                     <button
-                      key={method.id}
-                      onClick={() => setSelectedPayment(method.id)}
-                      className={`flex items-center gap-6 p-8 rounded-[2.5rem] border-2 transition-all duration-500 ${
-                        selectedPayment === method.id ? 'border-primary bg-primary text-white shadow-4xl scale-[1.02]' : 'border-primary/5 bg-white/40'
+                      key={p.id}
+                      onClick={() => setPkgId(p.id)}
+                      className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                        pkgId === p.id ? 'border-[#0a3030] bg-[#0a3030]/5 shadow-md' : 'border-gray-100 bg-white'
                       }`}
                     >
-                       <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${selectedPayment === method.id ? 'bg-white/10' : 'bg-primary/5'}`}>
-                          <method.icon className={`w-7 h-7 ${selectedPayment === method.id ? 'text-gold' : 'text-primary'}`} />
-                       </div>
-                       <div className={isRtl ? 'text-right' : 'text-left'}>
-                          <p className="text-lg font-black uppercase tracking-tight italic leading-none">{t(method.id) || method.label}</p>
-                          <p className={`text-[9px] uppercase tracking-[0.2em] mt-2 ${selectedPayment === method.id ? 'text-white/60' : 'text-primary/40'}`}>{t(method.id + '_desc') || method.sub}</p>
-                       </div>
-                       {selectedPayment === method.id && <div className={`${isRtl ? 'mr-auto' : 'ml-auto'} w-6 h-6 rounded-full bg-gold flex items-center justify-center`}><Check className="w-3.5 h-3.5 text-primary" /></div>}
+                      <div>
+                        <p className="font-black text-[#0a3030] text-sm">{p.name}</p>
+                        <p className="text-gray-400 text-xs">{p.description}</p>
+                      </div>
+                      <span className="font-black text-[#C5A059] text-sm">{p.price} {p.currency}</span>
                     </button>
                   ))}
-               </div>
+                </div>
+              </div>
+            )}
 
-               <label className="flex items-start gap-8 mt-12 cursor-pointer group px-4">
-                  <button type="button" onClick={() => setTermsAccepted(!termsAccepted)} className={`mt-0.5 w-10 h-10 rounded-[1.2rem] border-2 flex items-center justify-center transition-all ${termsAccepted ? 'border-primary bg-primary shadow-xl scale-110' : 'border-primary/10 bg-white'}`}>
-                    {termsAccepted && <Check className="w-6 h-6 text-white" />}
+            {/* Step 2: Address */}
+            {STEPS[step]?.id === 'address' && (
+              <div className="space-y-4 animate-in">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Where should we deliver?</h3>
+                  <button
+                    onClick={locateUserAddress}
+                    disabled={locating}
+                    className="text-[10px] font-black uppercase text-[#C5A059] hover:underline flex items-center gap-1"
+                  >
+                    {locating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
+                    Use current location (optional)
                   </button>
-                  <span className="text-primary/40 text-[12px] italic font-medium leading-relaxed pt-1">{t('terms_autorenewal') || 'I agree to the terms and the auto-renewal billing cycles.'}</span>
+                </div>
+                <p className="text-xs leading-relaxed text-gray-500">Choose where you want the food delivered, then enter that destination below. Your phone’s current location is only used if you tap the optional GPS button.</p>
+                {locationMessage && <p role="status" className="text-xs font-semibold text-[#0a3030]">{locationMessage}</p>}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="group" aria-label="Delivery destination">
+                  {(['home', 'office', 'gym', 'other'] as const).map((place) => <button type="button" key={place} aria-pressed={deliveryPlace === place} onClick={() => setDeliveryPlace(place)} className={`rounded-xl border px-3 py-3 text-xs font-black uppercase tracking-wider ${deliveryPlace === place ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-200 bg-white text-gray-600'}`}>{place === 'office' ? 'Work' : place}</button>)}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400">Building Number</label>
+                    <input
+                      type="text"
+                      value={address.building_number}
+                      onChange={(e) => setAddress({ ...address, building_number: e.target.value })}
+                      placeholder="e.g. Building 14"
+                      className="input-field py-3 font-bold"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400">Street Name</label>
+                    <input
+                      type="text"
+                      value={address.street}
+                      onChange={(e) => setAddress({ ...address, street: e.target.value })}
+                      placeholder="e.g. Lusail Boulevard"
+                      className="input-field py-3 font-bold"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-gray-400">Area Name</label>
+                  <input
+                    type="text"
+                    value={address.area}
+                    onChange={(e) => setAddress({ ...address, area: e.target.value })}
+                    placeholder="e.g. Lusail / West Bay / The Pearl"
+                    className="input-field py-3 font-bold"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400">Zone Number</label>
+                    <input type="text" value={address.zone} onChange={(e) => setAddress({ ...address, zone: e.target.value })} placeholder="e.g. 66" className="input-field py-3 font-bold" required />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400">Delivery Phone</label>
+                    <input type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+974 3312 3456" className="input-field py-3 font-bold" required />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-gray-400">Landmark or delivery instructions (optional)</label>
+                  <textarea value={address.delivery_notes} onChange={(e) => setAddress({ ...address, delivery_notes: e.target.value })} placeholder="For example: office reception, gym entrance, or villa gate" className="input-field min-h-24 py-3 font-medium" />
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Identity / Signup (if not logged in) */}
+            {STEPS[step]?.id === 'identity' && (
+              <div className="space-y-4 animate-in">
+                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Account Registration</h3>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-gray-400">Full Name</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Full Name"
+                    className="input-field py-3 font-bold"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-gray-400">Email Address</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@example.com"
+                    className="input-field py-3 font-bold"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-gray-400">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="input-field py-3 font-bold"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {STEPS[step]?.id === 'menu' && (
+              <div className="space-y-5 animate-in">
+                <div>
+                  <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{t('select_weekly_menu')}</h3>
+                  <p className="mt-2 text-sm text-gray-500">{t('select_menu_before_payment')}</p>
+                  <p className="mt-2 text-xs font-bold uppercase tracking-widest text-[#C5A059]">{t('service_week_starting')} {upcomingServiceWeekStart()}</p>
+                </div>
+                {menuLoading && <p role="status" className="text-sm text-gray-500">{t('loading_menu')}</p>}
+                {!menuLoading && !Object.values(initialMenuOptions).some((items) => items.length > 0) && <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{t('menu_not_published')}</p>}
+                {!menuLoading && Object.values(initialMenuOptions).some((items) => items.length > 0) && SERVICE_DAYS.map((day) => <section key={day} className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="mb-3 font-black uppercase tracking-widest text-[#0a3030]">{t(day)}</h4><div className="grid gap-3 sm:grid-cols-2">{packageMenuMeals.map((meal) => {
+                  const key = `${day}|${meal}`; const options = initialMenuOptions[key] || []; const selected = initialMenuSelections[key];
+                  return <label key={key} className="text-xs font-bold uppercase tracking-widest text-gray-500">{t(meal)}<select className="input-field mt-2 w-full py-3 text-sm font-semibold normal-case" disabled={!options.length || !selectionWindowOpen} value={selected?.dish_id || ''} onChange={(event) => {
+                    const dish = options.find((item) => item.id === event.target.value);
+                    setInitialMenuSelections((current) => { const updated = { ...current }; if (dish) updated[key] = { dish_id: dish.id, dish_name: dish.name, dish_kcals: dish.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal, menu_period: menuPeriod }; else delete updated[key]; return updated; });
+                  }}><option value="">{options.length ? t('choose_meal') : t('menu_item_unavailable')}</option>{options.map((dish) => <option key={dish.id} value={dish.id}>{dish.name} · {dish.kcals} kcal</option>)}</select></label>;
+                })}</div></section>)}
+                {!selectionWindowOpen && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{t('menu_selection_closed')}</p>}
+                {Object.values(initialMenuOptions).some((items) => items.length > 0) && <p className="text-xs font-semibold text-gray-500">{Object.keys(initialMenuSelections).length}/{SERVICE_DAYS.length * packageMenuMeals.length} {t('meals_selected')}</p>}
+              </div>
+            )}
+
+            {/* Step 4: Payment Selection */}
+            {STEPS[step]?.id === 'payment' && (
+              <div className="space-y-4 animate-in">
+                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Secure payment with Tap</h3>
+                <div className="rounded-2xl border border-gray-100 bg-white p-5 flex items-start gap-3">
+                  <CreditCard className="w-5 h-5 text-[#C5A059] shrink-0" />
+                  <p className="text-gray-600 text-sm">Card and wallet options available through Tap will appear in its secure checkout. Your plan activates only after Tap confirms payment.</p>
+                </div>
+                <label className="flex items-start gap-3 rounded-2xl bg-white p-4 text-sm text-gray-600">
+                  <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="mt-1 accent-[#0a3030]" />
+                  <span>I agree to the meal plan terms and authorize the selected Tap payment.</span>
                 </label>
-            </div>
-          )}
+              </div>
+            )}
 
-          {currentStep.id === 'audit' && (
-            <div className="space-y-10" dir={isRtl ? 'rtl' : 'ltr'}>
-               <div className="glass-card p-0 overflow-hidden border-primary/10 bg-white/40 shadow-4xl rounded-[4rem]">
-                  <ReviewRow label={t('selected_plan') || "Selected Plan"} value={t(pkg?.id || '')} />
-                  <ReviewRow label={t('meal_cycle') || "Meal Cycle"} value={t('4_weeks_28_boxes') || "28 Days"} />
-               </div>
-               <div className="bg-primary rounded-[4rem] p-12 text-white flex items-center justify-between shadow-4xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-gold/10 rounded-full blur-[80px]" />
-                  <div className="relative z-10"><p className="text-gold text-[10px] font-black uppercase tracking-[0.5em] mb-3">{t('total_cost') || "Total Cost"}</p><p className="text-6xl font-black italic tracking-tighter leading-none">{pkg?.price || 0} <span className="text-sm opacity-40 uppercase not-italic ml-2 tracking-widest font-sans">{t('qar')}</span></p></div>
-                  <Banknote className="w-20 h-20 text-gold animate-glow relative z-10" />
-               </div>
+            {/* Navigation Buttons */}
+            <div className="flex justify-between pt-6 border-t border-gray-100">
+              {step > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setStep(step - 1)}
+                  className="px-6 py-3 rounded-2xl bg-gray-100 text-[#0a3030] font-black text-xs uppercase tracking-wider"
+                >
+                  Back
+                </button>
+              )}
+              {step < STEPS.length - 1 ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="ml-auto px-8 py-3 rounded-2xl bg-[#0a3030] text-white font-black text-xs uppercase tracking-widest hover:bg-[#C5A059] transition-all"
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubscribe}
+                  disabled={submitting}
+                  className="ml-auto px-10 py-4 rounded-2xl bg-[#0a3030] text-white font-black text-xs uppercase tracking-widest hover:bg-[#C5A059] transition-all shadow-xl flex items-center gap-2"
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : waitingForPayment ? 'Waiting for Tap confirmation' : 'Continue to Tap checkout'}
+                </button>
+              )}
             </div>
-          )}
-        </div>
-
-        <div className={`px-12 py-10 border-t border-primary/5 flex items-center justify-between bg-white/80 backdrop-blur-md flex-shrink-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
-          <button onClick={() => { safeHaptics.impact(); setStep(s => s - 1); }} disabled={step === 0} className="text-[11px] font-black uppercase tracking-[0.5em] text-primary/30 hover:text-primary transition-colors disabled:opacity-0">{t('back')}</button>
-          <button onClick={step === STEPS.length - 1 ? handleSubscribe : handleNext} disabled={submitting} className="btn-primary !px-16 !py-7 text-[11px] tracking-[0.5em] shadow-4xl active:scale-95 flex items-center gap-6 transition-all group">
-            {step === STEPS.length - 1 ? (t('authorize') || 'AUTHORIZE') : (t('proceed') || 'PROCEED')}
-            <ArrowRight className={`w-5 h-5 ${isRtl ? 'rotate-180 group-hover:-translate-x-1' : 'group-hover:translate-x-1'} transition-transform`} />
-          </button>
-        </div>
+          </div>
+        )}
       </div>
     </EditorialPanel>
-  );
-}
-
-function MetricPicker({ label, value, min, max, onChange, unit }: any) {
-  return (
-    <div className="space-y-8 px-2">
-      <div className="flex justify-between items-end">
-         <p className="text-[11px] font-black uppercase tracking-[0.4em] text-primary/40">{label}</p>
-         <p className="text-5xl font-serif italic text-primary leading-none tracking-tighter">{value || 0}<span className="text-[10px] not-italic font-black ml-3 uppercase opacity-20 tracking-widest">{unit}</span></p>
-      </div>
-      <input type="range" min={min} max={max} value={value || 0} onChange={e => onChange(parseInt(e.target.value))} className="w-full accent-gold bg-primary/5 h-3 rounded-full appearance-none cursor-pointer" />
-    </div>
-  );
-}
-
-function ReviewRow({ label, value }: any) {
-  return (
-    <div className="flex justify-between gap-8 px-12 py-8 border-b border-primary/5 last:border-0 hover:bg-primary/[0.02] transition-colors">
-      <span className="text-primary/40 text-[11px] font-black uppercase tracking-[0.4em]">{label}</span>
-      <span className="text-primary text-lg font-black uppercase italic tracking-tighter">{value}</span>
-    </div>
   );
 }

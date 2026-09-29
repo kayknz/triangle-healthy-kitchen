@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "vite --open",
@@ -17,6 +17,7 @@
     "@vercel/analytics": "^2.0.1",
     "framer-motion": "^11.0.8",
     "lucide-react": "^0.344.0",
+    "pdfjs-dist": "^4.10.38",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.22.3"

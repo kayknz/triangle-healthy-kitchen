@@ -2,7 +2,8 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
 
-export type UserRole = 'owner' | 'rider' | 'subscriber';
+export type StaffRole = 'ceo' | 'admin' | 'kitchen' | 'transport';
+export type UserRole = StaffRole | 'owner' | 'rider' | 'subscriber';
 
 // Role detection is now handled via database flags and metadata
 export type AccessMode = 'work' | 'personal';
@@ -12,6 +13,7 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   userRole: UserRole | null;
+  staffRole: StaffRole | null;
   isOwner: boolean;
   isApprovedRider: boolean;
   onboardingComplete: boolean;
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [staffRole, setStaffRole] = useState<StaffRole | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [isApprovedRider, setIsApprovedRider] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
@@ -51,37 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('thk_access_mode', mode);
   };
 
-  const ensureOwnerSubscriber = async (u: User) => {
-    try {
-      const email = u.email?.toLowerCase() ?? '';
-      const { data: existing } = await supabase
-        .from('subscribers')
-        .select('id')
-        .eq('user_id', u.id)
-        .maybeSingle();
+  const getAuthAccess = async (u: User | null): Promise<{ role: UserRole | null; staffRole: StaffRole | null; isOwner: boolean; isApprovedRider: boolean; hasPersonal: boolean; onboardingCompleted: boolean }> => {
+    if (!u) return { role: null, staffRole: null, isOwner: false, isApprovedRider: false, hasPersonal: false, onboardingCompleted: false };
 
-      if (!existing) {
-        await supabase.from('subscribers').insert({
-          user_id: u.id,
-          full_name: 'Triangle Admin',
-          status: 'active',
-          is_owner: true,
-          onboarding_completed: true,
-          package_id: 'signature_custom',
-          package_name: 'Owner Protocol'
-        });
-      } else {
-        await supabase.from('subscribers').update({ is_owner: true, onboarding_completed: true }).eq('user_id', u.id);
-      }
-    } catch (e) {
-      console.error('Admin sync latency.');
-    }
-  };
-
-  const getAuthAccess = async (u: User | null): Promise<{ role: UserRole | null; isOwner: boolean; isApprovedRider: boolean; hasPersonal: boolean; onboardingCompleted: boolean }> => {
-    if (!u) return { role: null, isOwner: false, isApprovedRider: false, hasPersonal: false, onboardingCompleted: false };
-
-    const email = u.email?.toLowerCase() ?? '';
+    const { data: assignedRole, error: roleError } = await supabase.rpc('current_staff_role');
+    const validStaffRoles: StaffRole[] = ['ceo', 'admin', 'kitchen', 'transport'];
+    const staffRole = !roleError && validStaffRoles.includes(assignedRole as StaffRole)
+      ? assignedRole as StaffRole
+      : null;
 
     // 1. Check for personal subscription status
     const { data: sub } = await supabase
@@ -94,9 +74,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const owner = sub?.is_owner === true;
     const onboardingCompleted = sub?.onboarding_completed === true;
 
+    if (staffRole) {
+      return {
+        role: staffRole,
+        staffRole,
+        isOwner: staffRole === 'ceo' || staffRole === 'admin',
+        isApprovedRider: false,
+        hasPersonal,
+        onboardingCompleted
+      };
+    }
+
     // 2. Resolve Owner Status
     if (owner) {
-      return { role: 'owner', isOwner: true, isApprovedRider: false, hasPersonal: true, onboardingCompleted };
+      return { role: 'owner', staffRole: null, isOwner: true, isApprovedRider: false, hasPersonal: true, onboardingCompleted };
     }
 
     // 3. Resolve Rider Status (Check rider_applications table)
@@ -106,23 +97,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('user_id', u.id)
       .maybeSingle();
 
-    if (riderApp || u.user_metadata?.role === 'rider') {
+    if (riderApp) {
       return {
         role: 'rider',
+        staffRole: null,
         isOwner: false,
-        isApprovedRider: riderApp?.approved === true || u.user_metadata?.approved === true,
+        isApprovedRider: riderApp.approved === true,
         hasPersonal,
         onboardingCompleted
       };
     }
 
     // 4. Default to Subscriber
-    return { role: 'subscriber', isOwner: false, isApprovedRider: false, hasPersonal: true, onboardingCompleted };
+    return { role: 'subscriber', staffRole: null, isOwner: false, isApprovedRider: false, hasPersonal: true, onboardingCompleted };
   };
 
   const applyAuthAccess = async (u: User | null) => {
     const access = await getAuthAccess(u);
     setUserRole(access.role);
+    setStaffRole(access.staffRole);
     setIsOwner(access.isOwner);
     setIsApprovedRider(access.isApprovedRider);
     setOnboardingComplete(access.onboardingCompleted);
@@ -131,8 +124,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setHasDualAccess(dual);
 
     if (u) {
-      if (access.isOwner) await ensureOwnerSubscriber(u);
-
       const savedMode = localStorage.getItem('thk_access_mode') as AccessMode;
       // FIX: If they have dual access, don't default a mode. Let the selector show.
       if (dual && !savedMode) {
@@ -171,13 +162,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const access = await applyAuthAccess(data.user);
-    const resolvedRole = (role ?? access.role ?? 'subscriber') as UserRole;
+    // The database role is authoritative. The optional role only identifies the
+    // sign-in panel and must never elevate the account's permissions.
+    const resolvedRole = access.role ?? 'subscriber';
 
     return { error: null, role: resolvedRole, dual: access.dual };
   };
 
   const signUp = async (email: string, password: string, role: UserRole, name?: string, phone?: string) => {
-    if (role === 'owner') return { error: 'Admin registration is restricted.' };
+    if (role !== 'subscriber' && role !== 'rider') return { error: 'Staff registration is restricted.' };
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -217,7 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
+      redirectTo: `${window.location.origin}/login?password-recovery=1`,
     });
     return { error: error?.message ?? null };
   };
@@ -232,7 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      session, user, loading, userRole, isOwner, isApprovedRider, onboardingComplete,
+      session, user, loading, userRole, staffRole, isOwner, isApprovedRider, onboardingComplete,
       accessMode, setAccessMode: (m) => { setAccessModeState(m); localStorage.setItem('thk_access_mode', m); },
       hasDualAccess,
       signIn, signUp, signOut, resetPassword, refreshAuth

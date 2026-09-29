@@ -10,9 +10,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const TAP_SECRET_KEY = Deno.env.get("TAP_SECRET_KEY");
-
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !TAP_SECRET_KEY) {
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   throw new Error("Payment configuration is incomplete.");
 }
 
@@ -88,6 +86,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const { data: tapConfig, error: tapConfigError } = await adminClient.rpc("get_tap_config");
+    const tapSecretKey = tapConfig?.api_key;
+    if (tapConfigError || typeof tapSecretKey !== "string" || !tapSecretKey) {
+      console.error("Tap configuration unavailable.", tapConfigError?.message);
+      return jsonResponse({ error: "Payment configuration unavailable." }, 503);
+    }
+
     // ---------------------------------------------------------
     // 2. PARSE REQUEST
     // ---------------------------------------------------------
@@ -110,7 +115,7 @@ Deno.serve(async (req: Request) => {
         ? body.package_id.trim()
         : "";
 
-    const subscriberId =
+    let subscriberId =
       (typeof body?.subscriberId === "string" && body.subscriberId.trim())
         ? body.subscriberId.trim()
         : (typeof body?.subscriber_id === "string" && body.subscriber_id.trim())
@@ -124,24 +129,21 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (!subscriberId) {
-      return jsonResponse(
-        { error: "subscriberId or subscriber_id is required." },
-        400,
-      );
+    const { data: availablePackage, error: availablePackageError } = await adminClient
+      .from("packages").select("id, active").eq("id", packageId).maybeSingle();
+    if (availablePackageError) throw new Error(`Package lookup failed: ${availablePackageError.message}`);
+    if (!availablePackage || !availablePackage.active) {
+      return jsonResponse({ error: "This package is unavailable." }, 400);
     }
 
     // ---------------------------------------------------------
-    // 3. VERIFY SUBSCRIBER BELONGS TO AUTHENTICATED USER
+    // 3. RESOLVE OR CREATE A NON-ACTIVE SUBSCRIBER RECORD
     // ---------------------------------------------------------
 
-    const {
-      data: subscriber,
-      error: subscriberError,
-    } = await adminClient
+    const { data: suppliedSubscriber, error: subscriberError } = await adminClient
       .from("subscribers")
       .select("id, user_id, email")
-      .eq("id", subscriberId)
+      .eq(subscriberId ? "id" : "user_id", subscriberId || user.id)
       .maybeSingle();
 
     if (subscriberError) {
@@ -150,14 +152,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (!subscriber) {
-      return jsonResponse(
-        { error: "Subscriber account not found." },
-        404,
-      );
-    }
-
-    if (subscriber.user_id !== user.id) {
+    if (suppliedSubscriber && suppliedSubscriber.user_id !== user.id) {
       console.error(
         `SECURITY: User ${user.id} attempted payment for subscriber ${subscriberId}`,
       );
@@ -167,6 +162,37 @@ Deno.serve(async (req: Request) => {
         403,
       );
     }
+
+    const profile = body?.profile && typeof body.profile === "object" ? body.profile : {};
+    const safeText = (value: unknown, maxLength: number) =>
+      typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+    const safeNumber = (value: unknown) => {
+      if ((typeof value !== "number" && typeof value !== "string") || value === "") return null;
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    };
+    let subscriber = suppliedSubscriber;
+    if (!subscriber) {
+      const fullName = safeText(profile.full_name, 120) || safeText(user.user_metadata?.full_name, 120) || "Triangle Member";
+      const { data: createdSubscriber, error: createSubscriberError } = await adminClient
+        .from("subscribers")
+        .insert({
+          user_id: user.id,
+          full_name: fullName,
+          email: user.email,
+          phone: safeText(profile.phone, 40),
+          package_id: packageId,
+          package_name: "Pending payment",
+          status: "paused",
+        })
+        .select("id, user_id, email")
+        .single();
+      if (createSubscriberError || !createdSubscriber) {
+        throw new Error(`Subscriber setup failed: ${createSubscriberError?.message || "Unknown error"}`);
+      }
+      subscriber = createdSubscriber;
+    }
+    subscriberId = subscriber.id;
 
     // ---------------------------------------------------------
     // 4. LOAD AUTHORITATIVE PACKAGE
@@ -219,11 +245,31 @@ Deno.serve(async (req: Request) => {
     const currency =
       String(pkg.currency || "QAR").toUpperCase();
 
-    if (!currency) {
-      throw new Error(
-        "Invalid package currency configuration.",
-      );
+    if (currency !== "QAR") {
+      return jsonResponse({ error: "The selected package currency is not configured for Tap." }, 400);
     }
+
+    const initialMenuSelections = Array.isArray(profile.initial_menu_selections)
+      ? profile.initial_menu_selections.slice(0, 24).flatMap((choice: any) => {
+        if (!choice || typeof choice !== "object") return [];
+        const day = safeText(choice.day_of_week, 20);
+        const meal = safeText(choice.meal_type, 20);
+        const weekStart = safeText(choice.week_start_date, 10);
+        const dishId = safeText(choice.dish_id, 80);
+        if (!['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday'].includes(day)
+          || !['breakfast','lunch','dinner','snack','snacks'].includes(meal)
+          || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart) || !dishId) return [];
+        return [{
+          day_of_week: day,
+          meal_type: meal === 'snacks' ? 'snack' : meal,
+          week_start_date: weekStart,
+          dish_id: dishId,
+          dish_name: safeText(choice.dish_name, 160),
+          dish_kcals: safeNumber(choice.dish_kcals) || 0,
+          menu_period: safeText(choice.menu_period, 40),
+        }];
+      })
+      : [];
 
     // ---------------------------------------------------------
     // 5. GET CUSTOMER EMAIL
@@ -258,6 +304,24 @@ Deno.serve(async (req: Request) => {
       package_duration: pkg.duration,
       subscriber_id: subscriber.id,
       user_id: user.id,
+      initial_menu_selections: initialMenuSelections,
+      profile: {
+        full_name: safeText(profile.full_name, 120),
+        phone: safeText(profile.phone, 40),
+        age: safeNumber(profile.age),
+        gender: ['male', 'female'].includes(profile.gender) ? profile.gender : null,
+        bmi_report_path: safeText(profile.bmi_report_path, 255),
+        weight_kg: safeNumber(profile.weight_kg),
+        height_cm: safeNumber(profile.height_cm),
+        fitness_goal: safeText(profile.fitness_goal, 80),
+        building_number: safeText(profile.building_number, 80),
+        street: safeText(profile.street, 160),
+        area: safeText(profile.area, 120),
+        zone_number: safeText(profile.zone_number, 40),
+        delivery_notes: safeText(profile.delivery_notes, 500),
+        latitude: safeNumber(profile.latitude),
+        longitude: safeNumber(profile.longitude),
+      },
     };
 
     const {
@@ -335,7 +399,7 @@ Deno.serve(async (req: Request) => {
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${TAP_SECRET_KEY}`,
+          Authorization: `Bearer ${tapSecretKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(tapPayload),

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChefHat, Loader2, Lock, Mail, User, Phone, AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2, Lock, Mail, Navigation } from 'lucide-react';
 import { useAuth, type UserRole } from '@/lib/auth';
 import { useLanguage } from '@/lib/LanguageContext';
 import EditorialPanel from './EditorialPanel';
@@ -10,179 +10,70 @@ interface ProviderAuthProps {
   onSuccess: (role: UserRole) => void;
 }
 
+/** Mobile staff entry is intentionally limited to rider accounts. Other operations live on THK Web. */
 export default function ProviderAuth({ isOpen = true, onClose, onSuccess }: ProviderAuthProps) {
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
   const { t, isRtl } = useLanguage();
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [role, setRole] = useState<'owner' | 'rider'>('owner');
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
-      let result;
-      if (mode === 'signin') {
-        result = await signIn(email, password);
-      } else {
-        result = await signUp(email, password, name, role, phone);
-      }
-
-      if (result.error) {
-        setError(result.error);
-      } else {
-        onSuccess(result.role ?? role);
-      }
+      const result = await signIn(email.trim(), password);
+      if (result.error) setError(result.error);
+      else onSuccess(result.role ?? 'driver');
     } catch (e: any) {
-      setError(e.message || t('error_generic'));
+      setError(e?.message || t('error_generic'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <EditorialPanel
-      isOpen={isOpen}
-      onClose={onClose}
-      title={role === 'owner' ? t('owner_chef') : t('rider')}
-      badge={t('ops_console')}
-      maxWidth="max-w-md"
-    >
-      <div className="p-8 sm:p-10" dir={isRtl ? 'rtl' : 'ltr'}>
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-[2rem] bg-[#0a3030] flex items-center justify-center mx-auto mb-6 shadow-xl border border-white/10">
-            <ChefHat className="w-8 h-8 text-[#C5A059]" />
+    <EditorialPanel isOpen={isOpen} onClose={onClose} title="Rider Portal" badge="Delivery Team" maxWidth="max-w-[500px]">
+      <div className="p-6 sm:p-10" dir={isRtl ? 'rtl' : 'ltr'}>
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-[2rem] border border-white/10 bg-[#0a3030] shadow-xl">
+            <Navigation className="h-8 w-8 text-[#C5A059]" />
           </div>
-          <h2 className="text-[#0a3030] font-black text-2xl uppercase italic tracking-tight leading-none">
-            {t('command_entry')}
-          </h2>
-          <p className="text-gray-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-3">
-            {mode === 'signin' ? t('authorize_session') : t('rider_flow')}
-          </p>
-        </div>
-
-        {/* Role Toggle */}
-        <div className="flex bg-gray-50 rounded-2xl p-1 mb-8">
-          <button
-            onClick={() => setRole('owner')}
-            className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${
-              role === 'owner' ? 'bg-[#0a3030] text-white shadow-lg' : 'text-gray-400 hover:text-[#0a3030]'
-            }`}
-          >
-            {t('owner_chef')}
-          </button>
-          <button
-            onClick={() => setRole('rider')}
-            className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${
-              role === 'rider' ? 'bg-[#0a3030] text-white shadow-lg' : 'text-gray-400 hover:text-[#0a3030]'
-            }`}
-          >
-            {t('rider')}
-          </button>
+          <h2 className="text-2xl font-black uppercase italic leading-none tracking-tight text-[#0a3030]">Rider Sign In</h2>
+          <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">Delivery assignments and route updates</p>
         </div>
 
         {error && (
-          <div className="mb-6 flex items-start gap-3 bg-red-50 border border-red-100 rounded-2xl px-5 py-4">
-            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-            <p className="text-red-700 text-xs font-semibold">{error}</p>
+          <div role="alert" className="mb-6 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-5 py-4">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+            <p className="text-xs font-semibold text-red-700">{error}</p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {mode === 'signup' && (
-            <div className="space-y-2">
-              <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
-                {t('full_name')}
-              </label>
-              <div className="relative">
-                <User className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={role === 'rider' ? (t('unit_identifier') || "Unit Identifier") : (t('full_name') || "Full Name")}
-                  required
-                  className={`w-full bg-white border border-gray-100 rounded-2xl py-4 text-sm font-bold focus:border-[#0a3030] transition-all ${isRtl ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'}`}
-                />
-              </div>
-            </div>
-          )}
-          {mode === 'signup' && role === 'rider' && (
-            <div className="space-y-2">
-              <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
-                {t('mobile_number')}
-              </label>
-              <div className="relative">
-                <Phone className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+974"
-                  required
-                  className={`w-full bg-white border border-gray-100 rounded-2xl py-4 text-sm font-bold focus:border-[#0a3030] transition-all ${isRtl ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'}`}
-                />
-              </div>
-            </div>
-          )}
-          <div className="space-y-2">
-            <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
-              {t('email_identifier')}
-            </label>
-            <div className="relative">
-              <Mail className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={t('email_address') || "Email"}
-                required
-                className={`w-full bg-white border border-gray-100 rounded-2xl py-4 text-sm font-bold focus:border-[#0a3030] transition-all ${isRtl ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'}`}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
-              {t('secure_passkey')}
-            </label>
-            <div className="relative">
-              <Lock className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                minLength={6}
-                className={`w-full bg-white border border-gray-100 rounded-2xl py-4 text-sm font-bold focus:border-[#0a3030] transition-all ${isRtl ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'}`}
-              />
-            </div>
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <label className="block space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#0a3030]/50">{t('email_identifier') || 'Work Email'}</span>
+            <span className="relative block">
+              <Mail className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
+              <input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="rider@trianglehk.com" className={`w-full rounded-2xl border border-gray-100 bg-white py-4 text-sm font-bold focus:border-[#0a3030] ${isRtl ? 'pl-4 pr-12 text-right' : 'pl-12 pr-4 text-left'}`} />
+            </span>
+          </label>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[#0a3030] text-white font-black py-5 rounded-[2rem] text-[11px] uppercase tracking-[0.4em] transition-all hover:shadow-2xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (mode === 'signin' ? t('sign_in') : t('sign_up'))}
+          <label className="block space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#0a3030]/50">{t('secure_passkey') || 'Password'}</span>
+            <span className="relative block">
+              <Lock className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
+              <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} className={`w-full rounded-2xl border border-gray-100 bg-white py-4 text-sm font-bold focus:border-[#0a3030] ${isRtl ? 'pl-4 pr-12 text-right' : 'pl-12 pr-4 text-left'}`} />
+            </span>
+          </label>
+
+          <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-3 rounded-[2rem] bg-[#0a3030] py-5 text-[11px] font-black uppercase tracking-[0.4em] text-white transition-all hover:shadow-2xl active:scale-95 disabled:opacity-50">
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (t('sign_in') || 'Sign In')}
           </button>
         </form>
-
-        <div className="text-center mt-8">
-          <button
-            onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); }}
-            className="text-[#0a3030] text-[10px] font-black uppercase tracking-widest hover:underline"
-          >
-            {mode === 'signin' ? t('sign_up') : t('sign_in')}
-          </button>
-        </div>
+        <p className="mt-7 text-center text-[10px] leading-5 text-gray-400">CEO, admin, kitchen, and transport operations are available on the web portal.</p>
       </div>
     </EditorialPanel>
   );

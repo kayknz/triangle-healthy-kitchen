@@ -12,12 +12,14 @@ import {
   type Subscriber, type HealthEntry,
 } from '@/types/subscription';
 import { Health } from '@capgo/capacitor-health';
+import { useLanguage } from '@/lib/LanguageContext';
 
 interface HealthTabProps {
   subscriber: Subscriber;
 }
 
 export default function HealthTab({ subscriber }: HealthTabProps) {
+  const { t } = useLanguage();
   const [entries, setEntries] = useState<HealthEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);

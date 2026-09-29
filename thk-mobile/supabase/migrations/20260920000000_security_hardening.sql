@@ -5,6 +5,13 @@
 -- Prevent users from setting their own is_owner flag or status during insert/update.
 ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
 
+-- Some shared project instances predate the billing columns; define them before
+-- applying column-level write restrictions so this migration is repeatable.
+ALTER TABLE public.subscribers
+  ADD COLUMN IF NOT EXISTS tap_charge_id text,
+  ADD COLUMN IF NOT EXISTS subscription_start timestamptz DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS current_period_end timestamptz;
+
 -- Revoke column-level write access for sensitive fields
 REVOKE INSERT, UPDATE (is_owner, status, tap_charge_id, subscription_start, current_period_end) ON subscribers FROM anon, authenticated;
 

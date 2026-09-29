@@ -224,6 +224,55 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Selection closes Thursday at 23:59 Qatar time. The 30-minute cron calls
+    // this function during the preceding Wednesday 23:00 hour; a unique row
+    // prevents duplicate mail if the invocation is retried.
+    const qatarParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Qatar", weekday: "short", hour: "2-digit", hour12: false,
+    }).formatToParts(new Date());
+    const qatarWeekday = qatarParts.find((part) => part.type === "weekday")?.value;
+    const qatarHour = Number(qatarParts.find((part) => part.type === "hour")?.value || 0);
+    if (qatarWeekday === "Wed" && qatarHour === 23) {
+      const qatarDate = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Qatar", year: "numeric", month: "2-digit", day: "2-digit",
+      }).format(new Date());
+      const serviceSaturday = new Date(`${qatarDate}T12:00:00Z`);
+      serviceSaturday.setUTCDate(serviceSaturday.getUTCDate() + 3);
+      const weekStart = serviceSaturday.toISOString().slice(0, 10);
+      const { data: subscribers, error: subscriberError } = await supabase
+        .from("subscribers").select("id,full_name,email,package_name")
+        .eq("status", "active").not("email", "is", null);
+      if (subscriberError) throw subscriberError;
+      const ids = (subscribers || []).map((subscriber) => subscriber.id);
+      const [{ data: selections, error: selectionError }, { data: sent, error: sentError }] = await Promise.all([
+        ids.length ? supabase.from("weekly_menu_selections").select("subscriber_id,meal_type,dish_name")
+          .eq("week_start_date", weekStart).in("subscriber_id", ids) : Promise.resolve({ data: [], error: null }),
+        ids.length ? supabase.from("weekly_menu_reminders").select("subscriber_id")
+          .eq("week_start_date", weekStart).in("subscriber_id", ids) : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (selectionError) throw selectionError;
+      if (sentError) throw sentError;
+      const selectedCount = new Map<string, number>();
+      for (const selection of selections || []) {
+        if (selection.dish_name !== "SKIP DAY") selectedCount.set(selection.subscriber_id, (selectedCount.get(selection.subscriber_id) || 0) + 1);
+      }
+      const alreadySent = new Set((sent || []).map((row) => row.subscriber_id));
+      for (const subscriber of subscribers || []) {
+        const email = String(subscriber.email || "").trim();
+        if (!email || alreadySent.has(subscriber.id) || (selectedCount.get(subscriber.id) || 0) >= 24) continue;
+        const name = String(subscriber.full_name || "there").replace(/[&<>\"']/g, "");
+        const subject = "Choose your meals before the menu closes tomorrow";
+        const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:28px;color:#123F38"><h1>Triangle Healthy Kitchen</h1><p>Hi ${name},</p><p>Your meal selection for the service week beginning ${weekStart} closes tomorrow at 11:59 PM Qatar time. Choose meals that fit your plan before the deadline. Any meals left unselected will use the kitchen’s choice.</p><p><a href="https://trianglehealthykitchen.vercel.app/account" style="display:inline-block;background:#123F38;color:white;padding:14px 22px;border-radius:8px;text-decoration:none">Choose this week’s meals</a></p></div>`;
+        const sentEmail = await sendBrevoEmail(email, name, subject, html);
+        if (sentEmail.ok) {
+          const { error: reminderError } = await supabase.from("weekly_menu_reminders")
+            .insert({ subscriber_id: subscriber.id, week_start_date: weekStart });
+          if (reminderError) throw reminderError;
+          results.sent_24h++;
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true, ...results }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },

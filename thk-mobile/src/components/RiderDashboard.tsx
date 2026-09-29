@@ -19,7 +19,7 @@ interface Delivery {
   area: string;
   building: string;
   street: string;
-  zone: string;
+  zone?: string;
   notes: string | null;
   status: 'pending' | 'delivered';
   time_window: string;

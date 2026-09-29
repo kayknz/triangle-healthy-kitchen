@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, LogOut, Utensils, Truck, Activity, X, Loader2, Heart,
   Moon, Sun, Coffee, Brain, Zap, Map as MapIcon, Share2, Award,
-  ShieldAlert, Phone, Clock, Trash2, ChevronLeft, ChevronRight, Check,
+  ShieldAlert, Phone, Clock, Trash2, Check,
   Package, MapPin, CheckCircle, CheckCircle2, Circle, Timer, XCircle, Camera, MessageCircle, Shield, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,13 +13,13 @@ import {
   DELIVERY_WINDOWS, PACKAGE_MEALS,
   type Subscriber, type ProgressEntry, type MenuSelection, type GlobalSettings, type MenuDish, type Ingredient
 } from '@/types/subscription';
-import { WEEKLY_MENU } from '@/data/menu';
 import HealthTab from '@/components/HealthTab';
 import { useLanguage } from '@/lib/LanguageContext';
 import { BUSINESS_RULES } from '@/config/business';
-import { getQatarDate, getQatarDayOfWeek, addDays, getDaysRemaining } from '@/lib/date-utils';
+import { getQatarDate, getQatarDayOfWeek, addDays } from '@/lib/date-utils';
 
 type Tab = 'menu' | 'delivery' | 'health' | 'settings';
+const qatarTomorrowString = () => { const date = new Date(`${getQatarDate()}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + 1); return date.toISOString().slice(0, 10); };
 
 export default function SubscriberDashboard() {
   const { user, signOut } = useAuth();
@@ -323,18 +323,29 @@ export default function SubscriberDashboard() {
 }
 
 function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscriber, settings: GlobalSettings | null, onUpdate: () => void }) {
-  const [weekOffset, setWeekOffset] = useState(0);
+  const weekOffset = 0;
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [menuWeek, setMenuWeek] = useState<number>(1);
   const [selections, setSelections] = useState<MenuSelection[]>([]);
   const [availableMenu, setAvailableMenu] = useState<any[]>([]);
+  const [menuHasItems, setMenuHasItems] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [aboutMeal, setAboutMeal] = useState<MenuDish | null>(null);
   const [customizingMeal, setCustomizingMeal] = useState<{dish: MenuDish, meal: string} | null>(null);
   const { t, isRtl } = useLanguage();
 
-  const daysRemaining = settings?.selection_deadline ? getDaysRemaining(settings.selection_deadline) : null;
+  const daysRemaining = (() => {
+    const now = new Date();
+    const weekday = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Qatar', weekday: 'short' }).format(now);
+    const qatarDate = new Date(`${getQatarDate(now)}T12:00:00Z`);
+    const untilThursday = weekday === 'Thu' ? 0 : weekday === 'Fri' ? -1 : ({ Sat: 5, Sun: 4, Mon: 3, Tue: 2, Wed: 1 } as Record<string, number>)[weekday] ?? 0;
+    if (untilThursday < 0) return 0;
+    const deadline = addDays(qatarDate, untilThursday);
+    deadline.setUTCHours(20, 59, 59, 999);
+    return Math.max(0, Math.ceil((deadline.getTime() - now.getTime()) / 86400000));
+  })();
   const days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
 
   const getWeekStart = (offset: number) => {
@@ -342,18 +353,43 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
     const day = getQatarDayOfWeek(today);
     const qatarDateStr = getQatarDate(today);
     const qatarDate = new Date(qatarDateStr + 'T12:00:00');
-    const diff = offset * 7 - day;
+    const diff = offset * 7 - ((day + 1) % 7);
     return getQatarDate(addDays(qatarDate, diff));
   };
 
-  const weekStart = getWeekStart(weekOffset);
+  const weekStart = getWeekStart(weekOffset + 1);
+  const qatarParts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Qatar', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+  const qatarWeekday = qatarParts.find((part) => part.type === 'weekday')?.value;
+  const canEditMenu = weekOffset === 0 && qatarWeekday !== 'Fri' && menuHasItems;
   const availableMeals = PACKAGE_MEALS[subscriber.package_id] || ['breakfast', 'lunch', 'dinner', 'snacks'];
 
   const loadMenu = useCallback(async () => {
     setLoading(true);
     try {
+      // Each published menu week is keyed by its Qatar Saturday release date.
+      // Show only the menu released for this ordering cycle, never older weeks.
+      const qatarMidnight = (date: string) => new Date(`${date}T00:00:00+03:00`).toISOString();
+      const releaseStart = getWeekStart(0);
+      const releaseEnd = getQatarDate(addDays(new Date(`${releaseStart}T12:00:00Z`), 7));
+      const { data: menuData, error: menuError } = await supabase
+        .from('menu_availability')
+        .select('*, dishes(*, ingredients(*))')
+        .eq('collection', settings?.active_season || 'autumn')
+        .gte('available_from', qatarMidnight(releaseStart))
+        .lt('available_from', qatarMidnight(releaseEnd))
+        .eq('is_active', true);
       setMenuWeek(1);
-      const grouped = WEEKLY_MENU;
+      if (menuError) throw menuError;
+      setMenuHasItems(Boolean(menuData?.length));
+      const grouped = days.map((day) => ({
+        day,
+        items: {
+          breakfast: menuData?.filter((row) => row.day_of_week === day && row.meal_period === 'breakfast').map((row) => row.dishes).filter(Boolean) || [],
+          lunch: menuData?.filter((row) => row.day_of_week === day && row.meal_period === 'lunch').map((row) => row.dishes).filter(Boolean) || [],
+          dinner: menuData?.filter((row) => row.day_of_week === day && row.meal_period === 'dinner').map((row) => row.dishes).filter(Boolean) || [],
+          snacks: menuData?.filter((row) => row.day_of_week === day && row.meal_period === 'snacks').map((row) => row.dishes).filter(Boolean) || [],
+        },
+      }));
       setAvailableMenu(grouped);
 
       // Fetch User Selections
@@ -362,34 +398,34 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
         .select('day_of_week, meal_type, dish_name, dish_kcals, menu_period, customizations, dish_id')
         .eq('subscriber_id', subscriber.id);
 
-      if (settings?.current_menu_period) {
-        selQuery = selQuery.eq('menu_period', settings.current_menu_period);
-      } else {
-        selQuery = selQuery.eq('week_start_date', weekStart);
-      }
+      selQuery = selQuery.eq('week_start_date', weekStart);
 
-      const { data: selData } = await selQuery;
-      setSelections(selData as MenuSelection[] || []);
+      const { data: selData, error: selectionError } = await selQuery;
+      if (selectionError) throw selectionError;
+      setSelections((selData || []).map((row) => ({ ...row, meal_type: row.meal_type === 'snack' ? 'snacks' : row.meal_type })) as MenuSelection[]);
     } catch (e) {
       console.error('Menu Sync Failure:', e);
+      setSaveError(e instanceof Error ? e.message : 'Could not load this week’s menu.');
     } finally {
       setLoading(false);
     }
-  }, [subscriber.id, weekStart, settings?.active_season, settings?.current_menu_period]);
+  }, [subscriber.id, weekStart, weekOffset, settings?.active_season]);
 
   useEffect(() => { loadMenu(); }, [loadMenu]);
 
   const activeDay = availableMenu.find(d => d.day === days[activeDayIndex]);
 
   const pickDish = async (day: string, meal: string, dish: MenuDish, customizations = {}) => {
+    if (!canEditMenu || saving) return;
     setSaving(true);
+    setSaveError(null);
     const { error } = await supabase
       .from('weekly_menu_selections')
       .upsert({
         subscriber_id: subscriber.id,
         week_start_date: weekStart,
         day_of_week: day,
-        meal_type: meal,
+        meal_type: meal === 'snacks' ? 'snack' : meal,
         dish_id: dish.id,
         dish_name: dish.name,
         dish_kcals: dish.kcals,
@@ -400,43 +436,47 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
     if (!error) {
       await loadMenu();
       onUpdate();
-    }
+    } else setSaveError(error.message);
     setSaving(false);
     setCustomizingMeal(null);
   };
 
   const skipEntireDay = async (day: string) => {
+    if (!canEditMenu || saving) return;
     if (!confirm(`Skip all meals for ${t(day)}?`)) return;
     setSaving(true);
+    setSaveError(null);
     const skipSelections = availableMeals.map(meal => ({
       subscriber_id: subscriber.id,
       week_start_date: weekStart,
       day_of_week: day,
-      meal_type: meal,
+      meal_type: meal === 'snacks' ? 'snack' : meal,
       dish_name: 'SKIP DAY',
       dish_kcals: 0,
       menu_period: settings?.current_menu_period
     }));
-    await supabase.from('weekly_menu_selections').upsert(skipSelections, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
-    await loadMenu();
+    const { error } = await supabase.from('weekly_menu_selections').upsert(skipSelections, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
+    if (error) setSaveError(error.message); else { await loadMenu(); onUpdate(); }
     setSaving(false);
   };
 
   const applyWeeklyPattern = async (meal: string, dish: MenuDish) => {
+    if (!canEditMenu || saving) return;
     if (!confirm(`Apply "${dish.name}" to all days this week?`)) return;
     setSaving(true);
+    setSaveError(null);
     const newSelections = days.map(day => ({
       subscriber_id: subscriber.id,
       week_start_date: weekStart,
       day_of_week: day,
-      meal_type: meal,
+      meal_type: meal === 'snacks' ? 'snack' : meal,
       dish_id: dish.id,
       dish_name: dish.name,
       dish_kcals: dish.kcals,
       menu_period: settings?.current_menu_period
     }));
-    await supabase.from('weekly_menu_selections').upsert(newSelections, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
-    await loadMenu();
+    const { error } = await supabase.from('weekly_menu_selections').upsert(newSelections, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
+    if (error) setSaveError(error.message); else { await loadMenu(); onUpdate(); }
     setSaving(false);
   };
 
@@ -444,13 +484,15 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
     <div className="space-y-6">
       {/* 1. Header & Week Selector */}
       <div className="flex items-center justify-between bg-white p-5 rounded-2xl border border-primary/5 shadow-lg">
-        <button onClick={() => setWeekOffset(w => Math.max(0, w - 1))} className="p-2 rounded-lg hover:bg-gray-50"><ChevronLeft className="w-5 h-5"/></button>
         <div className="text-center">
-          <p className="text-primary font-black text-[10px] uppercase tracking-[0.2em]">{weekOffset === 0 ? t('this_week') : t('next_week')}</p>
-          <p className="text-gold text-[8px] font-bold mt-0.5 uppercase tracking-widest">Cycle W{menuWeek}</p>
+          <p className="text-primary font-black text-[10px] uppercase tracking-[0.2em]">{t('next_week')}</p>
+          <p className="text-gold text-[8px] font-bold mt-0.5 uppercase tracking-widest">{weekStart} · Cycle W{menuWeek}</p>
         </div>
-        <button onClick={() => setWeekOffset(w => Math.min(w + 1, 2))} className="p-2 rounded-lg hover:bg-gray-50"><ChevronRight className="w-5 h-5"/></button>
       </div>
+
+      {saveError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">Menu update failed: {saveError}</p>}
+      {!loading && !menuHasItems && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs font-semibold text-amber-900">{t('menu_not_published')}</p>}
+      {qatarWeekday === 'Fri' && <p className="text-center text-[9px] font-bold text-primary/50">{t('menu_selection_closed')}</p>}
 
       {/* 2. Compact Day Tabs */}
       <div className="flex bg-white/40 backdrop-blur-xl p-1 rounded-xl border border-primary/5 shadow-sm overflow-x-auto no-scrollbar">
@@ -471,7 +513,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
       <div className="space-y-4 animate-reveal">
         <div className="flex items-center justify-between px-2">
            <h3 className="text-lg font-black uppercase italic tracking-tighter text-primary">{t(days[activeDayIndex])}</h3>
-           <button onClick={() => skipEntireDay(days[activeDayIndex])} className="text-[8px] font-black text-red-400 uppercase tracking-widest underline underline-offset-4">Skip Day</button>
+           <button disabled={!canEditMenu || saving} onClick={() => skipEntireDay(days[activeDayIndex])} className="text-[8px] font-black text-red-400 uppercase tracking-widest underline underline-offset-4 disabled:opacity-40">Skip Day</button>
         </div>
 
         <div className="space-y-6">
@@ -514,9 +556,9 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
 
                         <div className="flex items-center gap-2 mt-4">
                            <button onClick={() => setAboutMeal(dish)} className="flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-primary/5 hover:bg-primary/5">About</button>
-                           <button onClick={() => setCustomizingMeal({dish, meal: mealType})} className="flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-gold/10 text-gold hover:bg-gold/5">Personalize</button>
+                           <button disabled={!canEditMenu || saving} onClick={() => setCustomizingMeal({dish, meal: mealType})} className="flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-gold/10 text-gold hover:bg-gold/5 disabled:opacity-40">Personalize</button>
                            <button
-                             onClick={() => pickDish(days[activeDayIndex], mealType, dish)}
+                             disabled={!canEditMenu || saving} onClick={() => pickDish(days[activeDayIndex], mealType, dish)}
                              className={`flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${
                                isSelected ? 'bg-gold text-primary' : 'bg-primary/5 text-primary/60'
                              }`}
@@ -527,7 +569,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
 
                         {isSelected && !hasAllergy && (
                           <button
-                            onClick={(e) => { e.stopPropagation(); applyWeeklyPattern(mealType, dish); }}
+                            disabled={!canEditMenu || saving} onClick={(e) => { e.stopPropagation(); applyWeeklyPattern(mealType, dish); }}
                             className="absolute -right-2 -top-2 bg-gold text-primary p-1.5 rounded-lg shadow-lg border-2 border-white"
                           >
                             <Zap className="w-3 h-3 fill-primary" />
@@ -805,16 +847,28 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
 function PlanSettings({ subscriber, onUpdate, updating, setUpdating }: { subscriber: Subscriber, onUpdate: () => void, updating: boolean, setUpdating: (v: boolean) => void }) {
   const { signOut, user } = useAuth();
   const { t } = useLanguage();
+  const [pauseRequest, setPauseRequest] = useState<any>(null);
+  const [requestDate, setRequestDate] = useState(qatarTomorrowString);
+  const [requestReason, setRequestReason] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.from('subscription_pause_requests').select('*').eq('subscriber_id', subscriber.id).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => { if (mounted) setPauseRequest(data); });
+    return () => { mounted = false; };
+  }, [subscriber.id]);
 
   const togglePause = async () => {
     if (!subscriber) return;
     setUpdating(true);
-    const nextStatus = subscriber.status === 'active' ? 'paused' : 'active';
-    const { error } = await supabase.from('subscribers').update({ status: nextStatus }).eq('id', subscriber.id);
-    if (error) alert(t('error_generic'));
-    else alert(`Subscription ${nextStatus === 'paused' ? 'Paused' : 'Resumed'} Successfully.`);
-    setUpdating(false);
-    onUpdate();
+    try {
+      const request_type = subscriber.status === 'active' ? 'pause' : 'resume';
+      const { data, error } = await supabase.from('subscription_pause_requests').insert({ subscriber_id: subscriber.id, request_type, requested_date: requestDate, reason: requestReason.trim() }).select('*').single();
+      if (error) throw error;
+      setPauseRequest(data);
+      alert('Your request has been sent to the Triangle Healthy Kitchen team for review.');
+    } catch (error) { alert(error instanceof Error ? error.message : t('error_generic')); }
+    finally { setUpdating(false); }
   };
 
   const requestDeletion = async () => {
@@ -839,9 +893,9 @@ function PlanSettings({ subscriber, onUpdate, updating, setUpdating }: { subscri
           <Shield className="w-12 h-12 text-teal mb-8" />
           <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-4">{t('subscription_control')}</h3>
           <p className="text-muted text-lg italic mb-10 leading-relaxed">{t('pause_desc')}</p>
-          <button onClick={togglePause} disabled={updating} className={`btn-primary w-full py-6 uppercase tracking-widest ${subscriber.status === 'active' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
-             {updating ? '...' : subscriber.status === 'active' ? t('pause_plan') : t('resume_now')}
-          </button>
+          {pauseRequest ? <p className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-900">Your {pauseRequest.request_type} request for {pauseRequest.requested_date} is waiting for team approval.</p> : <><label className="mb-4 block text-sm font-semibold">Requested date<input type="date" min={qatarTomorrowString()} value={requestDate} onChange={(event) => setRequestDate(event.target.value)} className="mt-2 w-full rounded-xl border border-primary/20 bg-white p-3" /></label><label className="mb-5 block text-sm font-semibold">Reason<input value={requestReason} onChange={(event) => setRequestReason(event.target.value)} maxLength={300} placeholder="Travel, work, or another reason" className="mt-2 w-full rounded-xl border border-primary/20 bg-white p-3" /></label><button onClick={togglePause} disabled={updating || !['active','paused'].includes(subscriber.status) || (subscriber.status === 'paused' && !subscriber.tap_charge_id && !subscriber.last_payment_id)} className={`btn-primary w-full py-6 uppercase tracking-widest ${subscriber.status === 'active' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
+             {updating ? '...' : subscriber.status === 'active' ? t('pause_plan') : subscriber.status === 'paused' ? t('resume_now') : 'Plan unavailable'}
+          </button></>}
        </div>
 
        <div className="glass-card p-12 border-red-500/10 bg-red-50/5">

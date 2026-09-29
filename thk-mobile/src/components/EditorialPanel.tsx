@@ -25,7 +25,7 @@ export default function EditorialPanel({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-hidden ${isRtl ? 'font-arabic' : ''}`} dir={isRtl ? 'rtl' : 'ltr'}>
+        <div className={`fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 overflow-hidden ${isRtl ? 'font-arabic' : ''}`} dir={isRtl ? 'rtl' : 'ltr'}>
           {/* Backdrop Blur */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -40,28 +40,28 @@ export default function EditorialPanel({
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className={`relative bg-[#F5F3EB] w-full ${maxWidth} rounded-[3.5rem] shadow-4xl flex flex-col max-h-[95vh] border border-white/20 overflow-hidden`}
+            className={`relative bg-[#F5F3EB] w-full ${maxWidth} rounded-[2rem] sm:rounded-[3.5rem] shadow-4xl flex flex-col max-h-[92vh] sm:max-h-[95vh] border border-white/20 overflow-hidden`}
           >
             {/* Header */}
-            <div className={`flex items-center justify-between px-8 sm:px-12 py-10 border-b border-primary/5 flex-shrink-0 bg-white/40 backdrop-blur-md ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex items-center justify-between px-6 sm:px-12 py-6 sm:py-10 border-b border-primary/5 flex-shrink-0 bg-white/40 backdrop-blur-md ${isRtl ? 'flex-row-reverse' : ''}`}>
               <div className={isRtl ? 'text-right' : 'text-left'}>
-                <div className={`flex items-center gap-2 mb-3 bg-primary/5 px-3 py-1.5 rounded-full w-fit ${isRtl ? 'flex-row-reverse ml-auto' : ''}`}>
+                <div className={`flex items-center gap-2 mb-2 sm:mb-3 bg-primary/5 px-3 py-1.5 rounded-full w-fit ${isRtl ? 'flex-row-reverse ml-auto' : ''}`}>
                   <Star className="w-3 h-3 fill-gold text-gold" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">
                     {badge || 'Active Plan'}
                   </span>
                 </div>
                 {title && (
-                  <h2 className="text-primary font-black text-2xl sm:text-3xl uppercase tracking-tighter italic leading-none">
+                  <h2 className="text-primary font-black text-xl sm:text-3xl uppercase tracking-tighter italic leading-none">
                     {title}
                   </h2>
                 )}
               </div>
               <button
                 onClick={onClose}
-                className="text-muted hover:text-primary p-3 rounded-full hover:bg-white/50 transition-all border border-transparent hover:border-primary/5"
+                className="text-muted hover:text-primary p-2 sm:p-3 rounded-full hover:bg-white/50 transition-all border border-transparent hover:border-primary/5"
               >
-                <X className="w-8 h-8" />
+                <X className="w-6 h-6 sm:w-8 sm:h-8" />
               </button>
             </div>
 
@@ -93,7 +93,7 @@ export function SecuringProtocol({ message, subtitle, error, onRetry }: { messag
         <motion.div
           animate={{ rotate: -360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          className={`absolute inset-4 border-2 border-dashed rounded-full ${error ? 'border-red-500/40' : 'border-teal/40'}`}
+          className={`absolute inset-4 border-2 border-dashed rounded-full ${error ? 'border-teal/40' : 'border-teal/40'}`}
         />
 
         {/* Shimmering Logo / Error Icon */}

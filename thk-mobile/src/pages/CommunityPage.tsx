@@ -35,28 +35,34 @@ export default function CommunityPage() {
           .from('regional_communities')
           .select('*');
 
-        const enrichedComms = comms?.map(c => ({
-          ...c,
-          members_count: Math.floor(Math.random() * 200) + 50,
-          completion_rate: Math.floor(Math.random() * 30) + 70,
-        })) || [];
-        setCommunities(enrichedComms);
+        setCommunities((comms || []) as RegionalCommunity[]);
 
         const { data: feed } = await supabase
           .from('community_posts')
           .select(`
             id, content, created_at,
-            subscriber:subscribers(full_name)
+            subscriber:subscribers(full_name, current_streak)
           `)
           .order('created_at', { ascending: false })
           .limit(10);
 
-        const enrichedPosts = feed?.map(p => ({
-          ...p,
-          reactions: { heart: 12, fire: 8, clap: 5 },
-          user_reacted: { heart: false, fire: false, clap: false }
-        })) || [];
-        setPosts(enrichedPosts as any);
+        const postIds = (feed || []).map(post => post.id);
+        const { data: reactionRows } = postIds.length
+          ? await supabase.from('community_reactions').select('post_id, reaction_type, subscriber_id').in('post_id', postIds)
+          : { data: [] as { post_id: string; reaction_type: string; subscriber_id: string }[] };
+        const enrichedPosts = (feed || []).map(post => {
+          const ownReactions = reactionRows?.filter(reaction => reaction.post_id === post.id) || [];
+          const reactions = ownReactions.reduce<Record<string, number>>((counts, reaction) => {
+            counts[reaction.reaction_type] = (counts[reaction.reaction_type] || 0) + 1;
+            return counts;
+          }, {});
+          const userReacted = ownReactions.reduce<Record<string, boolean>>((result, reaction) => {
+            if (reaction.subscriber_id === sub?.id) result[reaction.reaction_type] = true;
+            return result;
+          }, {});
+          return { ...post, reactions, user_reacted: userReacted };
+        });
+        setPosts(enrichedPosts as CommunityPost[]);
 
         const { data: board } = await supabase
           .from('subscribers')
@@ -154,11 +160,11 @@ export default function CommunityPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <div className="bg-white/5 backdrop-blur-md rounded-2xl p-5 border border-white/10">
                       <p className="text-[10px] font-black text-[#C5A059] uppercase tracking-widest mb-1">{t('team_vitality') || 'Team Activity'}</p>
-                      <p className="text-2xl font-black italic">{suggestedGroup.completion_rate}% {t('daily_goal') || 'Daily Goal'}</p>
+                      <p className="text-2xl font-black italic">{suggestedGroup.weekly_team_target_pct ?? 0}%</p>
                     </div>
                     <div className="bg-white/5 backdrop-blur-md rounded-2xl p-5 border border-white/10">
                       <p className="text-[10px] font-black text-[#C5A059] uppercase tracking-widest mb-1">{t('active_members') || 'Active Members'}</p>
-                      <p className="text-2xl font-black italic">{suggestedGroup.members_count}</p>
+                      <p className="text-2xl font-black italic">{t('join_community') || 'Join to view group activity'}</p>
                     </div>
                   </div>
 
@@ -190,7 +196,7 @@ export default function CommunityPage() {
                             <div className="w-12 h-12 bg-[#0a3030]/5 rounded-2xl flex items-center justify-center group-hover:bg-[#C5A059] group-hover:text-[#0a3030] transition-colors">
                               <MapPin className="w-6 h-6" />
                             </div>
-                            <span className="text-[10px] font-black text-[#0a3030]/40 uppercase tracking-widest">{group.members_count} {t('active_members') || 'Members'}</span>
+                            <span className="text-[10px] font-black text-[#0a3030]/40 uppercase tracking-widest">{t('regional_collectives') || 'Community'}</span>
                           </div>
                           <h3 className="text-2xl font-black uppercase italic text-[#0a3030] mb-2">{group.name}</h3>
                           <p className="text-[#0a3030]/60 text-sm italic mb-8 font-medium">{group.description}</p>
@@ -226,26 +232,18 @@ export default function CommunityPage() {
                       <h2 className="text-3xl sm:text-4xl font-black uppercase italic">{activeGroup?.name}</h2>
                    </div>
                    <div className="flex -space-x-4">
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <div key={i} className="w-11 h-11 rounded-full border-2 border-[#0a3030] bg-[#C5A059]/20 backdrop-blur-md flex items-center justify-center overflow-hidden">
-                           <img src={`https://i.pravatar.cc/150?u=${i + 20}`} alt="member" className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                      <div className="w-11 h-11 rounded-full border-2 border-[#0a3030] bg-white/10 backdrop-blur-md flex items-center justify-center text-[10px] font-black">
-                        +{activeGroup ? activeGroup.members_count - 5 : 0}
-                      </div>
                    </div>
                 </div>
 
                 <div className="space-y-4">
                   <div className="flex justify-between text-xs font-black uppercase tracking-[0.2em] text-[#C5A059]">
                     <span>{t('collective_momentum') || 'Team Progress'}</span>
-                    <span>{activeGroup?.completion_rate}% {t('efficiency') || 'Efficiency'}</span>
+                    <span>{activeGroup?.weekly_team_target_pct ?? 0}% {t('daily_goal') || 'Weekly target'}</span>
                   </div>
                   <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden p-0.5 border border-white/5">
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${activeGroup?.completion_rate}%` }}
+                      animate={{ width: `${activeGroup?.weekly_team_target_pct ?? 0}%` }}
                       className="bg-gradient-to-r from-teal via-gold to-emerald-400 h-full rounded-full shadow-lg"
                     />
                   </div>

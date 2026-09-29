@@ -1,4 +1,9 @@
 
+[functions.send-reminders]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/send-reminders/index.ts"
+
 [functions.process-account-deletion]
 enabled = true
 verify_jwt = false

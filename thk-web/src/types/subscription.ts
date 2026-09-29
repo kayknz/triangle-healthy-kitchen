@@ -126,6 +126,8 @@ export interface Subscriber {
   lunch_window: string | null;
   dinner_window: string | null;
   subscription_start?: string | null;
+  tap_charge_id?: string | null;
+  last_payment_id?: string | null;
   current_period_end: string | null;
   is_owner?: boolean;
   is_paused?: boolean;

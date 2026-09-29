@@ -14,21 +14,14 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const { t, isRtl } = useLanguage();
   const [gender, setStepGender] = useState<'male' | 'female'>('male');
   const [submitting, setSubmitting] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleComplete = async () => {
     if (!user) return;
     setSubmitting(true);
+    setSaveError(null);
     try {
-      const { error } = await supabase
-        .from('subscribers')
-        .upsert({
-          user_id: user.id,
-          onboarding_completed: true,
-          taste_profile: { gender },
-          email: user.email,
-          full_name: user.user_metadata?.full_name || 'Member',
-          status: 'pending'
-        }, { onConflict: 'user_id' });
+      const { error } = await supabase.rpc('complete_subscriber_onboarding', { p_gender: gender });
 
       if (error) throw error;
 
@@ -36,6 +29,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       onComplete();
     } catch (e) {
       console.error('Onboarding sync failure:', e);
+      setSaveError('We could not save your profile. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -66,8 +60,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             <button
               key={g}
               onClick={() => setStepGender(g)}
-              className={`group relative p-12 rounded-[3.5rem] border-2 transition-all duration-700 glass-card bg-white/40 ${
-                gender === g ? 'border-primary bg-primary text-ivory shadow-4xl scale-105' : 'border-primary/5 hover:border-gold/30'
+              aria-pressed={gender === g}
+              style={gender === g ? { backgroundColor: '#0a3030', borderColor: '#0a3030' } : undefined}
+              className={`group relative p-12 rounded-[3.5rem] border-2 transition-all duration-700 glass-card ${
+                gender === g ? 'border-primary !bg-[#0a3030] !text-white shadow-4xl scale-105' : 'border-primary/5 bg-white/40 hover:border-gold/30'
               }`}
             >
               <div className="flex flex-col items-center text-center gap-8">
@@ -77,7 +73,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   {gender === g ? <Check className="w-8 h-8 text-white" /> : <div className="w-3 h-3 rounded-full bg-gold animate-pulse" />}
                 </div>
                 <div>
-                  <p className="text-2xl font-black uppercase tracking-tighter italic leading-none">{t(g)}</p>
+                  <p className={`text-2xl font-black uppercase tracking-tighter italic leading-none ${gender === g ? '!text-white' : 'text-primary'}`}>{t(g)}</p>
                   <p className={`text-[10px] font-black uppercase tracking-[0.3em] mt-3 ${gender === g ? 'text-gold' : 'text-primary/30'}`}>Protocol Type</p>
                 </div>
               </div>
@@ -86,6 +82,11 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         </div>
 
         <div className="flex flex-col gap-8">
+           {saveError && (
+             <p role="alert" className="text-center text-sm font-semibold text-red-700" aria-live="assertive">
+               {saveError}
+             </p>
+           )}
            <button
              onClick={handleComplete}
              disabled={submitting}

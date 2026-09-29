@@ -75,8 +75,9 @@ CREATE POLICY "Users can react to posts" ON community_reactions FOR INSERT
 -- ============================================================================
 
 -- Rider deliveries: Ensure riders can only update status, not reassign themselves
+ALTER TABLE rider_deliveries ADD COLUMN IF NOT EXISTS proof_storage_path text;
 REVOKE UPDATE ON rider_deliveries FROM authenticated;
-GRANT UPDATE (status, proof_photo_url, notes, delivered_at) ON rider_deliveries TO authenticated;
+GRANT UPDATE (status, proof_storage_path, notes, delivered_at) ON rider_deliveries TO authenticated;
 
 -- ============================================================================
 -- 6. DATA INTEGRITY CONSTRAINTS

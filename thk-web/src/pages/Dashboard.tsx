@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ChefHat, Activity, TrendingUp, Users, Truck, Calendar, Bell,
   ShieldAlert, Loader2, LogOut, ChevronRight, X, Search,
@@ -51,7 +51,7 @@ interface FeedEvent {
 }
 
 export default function Dashboard() {
-  const { signOut, isOwner } = useAuth();
+  const { signOut, isOwner, staffRole } = useAuth();
   const { t, isRtl } = useLanguage();
   const [tab, setTab] = useState<Tab>('performance');
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
@@ -65,6 +65,30 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
+  const leadershipAccess = staffRole === 'ceo' || staffRole === 'admin' || (!staffRole && isOwner);
+  const kitchenAccess = staffRole === 'kitchen';
+  const transportAccess = staffRole === 'transport';
+  const visibleTabs = useMemo<Tab[]>(() => kitchenAccess
+    ? ['bookings']
+    : transportAccess
+      ? ['logistics']
+      : ['performance', 'feed', 'bookings', 'members', 'logistics'], [kitchenAccess, transportAccess]);
+  const activeClientsByZone = useMemo(() => {
+    const totals = new Map<string, number>();
+    subscribers.filter((subscriber) => subscriber.status?.toLowerCase() === 'active').forEach((subscriber) => {
+      const zone = subscriber.zone_number?.trim() || 'Needs zone';
+      totals.set(zone, (totals.get(zone) || 0) + 1);
+    });
+    return [...totals.entries()].sort(([zoneA], [zoneB]) => {
+      if (zoneA === 'Needs zone') return 1;
+      if (zoneB === 'Needs zone') return -1;
+      return Number(zoneA) - Number(zoneB) || zoneA.localeCompare(zoneB);
+    });
+  }, [subscribers]);
+
+  useEffect(() => {
+    if (!visibleTabs.includes(tab)) setTab(visibleTabs[0]);
+  }, [staffRole, tab, visibleTabs]);
 
   // Member Detail States
   const [selectedMember, setSelectedMember] = useState<Subscriber | null>(null);
@@ -90,19 +114,32 @@ export default function Dashboard() {
     if (!isSilent) setLoading(true);
     setError(null);
     try {
-      const { data: isProvider } = await supabase.rpc('is_provider');
-      if (!isProvider && !isOwner) {
+      if (!leadershipAccess && !kitchenAccess && !transportAccess) {
         setAccessDenied(true);
         return;
       }
 
       const [subsRes, bookingsRes, ridersRes, pendingRidersRes, notificationsRes, settingsRes] = await Promise.all([
-        supabase.from('subscribers').select('*').order('created_at', { ascending: false }),
-        supabase.from('provider_bookings_view').select('*').order('appointment_date', { ascending: true }),
-        supabase.from('rider_applications').select('id, user_id, full_name, phone, approved, is_online').eq('approved', true).order('full_name'),
-        supabase.from('rider_applications').select('id, user_id, full_name, phone, approved, created_at').eq('approved', false).order('created_at', { ascending: false }),
-        supabase.from('notifications').select('subject, status, created_at').order('created_at', { ascending: false }).limit(10),
-        supabase.from('global_settings').select('*').single()
+        leadershipAccess
+          ? supabase.from('subscribers').select('*').order('created_at', { ascending: false })
+          : transportAccess
+            ? supabase.from('transport_subscribers_view').select('*').eq('status', 'active')
+            : Promise.resolve({ data: [], error: null }),
+        kitchenAccess || leadershipAccess
+          ? supabase.from('provider_bookings_view').select('*').order('appointment_date', { ascending: true })
+          : Promise.resolve({ data: [], error: null }),
+        leadershipAccess || transportAccess
+          ? supabase.from('rider_applications').select('id, user_id, full_name, phone, approved, is_online').eq('approved', true).order('full_name')
+          : Promise.resolve({ data: [], error: null }),
+        leadershipAccess
+          ? supabase.from('rider_applications').select('id, user_id, full_name, phone, approved, created_at').eq('approved', false).order('created_at', { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+        leadershipAccess
+          ? supabase.from('notifications').select('subject, status, created_at').order('created_at', { ascending: false }).limit(10)
+          : Promise.resolve({ data: [], error: null }),
+        leadershipAccess
+          ? supabase.from('global_settings').select('*').single()
+          : Promise.resolve({ data: null, error: null })
       ]);
 
       if (subsRes.error) throw subsRes.error;
@@ -141,7 +178,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [isOwner]);
+  }, [isOwner, leadershipAccess, kitchenAccess, transportAccess]);
 
   useEffect(() => {
     fetchData();
@@ -214,14 +251,12 @@ export default function Dashboard() {
       const rider = riders.find(r => r.id === riderApplicationId);
       if (!rider) throw new Error('Rider identification failure.');
 
-      const { error: assignmentError } = await supabase.from('rider_deliveries').upsert({
-        subscriber_id: subscriberId,
-        rider_application_id: rider.id,
-        rider_user_id: rider.user_id,
-        status: 'pending',
-        delivery_date: getQatarDate(),
-        meal_type: 'lunch'
-      }, { onConflict: 'subscriber_id,delivery_date,meal_type' });
+      const { error: assignmentError } = await supabase.rpc('assign_rider_delivery', {
+        p_subscriber_id: subscriberId,
+        p_rider_application_id: rider.id,
+        p_delivery_date: getQatarDate(),
+        p_meal_type: 'lunch'
+      });
 
       if (assignmentError) throw assignmentError;
       alert('Unit assigned.');
@@ -305,7 +340,7 @@ export default function Dashboard() {
 
             {/* Bottom Row: Navigation Tabs */}
             <div className="flex bg-white/60 backdrop-blur-xl rounded-[3rem] p-2 border border-primary/10 shadow-4xl overflow-x-auto no-scrollbar touch-pan-x justify-start lg:justify-start w-fit">
-               {(['performance', 'feed', 'bookings', 'members', 'logistics'] as const).map((tKey) => (
+               {visibleTabs.map((tKey) => (
                  <button
                    key={tKey}
                    onClick={() => setTab(tKey)}
@@ -443,7 +478,14 @@ export default function Dashboard() {
 
               {tab === 'logistics' && (
                 <div className="space-y-12">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                   <section className="glass-card p-8 sm:p-10">
+                     <div className="flex items-center justify-between gap-4 mb-6">
+                       <div><h3 className="text-xl font-black italic uppercase tracking-tight text-primary">Active clients by Qatar zone</h3><p className="mt-2 text-xs text-primary/50">Use these totals to group delivery stops and plan rider coverage.</p></div>
+                       <MapPin className="h-8 w-8 shrink-0 text-gold" />
+                     </div>
+                     {activeClientsByZone.length === 0 ? <p className="text-sm text-primary/50">No active deliveries to group yet.</p> : <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">{activeClientsByZone.map(([zone, count]) => <div key={zone} className={`rounded-2xl border p-4 ${zone === 'Needs zone' ? 'border-amber-200 bg-amber-50' : 'border-primary/5 bg-white/60'}`}><p className="text-[10px] font-black uppercase tracking-widest text-primary/50">{zone === 'Needs zone' ? zone : `Zone ${zone}`}</p><p className="mt-2 text-3xl font-black text-primary">{count}</p><p className="text-[10px] font-bold uppercase tracking-wider text-primary/45">{count === 1 ? 'client' : 'clients'}</p></div>)}</div>}
+                   </section>
+                   {leadershipAccess && <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                       <button onClick={handleExportPrepList} className="glass-card p-12 text-left group hover:bg-primary hover:text-white transition-all">
                          <Utensils className="w-12 h-12 text-gold mb-8" />
                          <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Export Kitchen Manifest</h3>
@@ -453,9 +495,9 @@ export default function Dashboard() {
                          <div className="absolute inset-0 bg-food-atmosphere opacity-10 grayscale pointer-events-none group-hover:scale-110 transition-transform duration-[10s]" />
                          <Truck className="w-12 h-12 text-gold mb-8 relative z-10" />
                          <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-2 relative z-10">Fleet Intelligence</h3>
-                         <button onClick={() => window.location.href = '/rider'} className="relative z-10 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.3em] text-gold hover:text-white transition-all">Access Rider View <ChevronRight className="w-4 h-4" /></button>
+                         {!transportAccess && <button onClick={() => window.location.href = '/rider'} className="relative z-10 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.3em] text-gold hover:text-white transition-all">Access Rider View <ChevronRight className="w-4 h-4" /></button>}
                       </div>
-                   </div>
+                   </div>}
 
                    {/* Active Fleet Profiles */}
                    <div className="space-y-8 pt-10 border-t border-primary/5">
@@ -489,7 +531,7 @@ export default function Dashboard() {
                       </div>
                    </div>
 
-                   {pendingRiders.length > 0 && (
+                   {leadershipAccess && pendingRiders.length > 0 && (
                      <div className="space-y-8 pt-10 border-t border-primary/5">
                         <div className="flex items-center gap-4 mb-4">
                            <div className="w-12 h-12 rounded-2xl bg-gold/20 flex items-center justify-center">

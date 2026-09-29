@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
+import { supabase } from '../supabase';
 import SubscriberAuth from '../components/auth/SubscriberAuth';
 import ProviderAuth from '../components/auth/ProviderAuth';
 import { type UserRole } from '../lib/auth';
 
 export default function LoginPage() {
   const [authType, setAuthType] = useState<'subscriber' | 'provider'>('subscriber');
+  const [passwordRecovery, setPasswordRecovery] = useState(() => new URLSearchParams(window.location.search).get('password-recovery') === '1');
 
   useEffect(() => {
     const handleHash = () => {
@@ -21,7 +23,7 @@ export default function LoginPage() {
       window.location.replace('/');
       return;
     }
-    const target = role === 'owner' ? '/dashboard' : role === 'rider' ? '/rider' : '/account';
+    const target = role === 'rider' ? '/rider' : role && ['owner', 'ceo', 'admin', 'kitchen', 'transport'].includes(role) ? '/dashboard' : '/account';
     window.location.replace(target);
   };
 
@@ -34,10 +36,31 @@ export default function LoginPage() {
     );
   }
 
+  if (passwordRecovery) return <PasswordRecoveryPage onDone={() => { setPasswordRecovery(false); window.history.replaceState({}, '', '/login#provider'); setAuthType('provider'); }} />;
+
   return (
     <SubscriberAuth
       onBack={() => window.location.href = '/'}
       onSuccess={(dual) => handleSuccess(undefined, dual)}
     />
   );
+}
+
+function PasswordRecoveryPage({ onDone }: { onDone: () => void }) {
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const update = async (event: FormEvent) => {
+    event.preventDefault(); setError('');
+    if (password.length < 8) { setError('Use at least 8 characters.'); return; }
+    if (password !== confirmation) { setError('The passwords do not match.'); return; }
+    setSaving(true);
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    setSaving(false);
+    if (updateError) setError(updateError.message);
+    else setDone(true);
+  };
+  return <main className="flex min-h-screen items-center justify-center bg-background p-6"><section className="w-full max-w-md rounded-3xl border border-primary/10 bg-white p-8 shadow-xl"><h1 className="text-2xl font-black text-primary">Reset your password</h1>{done ? <div className="mt-6 space-y-4"><p className="text-sm text-emerald-800">Password updated. Sign in to Operations with your new password.</p><button className="btn-primary w-full py-4" onClick={onDone}>Return to staff sign-in</button></div> : <form onSubmit={update} className="mt-6 space-y-4"><label className="block text-sm font-semibold">New password<input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} required className="input-field mt-2 py-4"/></label><label className="block text-sm font-semibold">Confirm password<input type="password" autoComplete="new-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={8} required className="input-field mt-2 py-4"/></label>{error && <p role="alert" className="text-sm text-red-700">{error}</p>}<button disabled={saving} className="btn-primary w-full py-4">{saving ? 'Saving…' : 'Update password'}</button></form>}</section></main>;
 }

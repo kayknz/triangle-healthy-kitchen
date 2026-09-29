@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './lib/auth';
+import { AuthProvider, useAuth, type UserRole } from './lib/auth';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
 import MenuPage from './pages/MenuPage';
 import PlansPage from './pages/PlansPage';
 import LoginPage from './pages/LoginPage';
-import Dashboard from './pages/Dashboard';
+import OperationsWorkspace from './pages/OperationsWorkspace';
 import RiderDashboard from './pages/RiderDashboard';
 import SubscriberDashboard from './pages/SubscriberDashboard';
 import CommunityPage from './pages/CommunityPage';
@@ -18,8 +18,9 @@ import BookingFlow from './components/BookingFlow';
 import AccessSelector from './components/AccessSelector';
 import ScrollToTop from './components/ScrollToTop';
 import OnboardingFlow from './components/OnboardingFlow';
+import PaymentCallbackPage from './pages/PaymentCallbackPage';
 
-function ProtectedRoute({ children, role, mode }: { children: React.ReactNode, role?: string, mode?: 'work' | 'personal' }) {
+function ProtectedRoute({ children, role, mode }: { children: React.ReactNode, role?: UserRole | UserRole[], mode?: 'work' | 'personal' }) {
   const { user, userRole, loading, accessMode, onboardingComplete } = useAuth();
 
   if (loading) return (
@@ -42,12 +43,13 @@ function ProtectedRoute({ children, role, mode }: { children: React.ReactNode, r
   if (mode && accessMode && accessMode !== mode) {
     if (accessMode === 'work') {
       if (userRole === 'rider') return <Navigate to="/rider" />;
+      if (userRole && ['owner', 'ceo', 'admin', 'kitchen', 'transport'].includes(userRole)) return <Navigate to="/dashboard" />;
       return <Navigate to="/account" />;
     }
     return <Navigate to="/account" />;
   }
 
-  if (role && userRole !== role) return <Navigate to="/" />;
+  if (role && !(Array.isArray(role) ? role.includes(userRole as UserRole) : userRole === role)) return <Navigate to="/" />;
 
   return <>{children}</>;
 }
@@ -85,7 +87,7 @@ function AppContent() {
             path="/"
             element={
               user && !hasDualAccess ? (
-                <Navigate to="/account" replace />
+                <Navigate to={userRole && ['owner', 'ceo', 'admin', 'kitchen', 'transport'].includes(userRole) ? '/dashboard' : userRole === 'rider' ? '/rider' : '/account'} replace />
               ) : (
                 <Home onSubscribeClick={openSubFlow} onBookClick={openBookFlow} />
               )
@@ -94,11 +96,12 @@ function AppContent() {
           <Route path="/menu" element={<MenuPage onSubscribeClick={openSubFlow} />} />
           <Route path="/plans" element={<PlansPage onSubscribeClick={openSubFlow} />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/payment/callback" element={<PaymentCallbackPage />} />
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute role="owner" mode="work">
-                <Dashboard />
+              <ProtectedRoute role={['owner', 'ceo', 'admin', 'kitchen', 'transport']} mode="work">
+                <OperationsWorkspace />
               </ProtectedRoute>
             }
           />

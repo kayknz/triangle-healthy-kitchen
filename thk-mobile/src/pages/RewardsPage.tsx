@@ -76,26 +76,13 @@ const RewardsPage: React.FC = () => {
 
     setRedeeming(true);
     try {
-      const { error: ledgerError } = await supabase.from('points_ledger').insert({
-        subscriber_id: subscriber.id,
-        points_delta: -reward.points_cost,
-        event_type: 'redemption',
-        idempotency_key: `redeem:${subscriber.id}:${reward.id}:${Date.now()}`
-      });
+      const { error: redemptionError } = await supabase.rpc('redeem_reward', { p_reward_id: reward.id });
+      if (redemptionError) throw redemptionError;
 
-      if (ledgerError) throw ledgerError;
-
-      const { error: subError } = await supabase
-        .from('subscribers')
-        .update({ points_balance: subscriber.points_balance - reward.points_cost })
-        .eq('id', subscriber.id);
-
-      if (subError) throw subError;
-
-      setSubscriber(prev => ({
+      setSubscriber((prev: any) => prev ? ({
         ...prev,
-        points_balance: prev.points_balance - reward.points_cost
-      }));
+        points_balance: (prev?.points_balance ?? 0) - reward.points_cost
+      }) : prev);
 
       setSuccessReward(reward);
 

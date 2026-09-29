@@ -2,9 +2,9 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { NativeBiometric } from 'capacitor-native-biometric';
+import type { THKRole } from '@/types/subscription';
 
-// Role detection is now handled via database flags and metadata
-export type UserRole = 'owner' | 'rider' | 'subscriber';
+export type UserRole = THKRole;
 
 interface AuthResult {
   error: string | null;
@@ -19,8 +19,14 @@ interface AuthContextValue {
   isOwner: boolean;
   userRole: UserRole | null;
   isApprovedRider: boolean;
+  canEdit: boolean;
+  canManageDrivers: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
+  signInPhone: (phone: string, password: string) => Promise<AuthResult>;
   signUp: (email: string, password: string, name?: string, role?: UserRole, phone?: string) => Promise<AuthResult>;
+  completePhoneSignup: (phone: string, password: string, name: string) => Promise<AuthResult>;
+  sendOtp: (phone: string, purpose?: string) => Promise<{ ok: boolean; message: string }>;
+  verifyOtp: (phone: string, code: string, purpose?: string) => Promise<{ ok: boolean; token?: string; error?: string }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   refreshAuth: () => Promise<void>;
@@ -30,11 +36,27 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const PROVIDER_EMAILS = [
-  'kevmulgeo@gmail.com',
-  'issashahid1@gmail.com',
-  'georgekmuliika@gmail.com',
-];
+const STAFF_EMAIL_MAP: Record<string, { role: UserRole; isOwner: boolean; isApprovedRider: boolean }> = {
+  'kevmulgeo@gmail.com': { role: 'ceo', isOwner: true, isApprovedRider: false },
+  'issashahid1@gmail.com': { role: 'admin', isOwner: true, isApprovedRider: false },
+  'georgekmuliika@gmail.com': { role: 'transport', isOwner: false, isApprovedRider: false },
+  'kitchen@trianglehk.com': { role: 'kitchen', isOwner: false, isApprovedRider: false },
+  'driver@trianglehk.com': { role: 'driver', isOwner: false, isApprovedRider: true },
+};
+
+export function normalizePhoneNumber(digits: string, countryCode: string = '+974'): string {
+  const clean = String(digits || '').replace(/\D/g, '');
+  if (!clean) return '';
+  if (clean.startsWith('974') && clean.length === 11) return `+${clean}`;
+  if (clean.startsWith('971') && clean.length >= 11) return `+${clean}`;
+  if (clean.startsWith('966') && clean.length >= 11) return `+${clean}`;
+  if (clean.startsWith('1') && clean.length === 11) return `+${clean}`;
+  if (clean.startsWith('44') && clean.length >= 11) return `+${clean}`;
+  if (clean.startsWith('91') && clean.length === 12) return `+${clean}`;
+
+  const cleanPrefix = countryCode.startsWith('+') ? countryCode : `+${countryCode}`;
+  return `${cleanPrefix}${clean}`;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -44,40 +66,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [isApprovedRider, setIsApprovedRider] = useState(false);
 
-  const ensureOwnerSubscriber = async (userId: string) => {
-    try {
-      const { data: existing } = await supabase
-        .from('subscribers')
-        .select('id')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      if (!existing) {
-        await supabase
-          .from('subscribers')
-          .insert({
-            user_id: userId,
-            email: '',
-            status: 'active',
-            is_owner: true,
-          });
-      }
-    } catch (error) {
-      console.error('Failed to ensure owner subscriber:', error);
-    }
-  };
+  const canEdit = userRole === 'ceo' || userRole === 'admin' || userRole === 'owner';
+  const canManageDrivers = canEdit || userRole === 'transport';
 
   const getAuthAccess = async (u: User | null): Promise<{ role: UserRole | null; isOwner: boolean; isApprovedRider: boolean }> => {
     if (!u) {
       return { role: null, isOwner: false, isApprovedRider: false };
     }
 
-    const email = (u.email || '').toLowerCase().trim();
-    if (PROVIDER_EMAILS.includes(email)) {
-      return { role: 'owner', isOwner: true, isApprovedRider: false };
-    }
-
     try {
+      const { data: assignedRole, error: roleError } = await supabase.rpc('current_staff_role');
+      if (!roleError && ['ceo', 'admin', 'transport', 'kitchen', 'driver'].includes(String(assignedRole))) {
+        const role = assignedRole as UserRole;
+        if (role === 'driver') {
+          const { data: rider } = await supabase
+            .from('rider_applications')
+            .select('approved')
+            .eq('user_id', u.id)
+            .maybeSingle();
+          return { role, isOwner: false, isApprovedRider: rider?.approved === true };
+        }
+        return { role, isOwner: role === 'ceo' || role === 'admin', isApprovedRider: false };
+      }
+
+      const email = (u.email || '').toLowerCase().trim();
+      const knownStaff = STAFF_EMAIL_MAP[email];
+      if (knownStaff && knownStaff.role !== 'driver') return knownStaff;
+
       const { data: sub } = await supabase
         .from('subscribers')
         .select('is_owner')
@@ -85,27 +100,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (sub?.is_owner) {
-        return { role: 'owner', isOwner: true, isApprovedRider: false };
+        return { role: 'ceo', isOwner: true, isApprovedRider: false };
       }
 
-      if (u.user_metadata?.role === 'rider') {
-        const { data } = await supabase
+      const { data: rider } = await supabase
           .from('rider_applications')
           .select('approved')
           .eq('user_id', u.id)
           .maybeSingle();
-
+      if (rider || knownStaff?.role === 'driver') {
         return {
-          role: 'rider',
+          role: 'driver',
           isOwner: false,
-          isApprovedRider: data?.approved === true || u.user_metadata?.approved === true,
+          isApprovedRider: rider?.approved === true,
         };
       }
     } catch (err) {
       console.warn('Metadata fetch warning:', err);
     }
 
-    return { role: 'subscriber', isOwner: false, isApprovedRider: false };
+    return { role: 'customer', isOwner: false, isApprovedRider: false };
   };
 
   const applyAuthAccess = async (u: User | null) => {
@@ -116,16 +130,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsApprovedRider(access.isApprovedRider);
       return access;
     } catch (e) {
-      setUserRole('subscriber');
+      setUserRole('customer');
       setIsOwner(false);
       setIsApprovedRider(false);
-      return { role: 'subscriber' as UserRole, isOwner: false, isApprovedRider: false };
+      return { role: 'customer' as UserRole, isOwner: false, isApprovedRider: false };
     }
   };
 
   useEffect(() => {
     let mounted = true;
-    // Global safety timeout: ensure loading finishes within 1 second
     const safetyTimeout = setTimeout(() => {
       if (mounted && loading) {
         setLoading(false);
@@ -162,46 +175,90 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      return { error: error.message };
-    }
-
-    const access = await applyAuthAccess(data.user);
-    return { error: null, role: access.role ?? undefined, approved: access.isApprovedRider };
+  const sendOtp = async (phone: string, _purpose: string = 'registration') => {
+    const { error } = await supabase.auth.signInWithOtp({ phone });
+    return error
+      ? { ok: false, message: error.message }
+      : { ok: true, message: 'Verification code sent.' };
   };
 
-  const signUp = async (email: string, password: string, name?: string, role: UserRole = 'subscriber', phone?: string) => {
-    const requestedRole: UserRole = role === 'rider' ? 'rider' : 'subscriber';
+  const verifyOtp = async (phone: string, code: string, _purpose: string = 'registration') => {
+    const { data, error } = await supabase.auth.verifyOtp({ phone, token: code, type: 'sms' });
+    return error
+      ? { ok: false, error: error.message }
+      : { ok: true, token: data.session?.access_token };
+  };
+
+  const signUp = async (email: string, password: string, name?: string, role: UserRole = 'customer', phone?: string) => {
+    const requestedRole: UserRole = role;
+    if (['ceo', 'admin', 'kitchen', 'transport', 'owner'].includes(requestedRole)) {
+      return { error: 'Staff accounts must be provisioned by a company administrator.' };
+    }
+    if (!email) return { error: 'Enter a valid email address.' };
+    const targetEmail = email;
+
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: targetEmail,
       password,
       options: {
         data: {
           full_name: name,
           role: requestedRole,
           phone: phone,
-          approved: requestedRole === 'rider' ? false : true,
+          approved: false,
         }
       },
     });
 
     if (error) return { error: error.message };
 
-    if (requestedRole === 'rider' && data.user) {
-      await supabase.from('rider_applications').insert({
-        user_id: data.user.id,
-        full_name: name,
-        phone: phone,
-        email: email,
-        approved: false
-      });
+    if (requestedRole === 'driver' && data.user) {
+      try {
+        await supabase.from('rider_applications').insert({
+          user_id: data.user.id,
+          full_name: name,
+          phone: phone,
+          email: targetEmail,
+          approved: false
+        });
+      } catch (e) {}
     }
 
     const access = await applyAuthAccess(data.user);
     return { error: null, role: access.role ?? requestedRole, approved: access.isApprovedRider };
+  };
+
+  const completePhoneSignup = async (phone: string, password: string, name: string): Promise<AuthResult> => {
+    const { data, error } = await supabase.auth.updateUser({
+      password,
+      data: { full_name: name, phone, role: 'customer', approved: false },
+    });
+    if (error) return { error: error.message };
+    const access = await applyAuthAccess(data.user);
+    return { error: null, role: access.role ?? 'customer', approved: access.isApprovedRider };
+  };
+
+  const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) return { error: error.message };
+
+    const access = await applyAuthAccess(data.user);
+    return { error: null, role: access.role ?? undefined, approved: access.isApprovedRider };
+  };
+
+  const signInPhone = async (phone: string, password: string) => {
+    let { data, error } = await supabase.auth.signInWithPassword({ phone, password });
+    if (error && error.message.toLowerCase().includes('invalid login credentials')) {
+      const legacyEmail = `${phone.replace(/\+/g, '')}@thk.internal`;
+      const legacyResult = await supabase.auth.signInWithPassword({ email: legacyEmail, password });
+      data = legacyResult.data;
+      error = legacyResult.error;
+    }
+    if (error) return { error: error.message };
+
+    const access = await applyAuthAccess(data.user);
+    return { error: null, role: access.role ?? undefined, approved: access.isApprovedRider };
   };
 
   const signOut = async () => {
@@ -236,8 +293,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: { user: u } } = await supabase.auth.getUser();
       if (!u) return false;
 
-      // In a real app, you'd store a secret in the keychain
-      // and use it to authenticate with Supabase
       await NativeBiometric.setCredentials({
         server: "triangle-healthy-kitchen",
         username: u.email || "",
@@ -262,13 +317,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "Use your fingerprint or face to login",
       });
 
-      const credentials = await NativeBiometric.getCredentials({
-        server: "triangle-healthy-kitchen",
-      });
-
-      // This is a simplified flow. Ideally you'd use a refresh token or a specific biometric token.
-      // For this implementation, we assume the user is already remembered by Supabase
-      // or we use the stored credentials if we had a password.
       const { data, error } = await supabase.auth.getSession();
       if (error || !data.session) return { error: "Session expired, please login manually" };
 
@@ -281,8 +329,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      session, user, loading, isOwner, userRole, isApprovedRider,
-      signIn, signUp, signOut, resetPassword, refreshAuth,
+      session, user, loading, isOwner, userRole, isApprovedRider, canEdit, canManageDrivers,
+      signIn, signInPhone, signUp, completePhoneSignup, sendOtp, verifyOtp, signOut, resetPassword, refreshAuth,
       enableBiometric, biometricLogin
     }}>
       {children}

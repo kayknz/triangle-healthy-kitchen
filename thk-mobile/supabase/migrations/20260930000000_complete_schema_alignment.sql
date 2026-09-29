@@ -97,14 +97,6 @@ BEGIN
     END IF;
 END $$;
 
--- 2. Ensure Bookings RLS policies allow SELECT and UPDATE for booking management
+-- 2. Keep booking PII protected while the later staff-role migration installs
+-- the availability and operations policies. Do not grant public row access.
 ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT, INSERT, UPDATE ON public.bookings TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.bookings TO anon;
-
-DROP POLICY IF EXISTS "public_select_bookings" ON public.bookings;
-CREATE POLICY "public_select_bookings" ON public.bookings FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "public_update_bookings" ON public.bookings;
-CREATE POLICY "public_update_bookings" ON public.bookings FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);

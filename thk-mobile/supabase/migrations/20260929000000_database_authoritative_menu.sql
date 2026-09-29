@@ -41,6 +41,16 @@ ALTER TABLE public.weekly_menu_selections ADD COLUMN IF NOT EXISTS dish_name_sna
 
 -- STAGE 2: Authoritative Cycle Math & Validation Helpers
 
+-- Anchor four-week menu cycles to the Qatar Saturday service-week boundary.
+ALTER TABLE public.global_settings
+  ADD COLUMN IF NOT EXISTS cycle_anchor_date date;
+
+UPDATE public.global_settings
+SET cycle_anchor_date = (
+  date_trunc('week', now() AT TIME ZONE 'Asia/Qatar') - interval '2 days'
+)::date
+WHERE cycle_anchor_date IS NULL;
+
 -- 1. Qatar Service Week Calculator RPC
 CREATE OR REPLACE FUNCTION public.get_current_qatar_week()
 RETURNS integer AS $$
