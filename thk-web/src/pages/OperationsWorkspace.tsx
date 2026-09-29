@@ -26,8 +26,8 @@ const MODULES: { id: Module; label: string; icon: React.ElementType; roles: stri
   { id: 'drivers', label: 'Drivers', icon: Truck, roles: ['ceo', 'admin', 'transport'] },
   { id: 'payments', label: 'Payments', icon: CreditCard, roles: ['ceo', 'admin'] },
   { id: 'reminders', label: 'Reminders', icon: Bell, roles: ['ceo', 'admin'] },
-  { id: 'reports', label: 'Reports', icon: FileText, roles: ['ceo', 'admin', 'kitchen'] },
-  { id: 'bookings', label: 'Consultations', icon: CalendarDays, roles: ['ceo', 'admin', 'kitchen'] },
+  { id: 'reports', label: 'Reports', icon: FileText, roles: ['ceo', 'admin'] },
+  { id: 'bookings', label: 'Consultations', icon: CalendarDays, roles: ['ceo', 'admin'] },
   { id: 'team', label: 'Team', icon: ShieldCheck, roles: ['ceo', 'admin'] },
   { id: 'settings', label: 'Settings', icon: Settings, roles: ['ceo', 'admin'] },
 ];
@@ -73,6 +73,7 @@ export default function OperationsWorkspace() {
   const [selectedRecipeDish, setSelectedRecipeDish] = useState<Row | null>(null);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const fetchRows = useCallback(async (table: string, query: (q: any) => any) => {
     const result = await query(supabase.from(table).select('*'));
@@ -106,7 +107,6 @@ export default function OperationsWorkspace() {
         fetchRows('global_settings', (q) => q.limit(1).maybeSingle()).then((rows) => Array.isArray(rows) ? rows[0] : rows),
       );
       else if (role === 'kitchen') requests.push(
-        fetchRows('provider_bookings_view', (q) => q.order('appointment_date')),
         fetchRows('global_settings', (q) => q.limit(1).maybeSingle()).then((rows) => Array.isArray(rows) ? rows[0] : rows),
       );
       const values = await Promise.all(requests);
@@ -120,13 +120,17 @@ export default function OperationsWorkspace() {
       if (leader) {
         setPayments(values[7] as Row[]); setPaymentLogs(values[8] as Row[]); setBookings(values[9] as Row[]);
         setNotifications(values[10] as Row[]); setPauseRequests(values[11] as Row[]); setSettings((values[12] as Row) || null);
-      } else if (role === 'kitchen') { setBookings(values[7] as Row[]); setSettings((values[8] as Row) || null); }
+      } else if (role === 'kitchen') { setBookings([]); setSettings((values[7] as Row) || null); }
     } catch (e: any) {
       setError(e?.message || 'Unable to load operations data.');
     } finally { setLoading(false); setRefreshing(false); }
   }, [role, leader, date, fetchRows]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    void refresh();
+    const interval = window.setInterval(() => void refresh(true), 60_000);
+    return () => window.clearInterval(interval);
+  }, [refresh]);
   useEffect(() => { if (!visibleModules.some((item) => item.id === module)) setModule(visibleModules[0]?.id || 'overview'); }, [visibleModules, module]);
 
   const activeSubscribers = subscribers.filter((s) => String(s.status || '').toLowerCase() === 'active');
@@ -146,6 +150,14 @@ export default function OperationsWorkspace() {
   const currentSelections = selections.filter((s) => !s.week_start_date || s.week_start_date === weekStart);
   const pendingPayments = payments.filter((p) => ['initiated', 'pending', 'failed'].includes(String(p.status).toLowerCase()));
   const activeMenuAvailability = availability.filter((row) => !settings?.active_season || row.collection === settings.active_season);
+  const managerAlerts = useMemo(() => [
+    { label: 'Consultations waiting for review', count: bookings.filter((booking) => booking.status === 'pending').length, module: 'bookings' as Module },
+    { label: 'Payments needing attention', count: pendingPayments.length, module: 'payments' as Module },
+    { label: 'Pause or resume requests', count: pauseRequests.length, module: 'customers' as Module },
+    { label: 'Active customers missing a zone', count: activeSubscribers.filter((subscriber) => !subscriber.zone_number).length, module: 'customers' as Module },
+    { label: 'Failed email deliveries', count: notifications.filter((notification) => /failed|error/i.test(String(notification.status))).length, module: 'reminders' as Module },
+  ].filter((alert) => alert.count > 0), [bookings, pendingPayments.length, pauseRequests.length, activeSubscribers, notifications]);
+  const managerAlertCount = managerAlerts.reduce((total, alert) => total + alert.count, 0);
 
   const assignRider = async (subscriberId: string, riderApplicationId: string, mealType: string) => {
     if (!riderApplicationId) return;
@@ -257,11 +269,23 @@ export default function OperationsWorkspace() {
   const productionRows = qatarDay === 'Friday' ? currentSelections : currentSelections.filter((s) => s.day_of_week === qatarDay);
 
   return (
-    <div className="min-h-screen bg-slate-50 pt-24 text-slate-900" dir={isRtl ? 'rtl' : 'ltr'}>
+    <div className="ops-dashboard min-h-screen bg-slate-50 pt-24 text-slate-900" dir={isRtl ? 'rtl' : 'ltr'}>
       <div className="mx-auto max-w-[1600px] px-4 pb-12 sm:px-6 lg:px-8">
-        <header className="mb-6 flex flex-col gap-4 rounded-2xl bg-[#0F5D4E] p-5 text-white shadow-lg sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">Triangle Healthy Kitchen · Operations</p><h1 className="mt-1 text-2xl font-bold">{sectionTitle}</h1><p className="mt-1 text-sm text-white/75">{role === 'ceo' ? 'CEO' : role[0].toUpperCase() + role.slice(1)} workspace</p></div>
-          <div className="flex items-center gap-2"><button onClick={() => refresh(true)} className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/20" disabled={refreshing}>{refreshing ? 'Refreshing…' : 'Refresh data'}</button><button onClick={signOut} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#0F5D4E] hover:bg-white/90">Sign out</button></div>
+        <header className="relative mb-6 flex flex-col gap-4 rounded-2xl bg-[#0F5D4E] p-5 text-white shadow-lg sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">Triangle Healthy Kitchen · Operations</p><h1 className="ops-page-title mt-1 text-2xl font-bold">{sectionTitle}</h1><p className="mt-1 text-sm text-white/75">{role === 'ceo' ? 'CEO' : role[0].toUpperCase() + role.slice(1)} workspace</p></div>
+          <div className="flex items-center gap-2">
+            {leader && <div className="relative">
+              <button type="button" onClick={() => setNotificationsOpen((open) => !open)} aria-label={`Notifications${managerAlertCount ? `, ${managerAlertCount} items need attention` : ''}`} aria-expanded={notificationsOpen} className="relative grid h-10 w-10 place-items-center rounded-xl bg-white/10 hover:bg-white/20">
+                <Bell size={18}/>{managerAlertCount > 0 && <span className="absolute -end-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white">{managerAlertCount > 99 ? '99+' : managerAlertCount}</span>}
+              </button>
+              {notificationsOpen && <section role="dialog" aria-label="Actionable notifications" className="absolute end-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-xl">
+                <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-bold">Action needed</h2><span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700">{managerAlertCount}</span></div>
+                {managerAlerts.length ? <ul className="space-y-1">{managerAlerts.map((alert) => <li key={alert.label}><button type="button" onClick={() => { setModule(alert.module); setNotificationsOpen(false); }} className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-start text-sm hover:bg-slate-50"><span>{alert.label}</span><span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold">{alert.count}</span></button></li>)}</ul> : <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">No outstanding items.</p>}
+                <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">Counts update when dashboard data refreshes.</p>
+              </section>}
+            </div>}
+            <button onClick={() => refresh(true)} className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/20" disabled={refreshing}>{refreshing ? 'Refreshing…' : 'Refresh data'}</button><button onClick={signOut} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#0F5D4E] hover:bg-white/90">Sign out</button>
+          </div>
         </header>
 
         {role === 'driver' ? <section className="mx-auto max-w-2xl rounded-2xl border border-emerald-200 bg-white p-8 text-center shadow-sm"><Truck size={36} className="mx-auto text-[#0F5D4E]"/><h2 className="mt-4 text-xl font-bold">Rider workspace</h2><p className="mt-2 text-sm text-slate-600">Riders accept routes and update delivery status in the THK mobile app. Sign in there with the rider’s assigned account.</p></section> : <>
@@ -274,7 +298,7 @@ export default function OperationsWorkspace() {
         {success && <div role="status" className="mb-5 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"><Check size={18} />{success}<button className="ms-auto" onClick={() => setSuccess('')} aria-label="Dismiss message"><X size={16} /></button></div>}
         {loading ? <div className="flex justify-center py-24"><Loader2 className="h-9 w-9 animate-spin text-[#0F5D4E]" /></div> : (
           <>
-            {module === 'overview' && <Overview role={role} leader={leader} subscribers={subscribers} bookings={bookings} payments={payments} zones={zoneCounts} setModule={setModule} notifications={notifications} packages={packages} />}
+            {module === 'overview' && <Overview role={role} leader={leader} subscribers={subscribers} selections={currentSelections} bookings={bookings} payments={payments} zones={zoneCounts} setModule={setModule} notifications={notifications} packages={packages} />}
             {module === 'customers' && <section className="space-y-4"><PageTools search={search} setSearch={setSearch} placeholder="Search name, phone, email, area or zone" action={<button className="ops-button flex items-center gap-2" onClick={() => downloadCsv('customers',['Name','Phone','Email','Status','Package','Category','Zone','Area','Delivery address'],visibleSubscribers.map((s) => [s.full_name,s.phone,s.email,s.status,s.package_name,s.nutrition_category,s.zone_number,s.area,addressOf(s)]))}><Download size={16}/>Export customers</button>} /><div className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-4"><select className="ops-control" value={customerStatusFilter} onChange={(e) => setCustomerStatusFilter(e.target.value)}><option>All</option>{['active','paused','trialing','cancelled'].map((s) => <option key={s}>{s}</option>)}</select><select className="ops-control" value={customerCategoryFilter} onChange={(e) => setCustomerCategoryFilter(e.target.value)}><option>All</option>{['A','B','C','D','E','F','Needs review'].map((s) => <option key={s}>{s}</option>)}</select><select className="ops-control" value={customerZoneFilter} onChange={(e) => setCustomerZoneFilter(e.target.value)}><option>All</option>{[...new Set(subscribers.map((s) => s.zone_number || 'Needs zone'))].sort().map((s) => <option key={s}>{s}</option>)}</select></div><PauseRequestsSection requests={pauseRequests} subscribers={subscribers} saving={saving} review={reviewPauseRequest}/><DataTable headers={['Customer','Contact','Plan','Status','Category','Zone','Area','Action']} rows={visibleSubscribers.map((s) => [<strong>{s.full_name || 'Customer'}</strong>,<span>{s.phone || s.email || '—'}</span>,s.package_name || s.package_id || '—',<Status value={s.status}/>,s.nutrition_category || 'Needs review',s.zone_number ? `Zone ${s.zone_number}` : 'Needs zone',s.area || '—',<button onClick={() => setSelected({ ...s })} className="ops-button-secondary">View details</button>])} empty="No customer records found." /></section>}
             {module === 'subscriptions' && <section className="space-y-4"><div className="grid gap-4 sm:grid-cols-3"><Metric label="Active customers" value={activeSubscribers.length}/><Metric label="Available packages" value={packages.filter((p) => p.active).length}/><Metric label="Payment-confirmed plans" value={subscribers.filter((s) => /paid/i.test(s.payment_status || '')).length}/></div><DataTable headers={['Package','Calories','Meals','Duration','Price','Availability','Action']} rows={packages.map((p) => [p.name,p.kcals, p.meals, p.duration,money(p.price,p.currency),<Status value={p.active ? 'Active' : 'Inactive'}/>,<button className="ops-button-secondary" onClick={() => setSelectedPackage({ ...p })}>Edit package</button>])} empty="No package records are available." /><p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Plan activation and billing state are controlled by verified Tap payments. Package edits update future selections and do not rewrite active Tap transactions.</p></section>}
             {module === 'menu' && <section className="space-y-4">{leader && <MonthlyMenuPublisher collection={settings?.active_season || 'autumn'} onPublished={() => refresh(true)} />}<div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">Menu schedule and dish nutrition from the shared menu catalogue. The next monthly menu appears to customers on Saturday.</p><span className="text-xs font-semibold text-slate-500">{leader ? 'Leadership can publish a monthly PDF and edit menu availability.' : 'Kitchen view · read only'} · {settings?.active_season || 'Active'} collection</span></div><DataTable headers={['Week','Day','Meal','Dish','Calories','Schedule','Action']} rows={activeMenuAvailability.map((a) => { const dish = dishes.find((d) => d.id === a.dish_id); return [a.week_number,a.day_of_week,a.meal_period,dish?.name || 'Dish unavailable',dish?.kcals ?? '—',<Status value={a.is_active ? 'Active' : 'Unavailable'}/>,leader ? <div className="flex flex-wrap gap-2"><button className="ops-button-secondary" disabled={saving} onClick={() => setMenuAvailability(a,!a.is_active)}>{a.is_active ? 'Disable' : 'Enable'}</button>{dish && <button className="ops-button-secondary" onClick={() => setSelectedDish({ ...dish, protein: dish.macros?.protein, carbs: dish.macros?.carbs, fats: dish.macros?.fats })}>Edit dish</button>}{dish && <button className="ops-button-secondary" onClick={() => setSelectedRecipeDish(dish)}>Recipe ingredients</button>}</div> : '—']; })} empty="No scheduled meals found." /></section>}
@@ -285,7 +309,7 @@ export default function OperationsWorkspace() {
             {module === 'reminders' && <section className="space-y-4"><div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Email delivery history from the notification log. Transactional email is sent by the configured Brevo-backed functions; this dashboard shows delivery outcomes and does not fabricate scheduled reminders.</div><DataTable headers={['When','Recipient','Subject','Provider','Status','Error']} rows={notifications.map((n) => [new Date(n.created_at).toLocaleString(),n.recipient || '—',n.subject,n.provider || '—',<Status value={n.status}/>,n.error || '—'])} empty="No email events recorded." /></section>}
             {module === 'reports' && <ReportsSection subscribers={subscribers} selections={currentSelections} payments={payments} bookings={bookings} date={date} setDate={setDate} downloadCsv={downloadCsv} />}
             {module === 'bookings' && <BookingsSection bookings={bookings} updateBooking={updateBooking} saving={saving} />}
-            {module === 'team' && <DataTable headers={['Team role','Primary responsibility','Workspace access']} rows={[["CEO",'Company operations and decisions','All operations sections'],['Admin','Customer and company administration','All operations sections'],['Kitchen','Production and packing','Kitchen, meal plans, reports, consultations'],['Transport manager','Zone planning and rider assignment','Delivery and drivers'],['Driver','Delivery execution','Mobile app']]} empty="" />}
+            {module === 'team' && <DataTable headers={['Team role','Primary responsibility','Workspace access']} rows={[["CEO",'Company operations and decisions','All operations sections'],['Admin','Customer and company administration','All operations sections'],['Kitchen','Menu planning, bulk purchasing, production and packing','Meal plans, kitchen purchase list, customer packing list'],['Transport manager','Zone planning and rider assignment','Delivery and drivers'],['Driver','Delivery execution','Mobile app']]} empty="" />}
             {module === 'settings' && <SettingsSection settings={settings} save={saveGlobalSettings} saving={saving} />}
           </>
         )}
@@ -299,17 +323,61 @@ export default function OperationsWorkspace() {
   );
 }
 
-function Overview({ role, leader, subscribers, bookings, payments, zones, setModule, notifications, packages }: any) {
-  const active = subscribers.filter((s: Row) => s.status === 'active').length;
-  const pendingPayments = payments.filter((p: Row) => ['initiated','pending','failed'].includes(String(p.status).toLowerCase())).length;
-  const statusCounts = ['active','trialing','paused','cancelled'].map((status) => [status, subscribers.filter((s: Row) => s.status === status).length] as const);
-  const paymentCounts = ['captured','pending','failed','initiated'].map((status) => [status, payments.filter((p: Row) => p.status === status).length] as const);
-  const revenue = subscribers.filter((s: Row) => s.status === 'active').reduce((sum: number, s: Row) => sum + (Number(packages.find((p: Row) => p.id === s.package_id)?.price) || 0), 0);
+function Overview({ role, leader, subscribers, selections, bookings, payments, zones, setModule, notifications, packages }: any) {
+  const kitchen = role === 'kitchen';
+  const transport = role === 'transport';
+  const activeSubscribers = subscribers.filter((subscriber: Row) => subscriber.status === 'active');
+  const active = activeSubscribers.length;
+  const missingZones = activeSubscribers.filter((subscriber: Row) => !subscriber.zone_number).length;
+  const pendingPayments = payments.filter((payment: Row) => ['initiated','pending','failed'].includes(String(payment.status).toLowerCase())).length;
+  const statusCounts = ['active','trialing','paused','cancelled'].map((status) => [status, subscribers.filter((subscriber: Row) => subscriber.status === status).length] as const);
+  const paymentCounts = ['captured','pending','failed','initiated'].map((status) => [status, payments.filter((payment: Row) => payment.status === status).length] as const);
+  const revenue = activeSubscribers.reduce((sum: number, subscriber: Row) => sum + (Number(packages.find((item: Row) => item.id === subscriber.package_id)?.price) || 0), 0);
   const recentEvents = [
-    ...bookings.map((b: Row) => ({ at: b.created_at, label: `Consultation · ${b.client_name}`, status: b.status })),
-    ...notifications.map((n: Row) => ({ at: n.created_at, label: `Email · ${n.subject}`, status: n.status })),
+    ...bookings.map((booking: Row) => ({ at: booking.created_at, label: `Consultation · ${booking.client_name}`, status: booking.status })),
+    ...notifications.map((notification: Row) => ({ at: notification.created_at, label: `Email · ${notification.subject}`, status: notification.status })),
   ].filter((event) => event.at).sort((a,b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0,8);
-  return <div className="space-y-6"><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Active customers" value={active}/><Metric label="Active-plan monthly list value" value={money(revenue)}/><Metric label="Consultations awaiting review" value={bookings.filter((b: Row) => b.status === 'pending').length}/>{leader && <Metric label="Tap items to reconcile" value={pendingPayments}/>}<Metric label="Active customers missing zone" value={zones.filter(([zone]: [string,number]) => zone === 'Needs zone').reduce((sum: number, item: any) => sum + item[1], 0)}/></div><div className="grid gap-6 xl:grid-cols-2"><section className="ops-surface"><SectionHeading title="Active customers by Qatar zone" helper="Use these totals to group stops and plan rider coverage."/><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{zones.map(([zone,count]: [string,number]) => <div key={zone} className={`rounded-xl border p-4 ${zone === 'Needs zone' ? 'border-amber-200 bg-amber-50' : 'border-primary/10 bg-background'}`}><p className="text-xs font-semibold uppercase text-muted">{zone === 'Needs zone' ? zone : `Zone ${zone}`}</p><p className="mt-1 text-2xl font-bold text-primary">{count}</p></div>)}</div></section><section className="ops-surface"><SectionHeading title="Quick actions" helper="Jump to the work that needs attention."/><div className="grid gap-2 sm:grid-cols-2">{(leader ? [['customers','Review customers'],['payments','Reconcile Tap payments'],['kitchen','Open today’s production'],['delivery','Plan delivery routes']] : role === 'kitchen' ? [['kitchen','Open production sheets'],['packing','Open packing list'],['menu','Review weekly menu'],['reports','Prepare kitchen report']] : [['delivery','Plan zones and rider routes'],['drivers','Review rider fleet']]).map(([key,label]: string[]) => <button key={key} onClick={() => setModule(key)} className="rounded-xl border border-primary/10 bg-white p-4 text-start font-semibold text-primary hover:bg-emerald-50">{label}</button>)}</div></section></div><div className="grid gap-6 xl:grid-cols-2"><section className="ops-surface"><SectionHeading title="Subscription status" helper="Live counts from the subscriber records."/><div className="space-y-3">{statusCounts.map(([status,count]) => <div key={status} className="flex items-center gap-3"><span className="w-24 text-sm capitalize">{status}</span><div className="h-2 flex-1 overflow-hidden rounded-full bg-background"><div className="h-full rounded-full bg-primary" style={{ width: `${subscribers.length ? Math.max(0, count / subscribers.length * 100) : 0}%` }}/></div><strong className="w-10 text-end">{count}</strong></div>)}</div></section><section className="ops-surface"><SectionHeading title={leader ? 'Tap payment overview' : 'Recent work'} helper={leader ? 'Payment state comes from verified Tap transaction records.' : 'Latest consultation and email events.'}/>{leader ? <div className="grid grid-cols-2 gap-3">{paymentCounts.map(([status,count]) => <div key={status} className="rounded-xl border border-primary/10 bg-background p-4"><p className="text-xs font-semibold uppercase text-muted">{status}</p><p className="mt-1 text-2xl font-bold text-primary">{count}</p></div>)}</div> : null}<div className="mt-4 divide-y divide-primary/10">{recentEvents.map((event,i) => <div key={`${event.at}-${i}`} className="flex items-center justify-between gap-3 py-3 text-sm"><span className="truncate">{event.label}</span><Status value={event.status}/></div>)}{!recentEvents.length && <p className="text-sm text-muted">No recent work has been recorded.</p>}</div></section></div></div>;
+  const kitchenDishCounts = Object.values((selections as Row[]).reduce((totals: Record<string, { dish: string; portions: number; day: string; meal: string }>, selection) => {
+    const key = [selection.day_of_week, selection.meal_type, selection.dish_name].join('|');
+    if (!totals[key]) totals[key] = { dish: selection.dish_name || 'Unassigned dish', portions: 0, day: selection.day_of_week || '—', meal: selection.meal_type || '—' };
+    totals[key].portions += 1;
+    return totals;
+  }, {})).sort((a: any, b: any) => a.day.localeCompare(b.day) || a.meal.localeCompare(b.meal) || a.dish.localeCompare(b.dish));
+  const kitchenCustomersWithNotes = new Set((selections as Row[]).filter((selection) => (selection.allergies || []).length || (selection.dislikes || []).length || selection.delivery_notes).map((selection) => selection.subscriber_id)).size;
+  const actions: [Module, string][] = leader
+    ? [['customers','Review customers'],['payments','Reconcile Tap payments'],['kitchen','Open kitchen purchase list'],['delivery','Plan delivery routes']]
+    : kitchen
+      ? [['menu','Review weekly menu'],['kitchen','Open bulk purchase list'],['packing','Open customer packing list']]
+      : [['delivery','Plan zones and rider routes'],['drivers','Review rider fleet']];
+
+  return <div className="space-y-6">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {kitchen ? <>
+        <Metric label="Meal portions for this service week" value={selections.length}/>
+        <Metric label="Dish and meal combinations" value={kitchenDishCounts.length}/>
+        <Metric label="Customers with food or delivery notes" value={kitchenCustomersWithNotes}/>
+        <Metric label="Active customers missing a zone" value={missingZones}/>
+      </> : <>
+        <Metric label="Active customers" value={active}/>
+        {leader && <Metric label="Active-plan monthly list value" value={money(revenue)}/>}
+        {leader && <Metric label="Consultations awaiting review" value={bookings.filter((booking: Row) => booking.status === 'pending').length}/>}
+        {leader && <Metric label="Tap items to reconcile" value={pendingPayments}/>}
+        <Metric label="Active customers missing zone" value={missingZones}/>
+      </>}
+    </div>
+
+    <div className="grid gap-6 xl:grid-cols-2">
+      {(leader || transport) && <section className="ops-surface"><SectionHeading title="Active customers by Qatar zone" helper="Use these totals to group stops and plan rider coverage."/><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{zones.map(([zone,count]: [string,number]) => <div key={zone} className={`rounded-xl border p-4 ${zone === 'Needs zone' ? 'border-amber-200 bg-amber-50' : 'border-primary/10 bg-background'}`}><p className="text-xs font-semibold uppercase text-muted">{zone === 'Needs zone' ? zone : `Zone ${zone}`}</p><p className="mt-1 text-2xl font-bold text-primary">{count}</p></div>)}</div></section>}
+      <section className="ops-surface"><SectionHeading title={kitchen ? 'Quick kitchen actions' : 'Quick actions'} helper={kitchen ? 'Move from menu choices to bulk prep and then customer portions.' : 'Jump to the work that needs attention.'}/><div className="grid gap-2 sm:grid-cols-2">{actions.map(([key,label]) => <button key={key} onClick={() => setModule(key)} className="rounded-xl border border-primary/10 bg-white p-4 text-start font-semibold text-primary hover:bg-emerald-50">{label}</button>)}</div></section>
+    </div>
+
+    {kitchen && <section className="ops-surface"><SectionHeading title="Weekly dish forecast" helper="Bulk portions by selected dish. Open Packing for the client-by-client split after stock arrives."/><DataTable headers={['Service day','Meal','Dish','Portions']} rows={kitchenDishCounts.map((row: any) => [row.day,row.meal,row.dish,row.portions])} empty="No customer meal selections are available for this service week." /></section>}
+
+    {leader && <div className="grid gap-6 xl:grid-cols-2">
+      <section className="ops-surface"><SectionHeading title="Subscription status" helper="Live counts from the subscriber records."/><div className="space-y-3">{statusCounts.map(([status,count]) => <div key={status} className="flex items-center gap-3"><span className="w-24 text-sm capitalize">{status}</span><div className="h-2 flex-1 overflow-hidden rounded-full bg-background"><div className="h-full rounded-full bg-primary" style={{ width: `${subscribers.length ? Math.max(0, count / subscribers.length * 100) : 0}%` }}/></div><strong className="w-10 text-end">{count}</strong></div>)}</div></section>
+      <section className="ops-surface"><SectionHeading title="Recent work" helper="Recent consultation and email events."/><div className="grid grid-cols-2 gap-3">{paymentCounts.map(([status,count]) => <div key={status} className="rounded-xl border border-primary/10 bg-background p-4"><p className="text-xs font-semibold uppercase text-muted">Tap {status}</p><p className="mt-1 text-2xl font-bold text-primary">{count}</p></div>)}</div><div className="mt-4 divide-y divide-primary/10">{recentEvents.map((event,i) => <div key={`${event.at}-${i}`} className="flex items-center justify-between gap-3 py-3 text-sm"><span className="truncate">{event.label}</span><Status value={event.status}/></div>)}{!recentEvents.length && <p className="text-sm text-muted">No recent work has been recorded.</p>}</div></section>
+    </div>}
+  </div>;
 }
 
 function DeliverySection({ date, setDate, subscribers, riders, deliveries, saving, assignRider, updateDeliveryStatus }: any) {
@@ -347,10 +415,28 @@ function ProductionSection({ module, date, setDate, rows, subscribers, downloadC
     void supabase.from('kitchen_ingredient_order_view').select('*').eq('week_start_date', weekStart).order('ingredient_name')
       .then(({ data, error }) => { if (error) setIngredientError(error.message); else { setIngredientError(''); setIngredientRows(data || []); } });
   }, [module, weekStart]);
-  const list = rows.filter((r: Row) => module === 'packing' ? true : true);
-  const allergies = subscribers.filter((s: Row) => (s.allergies || []).length || (s.dislikes || []).length || s.delivery_notes).length;
-  const portions = list.reduce((counts: Record<string,number>, row: Row) => { const category = row.nutrition_category || 'Needs category'; counts[category] = (counts[category] || 0) + 1; return counts; }, {});
-  return <section className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4"><div><h2 className="font-bold">{module === 'packing' ? 'Customer packing sheet' : 'Weekly production & ingredient order'}</h2><p className="text-sm text-slate-600">Selections and recipe ingredient quantities for the selected service week.</p></div><label className="text-sm font-semibold">Production date <input type="date" className="ops-control ms-2" value={date} onChange={(e) => setDate(e.target.value)}/></label></div><div className="grid gap-3 sm:grid-cols-3"><Metric label="Meal selections" value={list.length}/><Metric label="Customers with food/delivery notes" value={allergies}/><Metric label="Distinct menu items" value={new Set(list.map((s: Row) => s.dish_name)).size}/></div>{module === 'kitchen' && <div className="ops-surface"><SectionHeading title="Ingredient order list" helper="Quantities are summed from each selected meal and the recipe amounts per serving."/>{ingredientError ? <p role="alert" className="text-sm text-amber-800">Ingredient totals unavailable: {ingredientError}</p> : <DataTable headers={['Ingredient','Quantity to order','Unit','Meal servings']} rows={ingredientRows.map((item) => [item.ingredient_name,item.quantity_to_order,item.unit,item.meal_servings])} empty="No recipe ingredient amounts are configured for these weekly selections yet."/>}</div>}<div className="ops-surface"><SectionHeading title="A–F portion counts" helper="Category totals use each customer's assigned nutrition category. Unclassified portions are shown separately."/><div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">{['A','B','C','D','E','F','Needs category'].map((key) => <div key={key} className="rounded-xl border border-primary/10 bg-background p-3"><p className="text-xs font-semibold text-muted">{key}</p><p className="text-xl font-bold text-primary">{portions[key] || 0}</p></div>)}</div></div><div className="flex flex-wrap gap-2"><button className="ops-button flex items-center gap-2" onClick={() => downloadCsv(module === 'packing' ? 'THK-packing-sheet' : 'THK-production-sheet',['Customer','Package','Week start','Day','Meal','Dish','Calories','Category','Area','Address','Allergies','Dislikes','Delivery notes'],list.map((s: Row) => [s.full_name,s.package_name,s.week_start_date,s.day_of_week,s.meal_type,s.dish_name,s.dish_kcals,s.nutrition_category || 'Needs category',s.area,[s.building_number,s.street].filter(Boolean).join(', '),(s.allergies || []).join('; '),(s.dislikes || []).join('; '),s.delivery_notes]))}><Download size={16}/>Download CSV</button><button className="ops-button-secondary" onClick={() => window.print()}>Print sheet</button></div><DataTable headers={['Customer','Meal','Dish','Calories','A–F category','Area / zone','Food notes','Delivery note']} rows={list.map((s: Row) => [s.full_name || 'Customer',s.meal_type,s.dish_name,s.dish_kcals ?? '—',s.nutrition_category || 'Needs category',`${s.area || '—'}${s.zone_number ? ` · Zone ${s.zone_number}` : ''}`,[...(s.allergies || []).map((a: string) => `Allergy: ${a}`),...(s.dislikes || []).map((a: string) => `Avoid: ${a}`)].join(' · ') || '—',s.delivery_notes || '—'])} empty="No meal selections are saved for this service week."/></section>;
+  const list = rows as Row[];
+  const portions = list.reduce((counts: Record<string,number>, row) => { const category = row.nutrition_category || 'Needs category'; counts[category] = (counts[category] || 0) + 1; return counts; }, {});
+  const dishCounts = Object.values(list.reduce((totals: Record<string, { day: string; meal: string; dish: string; portions: number }>, row) => {
+    const key = [row.day_of_week, row.meal_type, row.dish_name].join('|');
+    if (!totals[key]) totals[key] = { day: row.day_of_week || '—', meal: normalizedMeal(row.meal_type || '—'), dish: row.dish_name || 'Unassigned dish', portions: 0 };
+    totals[key].portions += 1;
+    return totals;
+  }, {})).sort((a, b) => a.day.localeCompare(b.day) || a.meal.localeCompare(b.meal) || a.dish.localeCompare(b.dish));
+  const mealsWithNotes = list.filter((row) => (row.allergies || []).length || (row.dislikes || []).length || row.delivery_notes).length;
+  const isKitchen = module === 'kitchen';
+  return <section className="space-y-4">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4"><div><h2 className="text-lg font-bold">{isKitchen ? 'Weekly bulk purchasing' : 'Customer packing sheet'}</h2><p className="text-sm text-slate-600">{isKitchen ? 'Order ingredients from the total recipe quantities for every selected meal. Packing keeps each customer’s exact choices.' : 'Use individual customer selections after bulk ingredients arrive to split meals into the right portions.'}</p></div><label className="text-sm font-semibold">Service week <input type="date" className="ops-control ms-2" value={date} onChange={(event) => setDate(event.target.value)}/></label></div>
+    <div className="grid gap-3 sm:grid-cols-3"><Metric label={isKitchen ? 'Meal portions to prepare' : 'Customer meal portions'} value={list.length}/><Metric label={isKitchen ? 'Meals with dietary or delivery notes' : 'Customers with special notes'} value={isKitchen ? mealsWithNotes : new Set(list.filter((row) => (row.allergies || []).length || (row.dislikes || []).length || row.delivery_notes).map((row) => row.subscriber_id)).size}/><Metric label="Distinct dishes" value={new Set(list.map((row) => row.dish_name)).size}/></div>
+    {isKitchen ? <>
+      <div className="ops-surface"><SectionHeading title="Bulk ingredient totals" helper="Totals combine all active customers’ meal choices. Example: 2 chicken portions × 100 g per recipe = 200 g to purchase."/>{ingredientError ? <p role="alert" className="text-sm text-amber-800">Ingredient totals unavailable: {ingredientError}</p> : <DataTable headers={['Ingredient to purchase','Total quantity','Unit','Meals using ingredient']} rows={ingredientRows.map((item) => [item.ingredient_name,item.quantity_to_order,item.unit,item.meal_servings])} empty="No ingredient totals yet. Add recipe quantities to the dishes in Meal Plans, then the weekly selections will calculate the bulk order."/>}</div>
+      <div className="ops-surface"><SectionHeading title="Selected portions by dish" helper="Counts only. Open Packing for customer names, exact choices, and special instructions."/><DataTable headers={['Service day','Meal','Dish','Portions']} rows={dishCounts.map((row) => [row.day,row.meal,row.dish,row.portions])} empty="No meal selections are saved for this service week."/></div>
+    </> : <>
+      <div className="ops-surface"><SectionHeading title="A–F portion counts" helper="Counts by assigned nutrition category for the customer packing run."/><div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">{['A','B','C','D','E','F','Needs category'].map((key) => <div key={key} className="rounded-xl border border-primary/10 bg-background p-3"><p className="text-xs font-semibold text-muted">{key}</p><p className="text-xl font-bold text-primary">{portions[key] || 0}</p></div>)}</div></div>
+      <div className="flex flex-wrap gap-2"><button className="ops-button flex items-center gap-2" onClick={() => downloadCsv('THK-packing-sheet',['Customer','Package','Week start','Day','Meal','Dish','Calories','Category','Area','Address','Allergies','Dislikes','Delivery notes'],list.map((row) => [row.full_name,row.package_name,row.week_start_date,row.day_of_week,row.meal_type,row.dish_name,row.dish_kcals,row.nutrition_category || 'Needs category',row.area,[row.building_number,row.street].filter(Boolean).join(', '),(row.allergies || []).join('; '),(row.dislikes || []).join('; '),row.delivery_notes]))}><Download size={16}/>Download customer packing CSV</button><button className="ops-button-secondary" onClick={() => window.print()}>Print sheet</button></div>
+      <DataTable headers={['Customer','Meal','Dish','Calories','A–F category','Area / zone','Food notes','Delivery note']} rows={list.map((row) => [row.full_name || 'Customer',normalizedMeal(row.meal_type),row.dish_name,row.dish_kcals ?? '—',row.nutrition_category || 'Needs category',`${row.area || '—'}${row.zone_number ? ` · Zone ${row.zone_number}` : ''}`,[...(row.allergies || []).map((item: string) => `Allergy: ${item}`),...(row.dislikes || []).map((item: string) => `Avoid: ${item}`)].join(' · ') || '—',row.delivery_notes || '—'])} empty="No meal selections are saved for this service week."/>
+    </>}
+  </section>;
 }
 
 function PaymentsSection({ payments, logs, pending }: any) {
@@ -443,6 +529,12 @@ function MonthlyMenuPublisher({ collection, onPublished }: { collection: string;
   const [error, setError] = useState('');
   const [documents, setDocuments] = useState<Row[]>([]);
   const canRepeat = entries.length > 0 && entries.every((entry) => entry.week_number === 1);
+  const choiceSlots = Object.values(entries.reduce<Record<string, number>>((counts, entry) => {
+    const key = `${entry.week_number}|${entry.day_of_week}|${entry.meal_period}`;
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {}));
+  const threeChoiceSlots = choiceSlots.filter((count) => count === 3).length;
 
   const refreshDocuments = async () => {
     const { data, error: loadError } = await supabase.from('monthly_menu_documents').select('id,title,month_start,source_filename,storage_path,available_from,created_at').order('created_at', { ascending: false }).limit(12);
@@ -520,7 +612,8 @@ function MonthlyMenuPublisher({ collection, onPublished }: { collection: string;
         </tbody></table>
       </div>
       <button type="button" className="ops-button-secondary" onClick={addEntry}>{t('add_menu_entry')}</button>
-      <p className="text-xs text-slate-500">{entries.length} {t('menu_entries_detected')} · {t('menu_publishes_saturday')}</p>
+      <p className="text-xs text-slate-500">{entries.length} {t('menu_entries_detected')} · {threeChoiceSlots}/{choiceSlots.length} meal slots have three choices · {t('menu_publishes_saturday')}</p>
+      {choiceSlots.length > 0 && threeChoiceSlots !== choiceSlots.length && <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">The usual menu has three options for each day and meal. Add or remove choices in the editable preview before scheduling if this menu should follow that format.</p>}
       <button className="ops-button flex items-center gap-2" disabled={busy || entries.length < 24 || entries.some((entry) => !entry.name.trim() || entry.kcals < 20)} onClick={() => void publish()}><Upload size={16}/>{t('publish_monthly_menu')}</button>
     </>}
     {documents.length > 0 && <div className="border-t border-slate-100 pt-3"><h3 className="mb-2 text-sm font-bold">{t('published_menu_pdfs')}</h3><div className="space-y-2">{documents.map((document) => <div key={document.id} className="flex flex-wrap items-center justify-between gap-2 text-sm"><span>{document.title} · {new Date(document.available_from).toLocaleString(isRtl ? 'ar-QA' : 'en-QA', { timeZone: 'Asia/Qatar', dateStyle: 'medium' })}</span><button className="ops-button-secondary" onClick={() => void openPdf(document.storage_path)}>{t('view_pdf')}</button></div>)}</div></div>}

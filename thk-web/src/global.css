@@ -75,7 +75,7 @@
     @apply bg-white/50 backdrop-blur-md border border-[#123F38]/10 text-[#123F38] font-black px-12 py-6 rounded-2xl uppercase tracking-[0.4em] text-[10px] transition-all duration-500 hover:bg-white hover:border-gold hover:shadow-xl active:scale-95;
   }
 
-  .ops-surface {
+.ops-surface {
     @apply rounded-2xl border border-primary/10 bg-white p-5 shadow-sm;
   }
 
@@ -108,6 +108,22 @@
     text-shadow: 0 10px 30px rgba(18, 63, 56, 0.15);
   }
 }
+
+/* Operations uses compact, readable sans-serif headings instead of the public
+   site's oversized editorial serif scale. */
+.ops-dashboard h1,
+.ops-dashboard h2,
+.ops-dashboard h3,
+.ops-dashboard h4 {
+  font-family: 'Manrope', sans-serif;
+  font-style: normal;
+  letter-spacing: -0.02em;
+}
+.ops-dashboard h1 { font-size: 1.5rem; line-height: 1.25; }
+.ops-dashboard h2 { font-size: 1.2rem; line-height: 1.35; }
+.ops-dashboard h2.text-base { font-size: 1rem; }
+.ops-dashboard h3 { font-size: 1.1rem; line-height: 1.35; }
+.ops-dashboard h4 { font-size: 1rem; line-height: 1.35; }
 
 @keyframes reveal {
   from { opacity: 0; transform: translateY(20px); }
