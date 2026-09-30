@@ -19,6 +19,10 @@ alter table public.menu_availability
 
 alter table public.menu_availability
   drop constraint if exists menu_availability_week_number_day_of_week_meal_period_collection_dish_id_key;
+-- PostgreSQL truncates long generated constraint names; this is the actual
+-- name used by the existing production schema.
+alter table public.menu_availability
+  drop constraint if exists menu_availability_week_number_day_of_week_meal_period_colle_key;
 create unique index if not exists menu_availability_monthly_unique
   on public.menu_availability (monthly_menu_id, week_number, day_of_week, meal_period, dish_id)
   where monthly_menu_id is not null;
