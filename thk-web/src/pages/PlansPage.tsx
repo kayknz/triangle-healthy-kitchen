@@ -68,8 +68,7 @@ export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
             <span className="font-black tracking-[0.4em] uppercase text-[10px]">{t('premium_experience')}</span>
           </div>
           <h1 className="text-5xl md:text-7xl font-black text-primary leading-[1] tracking-tighter uppercase italic mb-8">
-            Curated<br />
-            <span className="text-gold selection:bg-gold selection:text-primary">Nutrition.</span>
+            {t('packages_title')}
           </h1>
           <p className="text-primary/60 text-lg md:text-xl font-medium italic leading-relaxed">
             {t('packages_subtitle')}
@@ -85,25 +84,25 @@ export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
                       <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center border border-white/5">
                          <ShieldCheck className="w-6 h-6 text-gold" />
                       </div>
-                      <h3 className="text-3xl font-black italic uppercase tracking-tighter">Active Protocol Identified.</h3>
+                      <h3 className="text-3xl font-black italic uppercase tracking-tighter">{t('active_protocol_identified')}</h3>
                    </div>
                    <p className="text-white/60 text-lg italic max-w-xl">
-                      You are currently enrolled in a Triangle protocol. To modify your current selections or track your biological momentum, enter your personal workstation.
+                      {t('active_plan_message')}
                    </p>
                 </div>
                 <button
                   onClick={() => navigate('/account')}
                   className="btn-primary !bg-gold !text-primary px-16 py-8 flex items-center gap-4 shadow-2xl scale-110 active:scale-95"
                 >
-                   ACCESS DASHBOARD <ArrowRight className="w-5 h-5" />
+                   {t('access_dashboard')} <ArrowRight className="w-5 h-5" />
                 </button>
              </div>
           </div>
         )}
 
-        {packagesLoading && <p className="text-center text-primary/60 mb-20" role="status">Loading meal plans…</p>}
-        {!packagesLoading && packagesError && <div className="text-center text-red-700 mb-20" role="alert"><p>Meal plans are temporarily unavailable. Please try again shortly.</p><button type="button" className="mt-3 underline" onClick={() => { setPackagesLoading(true); setPackagesError(false); setPackagesRetryCount((count) => count + 1); }}>Try again</button></div>}
-        {!packagesLoading && !packagesError && packages.length === 0 && <p className="text-center text-primary/60 mb-20">No meal plans are available right now.</p>}
+        {packagesLoading && <p className="text-center text-primary/60 mb-20" role="status">{t('loading_meal_plans')}</p>}
+        {!packagesLoading && packagesError && <div className="text-center text-red-700 mb-20" role="alert"><p>{t('meal_plans_unavailable')}</p><button type="button" className="mt-3 underline" onClick={() => { setPackagesLoading(true); setPackagesError(false); setPackagesRetryCount((count) => count + 1); }}>{t('try_again')}</button></div>}
+        {!packagesLoading && !packagesError && packages.length === 0 && <p className="text-center text-primary/60 mb-20">{t('no_meal_plans')}</p>}
 
         <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-32 ${isSubscribed ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
           {packages.map((pkg) => {
@@ -126,7 +125,7 @@ export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
                     <span className="whitespace-nowrap shrink-0 text-3xl sm:text-4xl font-serif italic text-primary tracking-tighter">{pkg.price.toLocaleString()} <span className="text-xs sm:text-sm not-italic font-sans">{pkg.currency}</span></span>
                     <div className="hidden sm:block h-8 w-px bg-primary/5" />
                     <span className="min-w-0 flex-1 text-[10px] font-black text-gold uppercase tracking-[0.2em] sm:tracking-[0.3em] break-words">
-                      {pkg.id === 'daily_trial' ? '1 Day Trial' : pkg.id === 'weekly_reset' ? '6 Day Trial' : ['1100kcal', '1400kcal', '1500kcal'].includes(pkg.id) ? '24 Service Days' : pkg.duration || t('month')}
+                      {pkg.id === 'daily_trial' ? t('daily_trial') : pkg.id === 'weekly_reset' ? t('weekly_reset') : ['1100kcal', '1400kcal', '1500kcal'].includes(pkg.id) ? t('service_days_24') : pkg.duration || t('month')}
                     </span>
                   </div>
 
@@ -150,7 +149,7 @@ export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
                   onClick={() => onSubscribeClick(pkg.id)}
                   className="w-full btn-primary scale-105 active:scale-95 shadow-2xl"
                 >
-                  {isSubscribed ? 'UPGRADE PROTOCOL' : t('hero_cta_book')}
+                  {isSubscribed ? t('upgrade_plan') : t('hero_cta_book')}
                 </button>
               </div>
             </AnimatedSection>
@@ -163,7 +162,7 @@ export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
                onClick={() => navigate('/account')}
                className="text-primary/30 hover:text-gold transition-all text-[11px] font-black uppercase tracking-[0.5em] flex items-center justify-center gap-3 mx-auto"
              >
-                <RefreshCcw className="w-4 h-4" /> Return to personal workstation
+                <RefreshCcw className="w-4 h-4" /> {t('return_to_dashboard')}
              </button>
           </div>
         )}

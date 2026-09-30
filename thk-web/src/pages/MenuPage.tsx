@@ -24,11 +24,10 @@ export default function MenuPage({ onSubscribeClick }: MenuPageProps) {
           <div className="max-w-2xl">
             <div className="badge mb-10 bg-gold/10 border-gold/20 py-2.5 px-6">
               <Sparkles className="w-3.5 h-3.5 fill-gold animate-glow" />
-              <span className="font-black tracking-[0.5em] text-[10px] text-gold uppercase">Culinary Collections</span>
+              <span className="font-black tracking-[0.5em] text-[10px] text-gold uppercase">{t('culinary_collections')}</span>
             </div>
             <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-serif italic text-primary leading-[0.9] tracking-tighter drop-shadow-xl">
-              Seasonal<br />
-              <span className="text-gold selection:bg-gold selection:text-primary">Signatures.</span>
+              {t('seasonal_signatures')}
             </h1>
           </div>
 
@@ -93,7 +92,8 @@ export default function MenuPage({ onSubscribeClick }: MenuPageProps) {
                             onSubscribeClick(targetPkg);
                           }}
                           className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center text-gold hover:bg-gold hover:text-primary transition-all duration-500 mt-2 flex-shrink-0"
-                          title="Integrate into Plan"
+                          title={t('integrate_into_plan')}
+                          aria-label={t('integrate_into_plan')}
                         >
                           <Plus className="w-5 h-5" />
                         </button>
@@ -109,7 +109,7 @@ export default function MenuPage({ onSubscribeClick }: MenuPageProps) {
         <div className="mt-32 p-16 sm:p-24 glass-card bg-primary flex flex-col lg:flex-row items-center justify-between gap-16 relative overflow-hidden border-none shadow-4xl group">
           <div className="absolute inset-0 bg-food-atmosphere opacity-10 grayscale pointer-events-none group-hover:scale-105 transition-transform duration-[10s]" />
           <div className="relative z-10 max-w-2xl text-center lg:text-left">
-            <h3 className="text-5xl sm:text-7xl font-serif italic tracking-tight mb-8 text-white">Bio-Synchronous Intake.</h3>
+            <h3 className="text-5xl sm:text-7xl font-serif italic tracking-tight mb-8 text-white">{t('bio_synchronous_intake')}</h3>
             <p className="text-white opacity-100 text-xl italic font-bold leading-tight tracking-tighter">
               {t('based_on_metrics')}
             </p>

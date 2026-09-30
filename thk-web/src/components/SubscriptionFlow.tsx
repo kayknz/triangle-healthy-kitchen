@@ -182,7 +182,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     if (currentStepId === 'plan' && !pkgId) return setError(t('error_select_package'));
     if (currentStepId === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) return setError('Enter your phone number and complete the building, street, area, and zone details.');
     if (currentStepId === 'identity' && (!identity.fullName || !identity.email || identity.password.length < 6)) return setError('Account details required. Password must be 6+ characters.');
-    if (currentStepId === 'menu' && Object.values(initialMenuOptions).some((items) => items.length > 0) && Object.values(initialMenuSelections).length !== SERVICE_DAYS.length * packageMenuMeals.length) return setError(t('select_each_meal_before_payment'));
+    if (currentStepId === 'menu') {
+      if (menuLoading) return setError(t('loading_menu'));
+      if (!Object.values(initialMenuOptions).some((items) => items.length > 0)) return setError(t('menu_not_published'));
+      if (Object.keys(initialMenuSelections).length !== SERVICE_DAYS.length * packageMenuMeals.length) return setError(t('select_each_meal_before_payment'));
+    }
     if (currentStepId === 'payment' && !termsAccepted) return setError(t('legal_error'));
 
     setError(null);

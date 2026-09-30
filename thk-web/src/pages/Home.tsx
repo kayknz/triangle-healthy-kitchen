@@ -95,7 +95,7 @@ export default function Home({ onSubscribeClick, onBookClick }: HomeProps) {
           transition={{ duration: 2, repeat: Infinity }}
           className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 opacity-20"
         >
-           <span className="text-[8px] font-black uppercase tracking-[0.5em] text-[#123F38]">Command Scroll</span>
+           <span className="text-[8px] font-black uppercase tracking-[0.5em] text-[#123F38]">{t('scroll_to_explore')}</span>
            <div className="w-px h-12 bg-[#123F38]" />
         </motion.div>
       </section>
@@ -139,7 +139,7 @@ export default function Home({ onSubscribeClick, onBookClick }: HomeProps) {
               </div>
               <h2 className="mb-8 text-[#123F38]">{t('one_triangle')}.<br /><span className="text-[#123F38]/30 font-sans font-black uppercase not-italic tracking-tighter text-3xl sm:text-5xl">{t('three_pillars')}.</span></h2>
               <p className="text-primary/60 text-lg leading-relaxed italic mb-14 max-w-xl">
-                 One brand. Three pillars. A complete ecosystem for Doha.
+                 {t('one_triangle_desc')}
               </p>
               <div className="space-y-12">
                  {[
@@ -172,7 +172,7 @@ export default function Home({ onSubscribeClick, onBookClick }: HomeProps) {
             <AnimatedSection>
               <div className="badge mb-10 bg-gold/10 border-gold/20 text-gold py-2.5 px-6">
                 <Star className="w-4 h-4 fill-gold" />
-                <span className="ml-2 font-black tracking-widest uppercase">The Basics</span>
+                <span className="ml-2 font-black tracking-widest uppercase">{t('basics_label')}</span>
               </div>
               <h2 className="mb-12 text-primary">{t('what_is_triangle')}</h2>
               <div className="space-y-12">
@@ -221,13 +221,13 @@ export default function Home({ onSubscribeClick, onBookClick }: HomeProps) {
             <div className="relative">
               <div className="absolute -inset-10 bg-[#C5A059]/10 blur-[100px] rounded-full" />
               <div className="p-6 sm:p-12 bg-white/80 relative z-10 border-[#123F38]/5 rounded-[3rem] sm:rounded-[4rem] shadow-4xl">
-                <h3 className="text-2xl lg:text-3xl text-[#123F38] mb-8 lg:mb-12 italic">Targeted Value</h3>
+                <h3 className="text-2xl lg:text-3xl text-[#123F38] mb-8 lg:mb-12 italic">{t('targeted_value')}</h3>
                 <div className="space-y-8">
                   {[
-                    { label: 'Clinical Accuracy', value: '100%' },
-                    { label: 'Chef Preparation', value: 'Daily' },
-                    { label: 'Logistics Sync', value: 'Real-time' },
-                    { label: 'Member Support', value: '24/7' }
+                    { label: t('clinical_accuracy'), value: '100%' },
+                    { label: t('chef_preparation'), value: t('daily') },
+                    { label: t('logistics_sync'), value: t('real_time') },
+                    { label: t('member_support'), value: '24/7' }
                   ].map((stat) => (
                     <div key={stat.label} className="flex justify-between items-end border-b border-[#123F38]/10 pb-4">
                       <span className="text-[11px] font-black uppercase tracking-widest text-[#123F38]/40">{stat.label}</span>
@@ -235,7 +235,7 @@ export default function Home({ onSubscribeClick, onBookClick }: HomeProps) {
                     </div>
                   ))}
                 </div>
-                <button onClick={() => onSubscribeClick()} className="w-full btn-primary mt-12 py-6">Begin Plan</button>
+                <button onClick={() => onSubscribeClick()} className="w-full btn-primary mt-12 py-6">{t('hero_cta_book')}</button>
               </div>
             </div>
           </div>
@@ -249,7 +249,7 @@ export default function Home({ onSubscribeClick, onBookClick }: HomeProps) {
                 <CheckCircle className="w-4 h-4" />
                 <span className="ml-2 font-black tracking-widest uppercase">{t('doha_standard')}</span>
              </div>
-             <h2 className="mb-24 text-primary">Happy with us?</h2>
+             <h2 className="mb-24 text-primary">{t('happy_with_us')}</h2>
 
           {/* Mobile Optimized Scrollable Grid */}
           <div className="flex overflow-x-auto lg:grid lg:grid-cols-4 gap-6 lg:gap-12 no-scrollbar px-4 sm:px-6 -mx-6 pb-12 lg:pb-0 snap-x">
@@ -276,11 +276,11 @@ export default function Home({ onSubscribeClick, onBookClick }: HomeProps) {
           <div className="absolute inset-0 bg-food-atmosphere opacity-[0.05] grayscale pointer-events-none" />
           <AnimatedSection>
             <div className="max-w-4xl mx-auto space-y-12 relative z-10">
-               <h2 className="text-4xl sm:text-6xl font-serif italic text-white tracking-tight">Ready to eat healthy?</h2>
-               <p className="text-white/60 text-lg sm:text-xl font-medium italic">Join the Doha community and start your plan today.</p>
+               <h2 className="text-4xl sm:text-6xl font-serif italic text-white tracking-tight">{t('ready_to_eat_healthy')}</h2>
+               <p className="text-white/60 text-lg sm:text-xl font-medium italic">{t('community_invite')}</p>
                <div className="flex flex-col sm:flex-row justify-center gap-6">
-                  <button onClick={() => onSubscribeClick()} className="btn-primary !bg-gold !text-primary px-12 py-5 text-sm shadow-2xl">Start Plan</button>
-                  <button onClick={() => onBookClick()} className="btn-secondary !bg-white/10 !text-white border-white/20 px-12 py-5 text-sm">Book Free Chat</button>
+                  <button onClick={() => onSubscribeClick()} className="btn-primary !bg-gold !text-primary px-12 py-5 text-sm shadow-2xl">{t('hero_cta_book')}</button>
+                  <button onClick={() => onBookClick()} className="btn-secondary !bg-white/10 !text-white border-white/20 px-12 py-5 text-sm">{t('free_consultation')}</button>
                </div>
             </div>
           </AnimatedSection>

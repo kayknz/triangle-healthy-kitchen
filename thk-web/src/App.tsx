@@ -19,6 +19,7 @@ import AccessSelector from './components/AccessSelector';
 import ScrollToTop from './components/ScrollToTop';
 import OnboardingFlow from './components/OnboardingFlow';
 import PaymentCallbackPage from './pages/PaymentCallbackPage';
+import LegalPage from './pages/LegalPage';
 
 function ProtectedRoute({ children, role, mode }: { children: React.ReactNode, role?: UserRole | UserRole[], mode?: 'work' | 'personal' }) {
   const { user, userRole, loading, accessMode, onboardingComplete } = useAuth();
@@ -96,6 +97,8 @@ function AppContent() {
           <Route path="/menu" element={<MenuPage onSubscribeClick={openSubFlow} />} />
           <Route path="/plans" element={<PlansPage onSubscribeClick={openSubFlow} />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/privacy" element={<LegalPage type="privacy" />} />
+          <Route path="/terms" element={<LegalPage type="terms" />} />
           <Route path="/payment/callback" element={<PaymentCallbackPage />} />
           <Route
             path="/dashboard"

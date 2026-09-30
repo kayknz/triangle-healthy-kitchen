@@ -43,13 +43,13 @@ export default function Footer() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-24 flex-1">
           <div className={`space-y-10 ${isRtl ? 'text-right' : 'text-left'}`}>
-            <p className="text-gold text-[10px] font-black tracking-[0.6em] uppercase">Navigation</p>
+            <p className="text-gold text-[10px] font-black tracking-[0.6em] uppercase">{t('footer_navigation')}</p>
             <nav className="flex flex-col gap-6">
               {[
-                { label: 'Menu Collections', path: '/menu' },
-                { label: 'Subscription Plans', path: '/plans' },
-                { label: 'How It Works', path: '/#why-triangle' },
-                { label: 'Login', path: '/login' },
+                { label: t('nav_menu'), path: '/menu' },
+                { label: t('nav_packages'), path: '/plans' },
+                { label: t('nav_how_it_works'), path: '/#why-triangle' },
+                { label: t('login'), path: '/login' },
               ].map((link) => (
                 <Link key={link.label} to={link.path} className="text-lg font-serif italic text-[#F5F3EB] hover:text-gold transition-all">{link.label}</Link>
               ))}
@@ -57,24 +57,24 @@ export default function Footer() {
           </div>
 
           <div className={`space-y-10 ${isRtl ? 'text-right' : 'text-left'}`}>
-            <p className="text-gold text-[10px] font-black tracking-[0.6em] uppercase">Contact Hub</p>
+            <p className="text-gold text-[10px] font-black tracking-[0.6em] uppercase">{t('footer_contact_hub')}</p>
             <div className="space-y-8">
               <div className="group cursor-pointer">
-                <p className="text-[9px] font-black text-gold uppercase tracking-widest mb-3">Doha Headquarters</p>
+                <p className="text-[9px] font-black text-gold uppercase tracking-widest mb-3">{t('footer_doha_headquarters')}</p>
                 <p className="text-lg font-bold italic group-hover:text-gold transition-colors text-[#F5F3EB]">Lusail Marina, Doha, Qatar</p>
               </div>
               <div className="group cursor-pointer">
-                <p className="text-[9px] font-black text-gold uppercase tracking-widest mb-3">Official Communication</p>
+                <p className="text-[9px] font-black text-gold uppercase tracking-widest mb-3">{t('footer_official_communication')}</p>
                 <p className="text-lg font-bold italic group-hover:text-gold transition-colors text-[#F5F3EB]">hello@triangle.qa</p>
               </div>
             </div>
           </div>
 
           <div className={`space-y-10 ${isRtl ? 'text-right' : 'text-left'}`}>
-            <p className="text-gold text-[10px] font-black tracking-[0.6em] uppercase">Security</p>
+            <p className="text-gold text-[10px] font-black tracking-[0.6em] uppercase">{t('footer_security')}</p>
             <div className="flex flex-col gap-6">
-              <button className="text-[11px] font-black text-[#F5F3EB] hover:text-white transition-all uppercase tracking-[0.4em] w-fit">Privacy Protocol</button>
-              <button className="text-[11px] font-black text-[#F5F3EB] hover:text-white transition-all uppercase tracking-[0.4em] w-fit">Service Terms</button>
+              <Link to="/privacy" className="text-[11px] font-black text-[#F5F3EB] hover:text-white transition-all uppercase tracking-[0.4em] w-fit">{t('privacy_protocol')}</Link>
+              <Link to="/terms" className="text-[11px] font-black text-[#F5F3EB] hover:text-white transition-all uppercase tracking-[0.4em] w-fit">{t('service_terms')}</Link>
             </div>
           </div>
         </div>
@@ -91,7 +91,7 @@ export default function Footer() {
         <div className="flex items-center gap-6">
            <div className="w-10 h-px bg-gold/20" />
            <p className="text-[10px] font-black text-gold uppercase tracking-[0.8em] italic">
-             Doha Excellence Trust
+             {t('doha_excellence_trust')}
            </p>
         </div>
       </div>
