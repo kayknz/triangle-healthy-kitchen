@@ -553,7 +553,7 @@ function MonthlyMenuPublisher({ collection, onPublished }: { collection: string;
   const threeChoiceSlots = choiceSlots.filter((count) => count === 3).length;
 
   const refreshDocuments = async () => {
-    const { data, error: loadError } = await supabase.from('monthly_menu_documents').select('id,title,month_start,source_filename,storage_path,available_from,created_at').order('created_at', { ascending: false }).limit(12);
+    const { data, error: loadError } = await supabase.from('monthly_menu_documents').select('id,title,month_start,source_filename,storage_path,available_from,created_at,status').eq('status', 'published').order('created_at', { ascending: false }).limit(12);
     if (!loadError) setDocuments(data || []);
   };
   useEffect(() => { void refreshDocuments(); }, []);

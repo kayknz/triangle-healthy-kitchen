@@ -401,28 +401,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Require subscriber identity to be present.
-    if (!webhookSubscriberId) {
-      console.error(
-        `CRITICAL: Missing subscriber identity for ${chargeId}.`,
-      );
-
-      await supabase
-        .from("payment_logs")
-        .insert({
-          tap_charge_id: chargeId,
-          event_type: "missing_subscriber_identity",
-          severity: "critical",
-          payload: event,
-        });
-
-      return jsonResponse(
-        {
-          error: "Missing subscriber identity.",
-        },
-        400,
-      );
-    }
+    // The exact Tap charge has already been matched to a transaction created
+    // by our checkout function. Use that trusted transaction's subscriber_id
+    // when Tap omits metadata; if Tap does include an ID, the mismatch check
+    // above still rejects any disagreement before processing the payment.
 
     // -------------------------------------------------------
     // 8. VERIFY CURRENCY
