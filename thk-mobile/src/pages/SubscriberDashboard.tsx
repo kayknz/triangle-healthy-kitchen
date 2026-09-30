@@ -373,7 +373,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
       const releaseEnd = getQatarDate(addDays(new Date(`${releaseStart}T12:00:00Z`), 7));
       const { data: menuData, error: menuError } = await supabase
         .from('menu_availability')
-        .select('*, dishes(*, ingredients(*))')
+        .select('*, dishes(*)')
         .eq('collection', settings?.active_season || 'autumn')
         .gte('available_from', qatarMidnight(releaseStart))
         .lt('available_from', qatarMidnight(releaseEnd))
@@ -381,13 +381,46 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
       setMenuWeek(1);
       if (menuError) throw menuError;
       setMenuHasItems(Boolean(menuData?.length));
+
+      // Ingredients are linked through meal_ingredient_config, not directly
+      // from dishes. Fetch the join rows separately so PostgREST can resolve them.
+      let menuWithIngredients = menuData || [];
+      const dishSlugs = [...new Set(menuWithIngredients.map((row: any) => row.dishes?.slug).filter(Boolean))];
+      if (dishSlugs.length) {
+        const { data: configs, error: configError } = await supabase
+          .from('meal_ingredient_config')
+          .select('dish_slug,ingredient_slug,is_required,is_removable,approved_substitutions,ingredients(id,slug,name,name_ar,allergen_tag)')
+          .in('dish_slug', dishSlugs);
+        if (configError) {
+          console.warn('Menu ingredient details unavailable:', configError.message);
+        } else {
+          const ingredientsByDish = new Map<string, any[]>();
+          for (const config of configs || []) {
+            const ingredient = Array.isArray(config.ingredients) ? config.ingredients[0] : config.ingredients;
+            if (!ingredient) continue;
+            const values = ingredientsByDish.get(config.dish_slug) || [];
+            values.push({
+              ...ingredient,
+              allergen: ingredient.allergen_tag,
+              is_required: Boolean(config.is_required),
+              is_removable: Boolean(config.is_removable),
+              approved_substitutions: config.approved_substitutions || [],
+            });
+            ingredientsByDish.set(config.dish_slug, values);
+          }
+          menuWithIngredients = menuWithIngredients.map((row: any) => {
+            const dish = Array.isArray(row.dishes) ? row.dishes[0] : row.dishes;
+            return { ...row, dishes: dish ? { ...dish, ingredients: ingredientsByDish.get(dish.slug) || [] } : dish };
+          });
+        }
+      }
       const grouped = days.map((day) => ({
         day,
         items: {
-          breakfast: menuData?.filter((row) => row.day_of_week === day && row.meal_period === 'breakfast').map((row) => row.dishes).filter(Boolean) || [],
-          lunch: menuData?.filter((row) => row.day_of_week === day && row.meal_period === 'lunch').map((row) => row.dishes).filter(Boolean) || [],
-          dinner: menuData?.filter((row) => row.day_of_week === day && row.meal_period === 'dinner').map((row) => row.dishes).filter(Boolean) || [],
-          snacks: menuData?.filter((row) => row.day_of_week === day && row.meal_period === 'snacks').map((row) => row.dishes).filter(Boolean) || [],
+          breakfast: menuWithIngredients.filter((row) => row.day_of_week === day && row.meal_period === 'breakfast').map((row) => row.dishes).filter(Boolean) || [],
+          lunch: menuWithIngredients.filter((row) => row.day_of_week === day && row.meal_period === 'lunch').map((row) => row.dishes).filter(Boolean) || [],
+          dinner: menuWithIngredients.filter((row) => row.day_of_week === day && row.meal_period === 'dinner').map((row) => row.dishes).filter(Boolean) || [],
+          snacks: menuWithIngredients.filter((row) => row.day_of_week === day && row.meal_period === 'snacks').map((row) => row.dishes).filter(Boolean) || [],
         },
       }));
       setAvailableMenu(grouped);
