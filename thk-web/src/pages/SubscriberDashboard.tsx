@@ -471,7 +471,9 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
         dish_name: dish.name,
         dish_kcals: dish.kcals,
         customizations,
-        menu_period: settings?.current_menu_period
+        // menu_period stores the collection key expected by the database
+        // selection-window trigger (summer/autumn/ramadan).
+        menu_period: settings?.active_season || 'autumn'
       }, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
 
     if (!error) {
@@ -494,7 +496,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
       meal_type: meal === 'snacks' ? 'snack' : meal,
       dish_name: 'SKIP DAY',
       dish_kcals: 0,
-      menu_period: settings?.current_menu_period
+      menu_period: settings?.active_season || 'autumn'
     }));
     const { error } = await supabase.from('weekly_menu_selections').upsert(skipSelections, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
     if (error) setSaveError(error.message); else { await loadMenu(); onUpdate(); }
@@ -514,7 +516,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
       dish_id: dish.id,
       dish_name: dish.name,
       dish_kcals: dish.kcals,
-      menu_period: settings?.current_menu_period
+      menu_period: settings?.active_season || 'autumn'
     }));
     const { error } = await supabase.from('weekly_menu_selections').upsert(newSelections, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
     if (error) setSaveError(error.message); else { await loadMenu(); onUpdate(); }
