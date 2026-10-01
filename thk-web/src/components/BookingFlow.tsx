@@ -20,8 +20,10 @@ interface BookingFlowProps {
 const EMPTY: BookingData = {
   package_id: '',
   package_name: '',
-  weight_kg: '',
-  height_cm: '',
+  // Start with plausible values so a blank profile can never show an
+  // impossible zero measurement. Clients can adjust both before continuing.
+  weight_kg: '60',
+  height_cm: '160',
   fitness_goal: '',
   exercise_routine: '',
   wants_exercise_plan: false,
@@ -331,13 +333,18 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
 }
 
 function MetricPicker({ label, value, min, max, onChange, unit }: any) {
+  const parsedValue = Number(value);
+  const safeValue = Number.isFinite(parsedValue) && parsedValue >= min && parsedValue <= max
+    ? parsedValue
+    : min;
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-end px-4">
          <p className="text-[11px] font-black uppercase tracking-[0.4em] text-primary/40">{label}</p>
-         <p className="text-5xl font-serif italic text-primary leading-none tracking-tighter">{value || 0}<span className="text-[10px] not-italic font-black ml-3 uppercase opacity-20 tracking-widest">{unit}</span></p>
+         <p className="text-5xl font-serif italic text-primary leading-none tracking-tighter">{safeValue}<span className="text-[10px] not-italic font-black ml-3 uppercase opacity-20 tracking-widest">{unit}</span></p>
       </div>
-      <input type="range" min={min} max={max} value={value || 0} onChange={e => onChange(parseInt(e.target.value))} className="w-full accent-gold bg-primary/5 h-2.5 rounded-full appearance-none cursor-pointer" />
+      <input type="range" min={min} max={max} value={safeValue} onChange={e => onChange(parseInt(e.target.value, 10))} className="w-full accent-gold bg-primary/5 h-2.5 rounded-full appearance-none cursor-pointer" />
     </div>
   );
 }
