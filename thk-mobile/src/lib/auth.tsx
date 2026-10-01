@@ -3,6 +3,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { NativeBiometric } from 'capacitor-native-biometric';
 import type { THKRole } from '@/types/subscription';
+import type { PhoneChannel } from '@/lib/phone-number';
 
 export type UserRole = THKRole;
 
@@ -10,6 +11,7 @@ interface AuthResult {
   error: string | null;
   role?: UserRole;
   approved?: boolean;
+  needsVerification?: boolean;
 }
 
 interface AuthContextValue {
@@ -24,6 +26,8 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signInPhone: (phone: string, password: string) => Promise<AuthResult>;
   signUp: (email: string, password: string, name?: string, role?: UserRole, phone?: string) => Promise<AuthResult>;
+  signUpPhone: (phone: string, password: string, name: string, channel: Exclude<PhoneChannel, 'email'>, contactEmail?: string) => Promise<AuthResult>;
+  verifySignupOtp: (identifier: string, code: string, channel: PhoneChannel) => Promise<AuthResult>;
   completePhoneSignup: (phone: string, password: string, name: string) => Promise<AuthResult>;
   sendOtp: (phone: string, purpose?: string) => Promise<{ ok: boolean; message: string }>;
   verifyOtp: (phone: string, code: string, purpose?: string) => Promise<{ ok: boolean; token?: string; error?: string }>;
@@ -43,20 +47,6 @@ const STAFF_EMAIL_MAP: Record<string, { role: UserRole; isOwner: boolean; isAppr
   'kitchen@trianglehk.com': { role: 'kitchen', isOwner: false, isApprovedRider: false },
   'driver@trianglehk.com': { role: 'driver', isOwner: false, isApprovedRider: true },
 };
-
-export function normalizePhoneNumber(digits: string, countryCode: string = '+974'): string {
-  const clean = String(digits || '').replace(/\D/g, '');
-  if (!clean) return '';
-  if (clean.startsWith('974') && clean.length === 11) return `+${clean}`;
-  if (clean.startsWith('971') && clean.length >= 11) return `+${clean}`;
-  if (clean.startsWith('966') && clean.length >= 11) return `+${clean}`;
-  if (clean.startsWith('1') && clean.length === 11) return `+${clean}`;
-  if (clean.startsWith('44') && clean.length >= 11) return `+${clean}`;
-  if (clean.startsWith('91') && clean.length === 12) return `+${clean}`;
-
-  const cleanPrefix = countryCode.startsWith('+') ? countryCode : `+${countryCode}`;
-  return `${cleanPrefix}${clean}`;
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -189,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       : { ok: true, token: data.session?.access_token };
   };
 
-  const signUp = async (email: string, password: string, name?: string, role: UserRole = 'customer', phone?: string) => {
+  const signUp = async (email: string, password: string, name?: string, role: UserRole = 'customer', phone?: string): Promise<AuthResult> => {
     const requestedRole: UserRole = role;
     if (['ceo', 'admin', 'kitchen', 'transport', 'owner'].includes(requestedRole)) {
       return { error: 'Staff accounts must be provisioned by a company administrator.' };
@@ -225,8 +215,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const access = await applyAuthAccess(data.user);
-    return { error: null, role: access.role ?? requestedRole, approved: access.isApprovedRider };
+    return { error: null, role: access.role ?? requestedRole, approved: access.isApprovedRider, needsVerification: !data.session };
   };
+
+  const signUpPhone = async (phone: string, password: string, name: string, channel: Exclude<PhoneChannel, 'email'>, contactEmail?: string): Promise<AuthResult> => {
+    const { data, error } = await supabase.auth.signUp({
+      phone,
+      password,
+      options: {
+        channel,
+        data: { full_name: name, phone, role: 'customer', approved: false, contact_email: contactEmail },
+      },
+    });
+    if (error) return { error: error.message };
+    if (data.session) {
+      const access = await applyAuthAccess(data.user);
+      return { error: null, role: access.role ?? 'customer', approved: access.isApprovedRider, needsVerification: false };
+    }
+    return { error: null, role: 'customer', needsVerification: true };
+  };
+
+  const verifySignupOtp = async (identifier: string, code: string, channel: PhoneChannel): Promise<AuthResult> => {
+    const { data, error } = channel === 'email'
+      ? await supabase.auth.verifyOtp({ email: identifier, token: code, type: 'signup' })
+      : await supabase.auth.verifyOtp({ phone: identifier, token: code, type: 'sms' });
+    if (error) return { error: error.message };
+    const access = await applyAuthAccess(data.user);
+    return { error: null, role: access.role ?? 'customer', approved: access.isApprovedRider };
+  };
+
 
   const completePhoneSignup = async (phone: string, password: string, name: string): Promise<AuthResult> => {
     const { data, error } = await supabase.auth.updateUser({
@@ -330,7 +347,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       session, user, loading, isOwner, userRole, isApprovedRider, canEdit, canManageDrivers,
-      signIn, signInPhone, signUp, completePhoneSignup, sendOtp, verifyOtp, signOut, resetPassword, refreshAuth,
+      signIn, signInPhone, signUp, signUpPhone, verifySignupOtp, completePhoneSignup, sendOtp, verifyOtp, signOut, resetPassword, refreshAuth,
       enableBiometric, biometricLogin
     }}>
       {children}

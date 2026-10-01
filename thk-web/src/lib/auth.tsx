@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
+import type { PhoneChannel } from './phone-number';
 
 export type StaffRole = 'ceo' | 'admin' | 'kitchen' | 'transport';
 export type UserRole = StaffRole | 'owner' | 'rider' | 'subscriber';
@@ -21,7 +22,10 @@ interface AuthContextValue {
   setAccessMode: (mode: AccessMode) => void;
   hasDualAccess: boolean;
   signIn: (email: string, password: string, role?: UserRole) => Promise<{ error: string | null; role?: UserRole; dual?: boolean }>;
-  signUp: (email: string, password: string, role: UserRole, name?: string, phone?: string) => Promise<{ error: string | null; role?: UserRole }>;
+  signInPhone: (phone: string, password: string) => Promise<{ error: string | null; role?: UserRole; dual?: boolean }>;
+  signUp: (email: string, password: string, role: UserRole, name?: string, phone?: string) => Promise<{ error: string | null; role?: UserRole; needsVerification?: boolean }>;
+  signUpPhone: (phone: string, password: string, name: string, channel: Exclude<PhoneChannel, 'email'>, contactEmail?: string) => Promise<{ error: string | null; needsVerification?: boolean }>;
+  verifySignupOtp: (identifier: string, code: string, channel: PhoneChannel) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   refreshAuth: () => Promise<void>;
@@ -169,6 +173,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null, role: resolvedRole, dual: access.dual };
   };
 
+  const signInPhone = async (phone: string, password: string): Promise<{ error: string | null; role?: UserRole; dual?: boolean }> => {
+    const { data, error } = await supabase.auth.signInWithPassword({ phone, password });
+    if (error) return { error: normalizeAuthError(error.message) };
+    const access = await applyAuthAccess(data.user);
+    return { error: null, role: access.role ?? 'subscriber', dual: access.dual };
+  };
+
   const signUp = async (email: string, password: string, role: UserRole, name?: string, phone?: string) => {
     if (role !== 'subscriber' && role !== 'rider') return { error: 'Staff registration is restricted.' };
 
@@ -199,8 +210,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     await applyAuthAccess(data.user);
-    return { error: null, role: role };
+    return { error: null, role, needsVerification: !data.session };
   };
+
+  const signUpPhone = async (phone: string, password: string, name: string, channel: Exclude<PhoneChannel, 'email'>, contactEmail?: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      phone,
+      password,
+      options: {
+        channel,
+        data: { role: 'subscriber', approved: true, full_name: name, phone, contact_email: contactEmail },
+      },
+    });
+    if (error) return { error: normalizeAuthError(error.message) };
+    if (data.session) await applyAuthAccess(data.user);
+    return { error: null, needsVerification: !data.session };
+  };
+
+  const verifySignupOtp = async (identifier: string, code: string, channel: PhoneChannel) => {
+    const { data, error } = channel === 'email'
+      ? await supabase.auth.verifyOtp({ email: identifier, token: code, type: 'signup' })
+      : await supabase.auth.verifyOtp({ phone: identifier, token: code, type: 'sms' });
+    if (error) return { error: normalizeAuthError(error.message) };
+    await applyAuthAccess(data.user);
+    return { error: null };
+  };
+
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -228,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session, user, loading, userRole, staffRole, isOwner, isApprovedRider, onboardingComplete,
       accessMode, setAccessMode: (m) => { setAccessModeState(m); localStorage.setItem('thk_access_mode', m); },
       hasDualAccess,
-      signIn, signUp, signOut, resetPassword, refreshAuth
+      signIn, signInPhone, signUp, signUpPhone, verifySignupOtp, signOut, resetPassword, refreshAuth
     }}>
       {children}
     </AuthContext.Provider>

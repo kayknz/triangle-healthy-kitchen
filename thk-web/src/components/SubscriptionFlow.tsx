@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Check, Loader2, Navigation, Clock, Sparkles, AlertCircle, CreditCard, X, Banknote,
@@ -7,6 +7,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabase';
 import { useAuth } from '../lib/auth';
+import { getCountryOptions, toE164Phone, type PhoneChannel } from '../lib/phone-number';
+import type { CountryCode } from 'libphonenumber-js';
 import { useLanguage } from '../lib/LanguageContext';
 import { PACKAGE_MEALS } from '../types/subscription';
 import SecuringProtocol from './SecuringProtocol';
@@ -38,7 +40,7 @@ function currentMenuReleaseStart() {
 
 export default function SubscriptionFlow({ open, onClose, preselectedPackage }: SubscriptionFlowProps) {
   const navigate = useNavigate();
-  const { user, signUp } = useAuth();
+  const { user, signUp, signUpPhone, verifySignupOtp } = useAuth();
   const { t, isRtl } = useLanguage();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -64,6 +66,12 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     email: '',
     password: '',
   });
+  const [billingEmail, setBillingEmail] = useState(String(user?.email || ''));
+  const [signupChannel, setSignupChannel] = useState<PhoneChannel>('email');
+  const [signupOtpStep, setSignupOtpStep] = useState(false);
+  const [signupOtpCode, setSignupOtpCode] = useState('');
+  const [signupCountry, setSignupCountry] = useState<CountryCode>('QA');
+  const signupCountries = useMemo(() => getCountryOptions(isRtl ? 'ar' : 'en'), [isRtl]);
   const [phone, setPhone] = useState(String(user?.user_metadata?.phone || ''));
 
   const [pkgId, setPkgId] = useState('');
@@ -104,6 +112,8 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     if (open) {
       setStep(0);
       setSuccess(false);
+      setSignupOtpStep(false);
+      setSignupOtpCode('');
       if (preselectedPackage) setPkgId(preselectedPackage);
     }
   }, [open, preselectedPackage]);
@@ -177,13 +187,44 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
   if (!open) return null;
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const currentStepId = STEPS[step].id;
     if (currentStepId === 'assessment' && (!assessment.weight || !assessment.height || assessment.age < 13 || assessment.age > 110)) return setError('Enter your age, weight, and height to continue.');
     if (currentStepId === 'plan' && !pkgId) return setError(t('error_select_package'));
     if (currentStepId === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) return setError('Enter your phone number and complete the building, street, area, and zone details.');
-    if (currentStepId === 'identity' && (!identity.fullName || !identity.email || identity.password.length < 6)) return setError('Account details required. Password must be 6+ characters.');
+    if (currentStepId === 'identity') {
+      if (!identity.fullName || !identity.email || identity.password.length < 6) return setError('Enter your name and billing email. Password must be at least 6 characters.');
+      if (signupChannel === 'whatsapp' && !toE164Phone(phone, signupCountry)) return setError('Enter a valid phone number for the selected country.');
+      setSubmitting(true);
+      setError(null);
+      try {
+        if (signupOtpStep) {
+          const destination = signupChannel === 'email' ? identity.email.trim().toLowerCase() : toE164Phone(phone, signupCountry)!;
+          const verified = await verifySignupOtp(destination, signupOtpCode.trim(), signupChannel);
+          if (verified.error) return setError(verified.error);
+          setSignupOtpStep(false);
+          setSignupOtpCode('');
+          setStep((currentStepIndex) => currentStepIndex);
+          return;
+        }
+        const created = signupChannel === 'email'
+          ? await signUp(identity.email.trim().toLowerCase(), identity.password, 'subscriber', identity.fullName)
+          : await signUpPhone(toE164Phone(phone, signupCountry)!, identity.password, identity.fullName, 'whatsapp', identity.email.trim().toLowerCase());
+        if (created.error) return setError(created.error);
+        if (created.needsVerification) {
+          setSignupOtpStep(true);
+          return;
+        }
+        setStep((currentStepIndex) => currentStepIndex);
+      } catch (signupError: any) {
+        setError(signupError?.message || 'Could not create your account.');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
     if (currentStepId === 'payment' && !termsAccepted) return setError(t('legal_error'));
+    if (currentStepId === 'payment' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(billingEmail.trim() || identity.email.trim() || user?.email || '')) return setError('Enter a valid email address for Tap payment receipts.');
 
     setError(null);
     setStep(s => Math.min(s + 1, STEPS.length - 1));
@@ -247,11 +288,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
           throw new Error("This email is already registered. Please login to manage your plan.");
         }
 
-        const { error: signUpError } = await signUp(identity.email, identity.password, 'subscriber', identity.fullName);
-        if (signUpError) throw new Error(signUpError);
-        const { data: { user: newUser } } = await supabase.auth.getUser();
-        finalUser = newUser;
-        if (!finalUser) throw new Error('Your account was created. Verify your email, sign in, then continue to Tap checkout.');
+        throw new Error('Sign in to your verified account before continuing to checkout.');
       }
 
       if (!finalUser) throw new Error("Connection failed.");
@@ -270,6 +307,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         body: {
           package_id: pkg.id,
           profile: {
+            email: billingEmail.trim().toLowerCase() || identity.email.trim().toLowerCase() || finalUser.email || '',
             full_name: identity.fullName || finalUser.user_metadata?.full_name || 'Member',
             age: assessment.age,
             gender: assessment.gender,
@@ -277,7 +315,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             weight_kg: assessment.weight,
             height_cm: assessment.height,
             fitness_goal: assessment.fitness_goal,
-            phone: phone.trim(),
+            phone: (signupChannel === 'whatsapp' ? toE164Phone(phone, signupCountry) : null) || phone.trim(),
             building_number: address.building_number,
             street: address.street,
             area: address.area,
@@ -443,14 +481,17 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                <h3 className="text-xl font-black uppercase italic text-primary">Create your Account</h3>
                <div className="space-y-6">
                   <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Your Name</p><div className="relative"><User className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/20" /><input type="text" value={identity.fullName} onChange={(e) => setIdentity({...identity, fullName: e.target.value})} placeholder="Enter your full name" className="input-field py-7 pl-16 font-black bg-white/60" /></div></div>
-                  <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Your Email</p><div className="relative"><Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/20" /><input type="email" value={identity.email} onChange={(e) => setIdentity({...identity, email: e.target.value})} placeholder="Enter your email" className="input-field py-7 pl-16 font-black bg-white/60" /></div></div>
-                  <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Your Password (6+ Chars)</p><div className="relative"><Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/20" /><input type="password" value={identity.password} onChange={(e) => setIdentity({...identity, password: e.target.value})} placeholder="••••••••" className="input-field py-7 pl-16 font-black bg-white/60" /></div></div>
+                  {!signupOtpStep && <fieldset className="space-y-3"><legend className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">{isRtl ? 'طريقة إرسال رمز التحقق' : 'Verification code delivery'}</legend><div className="grid grid-cols-2 gap-3">{(['email','whatsapp'] as const).map((method) => <label key={method} className="flex items-center gap-2 rounded-xl border border-primary/10 bg-white/60 px-4 py-3 text-sm font-bold"><input type="radio" name="checkout-otp-channel" checked={signupChannel === method} onChange={() => setSignupChannel(method)} />{method === 'email' ? (isRtl ? 'البريد الإلكتروني' : 'Email') : 'WhatsApp'}</label>)}</div></fieldset>}
+                  <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">{isRtl ? 'البريد الإلكتروني لإيصال الدفع' : 'Email for payment receipts'}</p><div className="relative"><Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/20" /><input type="email" value={identity.email || billingEmail} readOnly={signupOtpStep} onChange={(e) => { setIdentity({...identity, email: e.target.value}); setBillingEmail(e.target.value); }} placeholder={isRtl ? 'أدخل بريدك الإلكتروني' : 'Enter your email'} className="input-field py-7 pl-16 font-black bg-white/60" required /></div></div>
+                  {signupChannel === 'whatsapp' && !signupOtpStep && <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">WhatsApp number</p><div className="grid grid-cols-2 gap-3"><select aria-label="Country calling code" value={signupCountry} onChange={(e) => setSignupCountry(e.target.value as CountryCode)} className="input-field min-w-0 bg-white/60">{signupCountries.map((option) => <option key={option.country} value={option.country}>{option.name} ({option.dialCode})</option>)}</select><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Mobile number" className="input-field min-w-0 bg-white/60" required /></div></div>}
+                  {signupOtpStep ? <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Enter verification code sent to {signupChannel === 'email' ? identity.email : toE164Phone(phone, signupCountry)}</p><input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={signupOtpCode} onChange={(e) => setSignupOtpCode(e.target.value.replace(/\s/g, ''))} placeholder="Verification code" className="input-field bg-white/60 text-center tracking-[0.3em]" required /></div> : <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Your Password (6+ Chars)</p><div className="relative"><Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/20" /><input type="password" value={identity.password} onChange={(e) => setIdentity({...identity, password: e.target.value})} placeholder="••••••••" className="input-field py-7 pl-16 font-black bg-white/60" required /></div></div>}
                </div>
             </div>
           )}
 
           {STEPS[step].id === 'payment' && (
             <div className="space-y-10 animate-reveal">
+               <div className="space-y-3"><label htmlFor="tap-receipt-email" className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">{isRtl ? 'البريد الإلكتروني لإيصال الدفع' : 'Email for payment receipts'}</label><input id="tap-receipt-email" type="email" value={billingEmail || identity.email} onChange={(e) => setBillingEmail(e.target.value)} placeholder={isRtl ? 'أدخل بريدك الإلكتروني' : 'Enter your email address'} className="input-field py-5 font-bold bg-white/60" required /></div>
                <div className="grid grid-cols-1 gap-4">
                   <div className="flex items-center gap-6 p-8 rounded-[2.5rem] border-2 border-primary bg-primary text-white shadow-4xl">
                     <CreditCard className="w-7 h-7 text-gold" />

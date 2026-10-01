@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Loader2, Lock, User, KeyRound, CheckCircle2, AlertCircle, Smartphone, Mail } from 'lucide-react';
-import { useAuth, normalizePhoneNumber } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
 import { useLanguage } from '@/lib/LanguageContext';
 import EditorialPanel from './EditorialPanel';
+import { getCountryOptions, toE164Phone, type PhoneChannel } from '@/lib/phone-number';
+import type { CountryCode } from 'libphonenumber-js';
 
 interface SubscriberAuthProps {
   isOpen?: boolean;
@@ -13,12 +15,14 @@ interface SubscriberAuthProps {
 type Mode = 'signin' | 'signup' | 'forgot';
 
 export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: SubscriberAuthProps) {
-  const { signIn, signInPhone, signUp, completePhoneSignup, sendOtp, verifyOtp, resetPassword } = useAuth();
+  const { signIn, signInPhone, signUp, signUpPhone, verifySignupOtp, resetPassword } = useAuth();
   const { t, isRtl } = useLanguage();
   const [mode, setMode] = useState<Mode>('signup');
 
   // Single Identifier Input (Email or Mobile)
   const [identifier, setIdentifier] = useState('');
+  const [country, setCountry] = useState<CountryCode>('QA');
+  const [channel, setChannel] = useState<PhoneChannel>('email');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
 
@@ -30,29 +34,9 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
 
-  const isEmail = identifier.includes('@');
-  const formattedPhone = !isEmail ? normalizePhoneNumber(identifier) : '';
-
-  const handleSendOtp = async () => {
-    if (!identifier.trim()) {
-      setError(t('enter_valid_identifier') || 'Please enter your email or mobile phone number.');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await sendOtp(formattedPhone || identifier, 'registration');
-      if (res.ok) {
-        setOtpStep(true);
-      } else {
-        setError(res.message);
-      }
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const isEmail = mode === 'signup' ? channel === 'email' : mode === 'forgot' || identifier.includes('@');
+  const formattedPhone = !isEmail ? toE164Phone(identifier, country) || '' : '';
+  const countries = useMemo(() => getCountryOptions(isRtl ? 'ar' : 'en'), [isRtl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,29 +61,31 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
           return;
         }
 
-        if (!isEmail && !otpStep) {
-          await handleSendOtp();
+        if (otpStep) {
+          const destination = channel === 'email' ? identifier.trim().toLowerCase() : formattedPhone;
+          if (!destination) throw new Error(t('error_phone') || 'Enter a valid phone number for the selected country.');
+          const verified = await verifySignupOtp(destination, otpCode.trim(), channel);
+          if (verified.error) setError(verified.error);
+          else onSuccess();
           return;
         }
 
-        if (!isEmail && otpStep) {
-          const verify = await verifyOtp(formattedPhone || identifier, otpCode, 'registration');
-          if (!verify.ok) {
-            setError(verify.error || 'Invalid code.');
-            return;
-          }
-          const result = await completePhoneSignup(formattedPhone || identifier, password, name);
-          if (result.error) {
-            setError(result.error);
-          } else {
-            onSuccess();
-          }
+        if (channel === 'whatsapp') {
+          const destination = toE164Phone(identifier, country);
+          if (!destination) throw new Error(t('error_phone') || 'Enter a valid phone number for the selected country.');
+          const result = await signUpPhone(destination, password, name, 'whatsapp');
+          if (result.error) setError(result.error);
+          else if (result.needsVerification) setOtpStep(true);
+          else onSuccess();
           return;
         }
 
-        const result = await signUp(isEmail ? identifier : '', password, name, 'customer', !isEmail ? formattedPhone || identifier : '');
+        if (!identifier.trim() || !identifier.includes('@')) throw new Error(t('error_email') || 'Enter a valid email address.');
+        const result = await signUp(identifier.trim().toLowerCase(), password, name, 'customer');
         if (result.error) {
           setError(result.error);
+        } else if (result.needsVerification) {
+          setOtpStep(true);
         } else {
           onSuccess();
         }
@@ -109,7 +95,8 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
         if (isEmail) {
           result = await signIn(identifier.trim(), password);
         } else {
-          result = await signInPhone(formattedPhone || identifier.trim(), password);
+          if (!formattedPhone) throw new Error(t('error_phone') || 'Enter a valid phone number for the selected country.');
+          result = await signInPhone(formattedPhone, password);
         }
 
         if (result.error) {
@@ -180,45 +167,64 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
             </div>
           )}
 
-          {/* Unified Input: Email or Phone */}
+          {mode === 'signup' && !otpStep && (
+            <fieldset className="space-y-2">
+              <legend className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.2em] opacity-40">{isRtl ? 'طريقة استلام رمز التحقق' : 'Verification code delivery'}</legend>
+              <div className="grid grid-cols-2 gap-3">
+                {(['email', 'whatsapp'] as const).map((value) => (
+                  <label key={value} className={`flex cursor-pointer items-center gap-2 rounded-2xl border px-4 py-3 text-xs font-bold transition-colors ${channel === value ? 'border-[#0a3030] bg-emerald-50 text-[#0a3030]' : 'border-gray-100 bg-white text-gray-500'}`}>
+                    <input type="radio" name="signup-channel" value={value} checked={channel === value} onChange={() => { setChannel(value); setIdentifier(''); setError(null); }} />
+                    {value === 'email' ? <Mail className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
+                    {value === 'email' ? (isRtl ? 'البريد الإلكتروني' : 'Email') : 'WhatsApp'}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          {/* International calling-code dropdown for phone entry */}
           {!otpStep && (
             <div className="space-y-2">
               <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
-                {t('email_or_phone') || 'Email or Mobile Number'}
+                {mode === 'signup' ? (channel === 'email' ? (t('operational_email') || 'Email address') : (isRtl ? 'رقم الهاتف' : 'Mobile number')) : (t('email_or_phone') || 'Email or Mobile Number')}
               </label>
-              <div className="relative">
-                {isEmail ? (
-                  <Mail className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 ${isRtl ? 'right-4' : 'left-4'}`} />
-                ) : (
-                  <Smartphone className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-[#C5A059] ${isRtl ? 'right-4' : 'left-4'}`} />
+              <div className="flex gap-2">
+                {(mode === 'signup' ? channel === 'whatsapp' : !isEmail) && (
+                  <select aria-label={isRtl ? 'رمز الدولة' : 'Country calling code'} value={country} onChange={(e) => setCountry(e.target.value as CountryCode)} className="w-[43%] min-w-0 rounded-2xl border border-gray-100 bg-white px-2 py-4 text-xs font-bold text-[#0a3030]">
+                    {countries.map((item) => <option key={item.country} value={item.country}>{item.name} ({item.dialCode})</option>)}
+                  </select>
                 )}
                 <input
-                  type="text"
+                  type={isEmail ? 'email' : 'tel'}
+                  inputMode={isEmail ? 'email' : 'tel'}
+                  autoComplete={isEmail ? 'email' : 'tel-national'}
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="email@example.com or +974 3312 3456"
-                  className={`w-full bg-white border border-gray-100 rounded-2xl py-4 text-sm font-bold focus:border-[#0a3030] transition-all ${isRtl ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'}`}
+                  placeholder={isEmail ? 'email@example.com' : (isRtl ? 'رقم الهاتف' : 'Phone number')}
+                  className="min-w-0 flex-1 rounded-2xl border border-gray-100 bg-white px-4 py-4 text-sm font-bold transition-all focus:border-[#0a3030]"
                   required
                 />
               </div>
             </div>
           )}
 
-          {/* OTP Verification Input Step for Phone */}
+          {/* OTP Verification Input Step */}
           {otpStep && (
             <div className="space-y-4 animate-in">
               <div className="text-center">
                 <p className="text-[#0a3030] text-xs font-bold">
-                  Code sent to <span className="font-black">{formattedPhone || identifier}</span>
+                  {isRtl ? 'تم الإرسال إلى' : 'Code sent to'} <span className="font-black">{channel === 'email' ? identifier : formattedPhone}</span>
                 </p>
               </div>
               <div className="space-y-2">
                 <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40 text-center block">
-                  6-Digit Verification Code
+                  {isRtl ? 'رمز التحقق' : 'Verification code'}
                 </label>
                 <input
                   type="text"
-                  maxLength={6}
+                  maxLength={8}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value)}
                   placeholder="123456"
@@ -256,11 +262,9 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess }: Su
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : otpStep ? (
-              <>Verify & Start Plan <CheckCircle2 className="w-4 h-4" /></>
-            ) : mode === 'signup' && !isEmail ? (
-              <>Send Verification Code</>
+              <>{isRtl ? 'تحقق وابدأ' : 'Verify & Continue'} <CheckCircle2 className="w-4 h-4" /></>
             ) : mode === 'signup' ? (
-              (t('start_today') || 'Start Plan')
+              <>{isRtl ? 'إنشاء الحساب وإرسال الرمز' : 'Create account & send code'}</>
             ) : mode === 'signin' ? (
               (t('sign_in') || 'Sign In')
             ) : (

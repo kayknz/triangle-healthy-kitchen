@@ -191,7 +191,7 @@ Deno.serve(async (req: Request) => {
         .insert({
           user_id: user.id,
           full_name: fullName,
-          email: user.email,
+          email: user.email || safeText(profile.email, 254).toLowerCase() || null,
           phone: safeText(profile.phone, 40),
           package_id: packageId,
           package_name: "Pending payment",
@@ -205,6 +205,21 @@ Deno.serve(async (req: Request) => {
       subscriber = createdSubscriber;
     }
     subscriberId = subscriber.id;
+
+    const submittedBillingEmail = safeText(profile.email, 254).toLowerCase();
+    if (!user.email && !subscriber.email && submittedBillingEmail) {
+      const { data: updatedSubscriber, error: billingEmailError } = await adminClient
+        .from("subscribers")
+        .update({ email: submittedBillingEmail })
+        .eq("id", subscriber.id)
+        .eq("user_id", user.id)
+        .select("id, user_id, email")
+        .single();
+      if (billingEmailError || !updatedSubscriber) {
+        throw new Error(`Billing email could not be saved: ${billingEmailError?.message || "Unknown error"}`);
+      }
+      subscriber = updatedSubscriber;
+    }
 
     // ---------------------------------------------------------
     // 4. LOAD AUTHORITATIVE PACKAGE
@@ -268,6 +283,7 @@ Deno.serve(async (req: Request) => {
     const customerEmail =
       user.email ||
       subscriber.email ||
+      submittedBillingEmail ||
       "";
 
     if (!customerEmail) {

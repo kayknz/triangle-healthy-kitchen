@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
@@ -12,6 +12,8 @@ import { PACKAGE_MEALS } from '@/types/subscription';
 import EditorialPanel from './EditorialPanel';
 import { resolveQatarDeliveryZone } from '@/lib/delivery-zone';
 import { parseGoogleMapsUrl } from '@/lib/location-utils';
+import { getCountryOptions, toE164Phone, type PhoneChannel } from '@/lib/phone-number';
+import type { CountryCode } from 'libphonenumber-js';
 
 type InitialMenuChoice = { dish_id: string; dish_name: string; dish_kcals: number; day_of_week: string; meal_type: string; menu_period: string };
 const SERVICE_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
@@ -37,7 +39,7 @@ interface SubscriptionFlowProps {
 }
 
 export default function SubscriptionFlow({ open, onClose, preselectedPackage }: SubscriptionFlowProps) {
-  const { user, signUp } = useAuth();
+  const { user, signUp, signUpPhone, verifySignupOtp } = useAuth();
   const { t, isRtl } = useLanguage();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -65,6 +67,12 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const packageMenuMeals = PACKAGE_MEALS[pkgId] || PACKAGE_MENU_MEALS;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [signupChannel, setSignupChannel] = useState<PhoneChannel>('email');
+  const [signupOtpStep, setSignupOtpStep] = useState(false);
+  const [signupOtpCode, setSignupOtpCode] = useState('');
+  const [signupCountry, setSignupCountry] = useState<CountryCode>('QA');
+  const signupCountries = useMemo(() => getCountryOptions(isRtl ? 'ar' : 'en'), [isRtl]);
+  const [billingEmail, setBillingEmail] = useState(String(user?.email || ''));
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
 
@@ -107,6 +115,8 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       setSuccess(false);
       setError(null);
       setTermsAccepted(false);
+      setSignupOtpStep(false);
+      setSignupOtpCode('');
       void supabase.from('packages').select('id, name, description, price, currency').eq('active', true).order('sort_order').then(({ data, error: packageError }) => {
         if (packageError) {
           setError('Meal plans are temporarily unavailable. Please try again shortly.');
@@ -165,7 +175,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const pkg = availablePackages.find((p) => p.id === pkgId);
   const selectionWindowOpen = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Qatar', weekday: 'short' }).format(new Date()) !== 'Fri';
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const currentStep = STEPS[step]?.id;
     if (currentStep === 'assessment' && (!Number.isFinite(assessment.weight) || assessment.weight < 40 || assessment.weight > 150 || !Number.isFinite(assessment.height) || assessment.height < 140 || assessment.height > 220 || assessment.age < 13 || assessment.age > 110)) {
       setError('Enter your age and a valid weight (40–150 kg) and height (140–220 cm).');
@@ -179,12 +189,46 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       setError('Enter your phone number and complete the building, street, area, and zone details.');
       return;
     }
-    if (currentStep === 'identity' && (!name.trim() || !email.trim() || password.length < 6 || !phone.trim())) {
-      setError('Enter your name, email, phone number, and a password with at least 6 characters.');
+    if (currentStep === 'identity') {
+      if (!name.trim() || !email.trim() || password.length < 6 || !phone.trim()) {
+        setError('Enter your name, billing email, phone number, and a password with at least 6 characters.');
+        return;
+      }
+      if (signupChannel === 'whatsapp' && !toE164Phone(phone, signupCountry)) {
+        setError(t('error_phone') || 'Enter a valid phone number for the selected country.');
+        return;
+      }
+      setSubmitting(true);
+      setError(null);
+      try {
+        if (signupOtpStep) {
+          const destination = signupChannel === 'email' ? email.trim().toLowerCase() : toE164Phone(phone, signupCountry)!;
+          const verified = await verifySignupOtp(destination, signupOtpCode.trim(), signupChannel);
+          if (verified.error) { setError(verified.error); return; }
+          setSignupOtpStep(false);
+          setSignupOtpCode('');
+          setStep((currentStepIndex) => currentStepIndex);
+          return;
+        }
+        const created = signupChannel === 'email'
+          ? await signUp(email.trim().toLowerCase(), password, name, 'subscriber', phone)
+          : await signUpPhone(toE164Phone(phone, signupCountry)!, password, name, 'whatsapp', email.trim().toLowerCase());
+        if (created.error) { setError(created.error); return; }
+        if (created.needsVerification) { setSignupOtpStep(true); return; }
+        setStep((currentStepIndex) => currentStepIndex);
+      } catch (accountError: any) {
+        setError(accountError?.message || 'Could not create your account.');
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
     if (currentStep === 'payment' && !termsAccepted) {
       setError('Please accept the plan and payment terms to continue.');
+      return;
+    }
+    if (currentStep === 'payment' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(billingEmail.trim() || email.trim() || user?.email || '')) {
+      setError('Enter a valid email address for Tap payment receipts.');
       return;
     }
     setError(null);
@@ -241,12 +285,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
     try {
       if (!activeUser) {
-        const { error: signUpErr } = await signUp(email, password, name || 'Triangle Member', 'subscriber', phone);
-        if (signUpErr) throw new Error(signUpErr);
-
-        const { data: { user: newUser } } = await supabase.auth.getUser();
-        activeUser = newUser;
-        if (!activeUser) throw new Error('Your account was created. Verify your email, sign in, then continue to Tap checkout.');
+        throw new Error('Sign in to your verified account before continuing to checkout.');
       }
 
       if (!activeUser) throw new Error("Identity verification failed.");
@@ -262,12 +301,13 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       const { data: checkout, error: checkoutError } = await supabase.functions.invoke('tap-checkout', {
         body: {
           package_id: pkg.id,
-            profile: {
+          profile: {
+            email: billingEmail.trim().toLowerCase() || email.trim().toLowerCase() || activeUser.email || '',
             full_name: name || activeUser.user_metadata?.full_name || 'Triangle Member',
             age: assessment.age,
             gender: assessment.gender,
             bmi_report_path: bmiReportPath,
-            phone: phone || activeUser.user_metadata?.phone || '',
+            phone: (signupChannel === 'whatsapp' ? toE164Phone(phone, signupCountry) : null) || phone || activeUser.user_metadata?.phone || '',
             weight_kg: assessment.weight,
             height_cm: assessment.height,
             fitness_goal: assessment.fitness_goal,
@@ -546,17 +586,21 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">Email Address</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    <label className="text-[10px] font-black uppercase text-gray-400">Email for payment receipts</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => { setEmail(e.target.value); setBillingEmail(e.target.value); }}
+                      readOnly={signupOtpStep}
                     placeholder="email@example.com"
                     className="input-field py-3 font-bold"
                     required
                   />
                 </div>
-                <div>
+                {!signupOtpStep && <fieldset className="space-y-2"><legend className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'طريقة استلام رمز التحقق' : 'Verification code delivery'}</legend><div className="grid grid-cols-2 gap-3">{(['email','whatsapp'] as const).map((method) => <label key={method} className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-3 text-xs font-bold"><input type="radio" name="checkout-otp-channel" checked={signupChannel === method} onChange={() => setSignupChannel(method)} />{method === 'email' ? (isRtl ? 'البريد الإلكتروني' : 'Email') : 'WhatsApp'}</label>)}</div></fieldset>}
+                {signupChannel === 'whatsapp' && !signupOtpStep && <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رقم واتساب' : 'WhatsApp number'}</label><div className="mt-1 grid grid-cols-2 gap-2"><select aria-label={isRtl ? 'رمز الدولة' : 'Country calling code'} value={signupCountry} onChange={(e) => setSignupCountry(e.target.value as CountryCode)} className="input-field min-w-0 py-3 text-xs">{signupCountries.map((option) => <option key={option.country} value={option.country}>{option.name} ({option.dialCode})</option>)}</select><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={isRtl ? 'رقم الهاتف' : 'Mobile number'} className="input-field min-w-0 py-3 font-bold" required /></div></div>}
+                {signupOtpStep && <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رمز التحقق' : 'Verification code'} · {signupChannel === 'email' ? email : toE164Phone(phone, signupCountry)}</label><input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={signupOtpCode} onChange={(e) => setSignupOtpCode(e.target.value.replace(/\s/g, ''))} placeholder="123456" className="input-field mt-1 py-3 text-center font-bold tracking-[0.3em]" required /></div>}
+                {!signupOtpStep && <div>
                   <label className="text-[10px] font-black uppercase text-gray-400">Password</label>
                   <input
                     type="password"
@@ -564,9 +608,10 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="input-field py-3 font-bold"
-                    required
+                     required={!signupOtpStep}
+                     hidden={signupOtpStep}
                   />
-                </div>
+                </div>}
               </div>
             )}
 
@@ -574,6 +619,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {STEPS[step]?.id === 'payment' && (
               <div className="space-y-4 animate-in">
                 <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Secure payment with Tap</h3>
+                <div><label className="text-[10px] font-black uppercase text-gray-400">Email for payment receipts</label><input type="email" value={billingEmail || email} onChange={(e) => setBillingEmail(e.target.value)} placeholder="email@example.com" className="input-field mt-1 py-3 font-bold" required /></div>
                 <div className="rounded-2xl border border-gray-100 bg-white p-5 flex items-start gap-3">
                   <CreditCard className="w-5 h-5 text-[#C5A059] shrink-0" />
                   <p className="text-gray-600 text-sm">Card and wallet options available through Tap will appear in its secure checkout. Your plan activates only after Tap confirms payment.</p>
