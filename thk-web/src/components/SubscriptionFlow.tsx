@@ -11,6 +11,7 @@ import { useLanguage } from '../lib/LanguageContext';
 import { PACKAGE_MEALS } from '../types/subscription';
 import SecuringProtocol from './SecuringProtocol';
 import { resolveQatarDeliveryZone } from '../lib/delivery-zone';
+import { parseGoogleMapsUrl } from '../lib/location-utils';
 
 interface SubscriptionFlowProps {
   open: boolean;
@@ -76,6 +77,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     delivery_notes: '',
   });
   const [deliveryPlace, setDeliveryPlace] = useState<'home' | 'office' | 'gym' | 'other'>('home');
+  const [googleMapsInput, setGoogleMapsInput] = useState('');
 
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
@@ -94,7 +96,6 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     ...(preselectedPackage ? [] : [{ label: t('pick_plan'), id: 'plan' }]),
     { label: t('delivery_address'), id: 'address' },
     ...(user ? [] : [{ label: t('create_account'), id: 'identity' }]),
-    { label: t('select_weekly_menu'), id: 'menu' },
     { label: t('payment'), id: 'payment' },
     { label: t('review_start'), id: 'audit' }
   ];
@@ -182,11 +183,6 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     if (currentStepId === 'plan' && !pkgId) return setError(t('error_select_package'));
     if (currentStepId === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) return setError('Enter your phone number and complete the building, street, area, and zone details.');
     if (currentStepId === 'identity' && (!identity.fullName || !identity.email || identity.password.length < 6)) return setError('Account details required. Password must be 6+ characters.');
-    if (currentStepId === 'menu') {
-      if (menuLoading) return setError(t('loading_menu'));
-      if (!Object.values(initialMenuOptions).some((items) => items.length > 0)) return setError(t('menu_not_published'));
-      if (Object.keys(initialMenuSelections).length !== SERVICE_DAYS.length * packageMenuMeals.length) return setError(t('select_each_meal_before_payment'));
-    }
     if (currentStepId === 'payment' && !termsAccepted) return setError(t('legal_error'));
 
     setError(null);
@@ -402,6 +398,33 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   {locating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Navigation className="w-5 h-5 text-gold" />} Use current location to fill address (optional)
                </button>
                {locationMessage && <p role="status" className="-mt-8 text-sm font-semibold text-primary/70">{locationMessage}</p>}
+               <div className="space-y-3">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Google Maps Location Link (Optional)</p>
+                  <input
+                    type="text"
+                    value={googleMapsInput}
+                    onChange={async (e) => {
+                      const val = e.target.value;
+                      setGoogleMapsInput(val);
+                      if (val.trim()) {
+                        const parsed = await parseGoogleMapsUrl(val);
+                        if (parsed.isValid && parsed.latitude !== null && parsed.longitude !== null) {
+                          setAddress((prev) => ({
+                            ...prev,
+                            latitude: parsed.latitude,
+                            longitude: parsed.longitude,
+                            zone: parsed.zone || prev.zone,
+                          }));
+                          setLocationMessage(parsed.zone
+                            ? `Google Maps location detected! Delivery zone ${parsed.zone} applied.`
+                            : 'Google Maps location coordinates detected!');
+                        }
+                      }
+                    }}
+                    placeholder="Paste Google Maps URL or WhatsApp location link"
+                    className="input-field py-7 font-black bg-white/60 text-xs"
+                  />
+               </div>
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                   <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Building / Unit</p><input type="text" value={address.building_number} onChange={(e) => setAddress({...address, building_number: e.target.value})} placeholder="e.g. Building 12" className="input-field py-7 font-black bg-white/60" /></div>
                   <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Street Name</p><input type="text" value={address.street} onChange={(e) => setAddress({...address, street: e.target.value})} placeholder="e.g. Al-Duhail St" className="input-field py-7 font-black bg-white/60" /></div>
@@ -423,30 +446,6 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Your Email</p><div className="relative"><Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/20" /><input type="email" value={identity.email} onChange={(e) => setIdentity({...identity, email: e.target.value})} placeholder="Enter your email" className="input-field py-7 pl-16 font-black bg-white/60" /></div></div>
                   <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">Your Password (6+ Chars)</p><div className="relative"><Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/20" /><input type="password" value={identity.password} onChange={(e) => setIdentity({...identity, password: e.target.value})} placeholder="••••••••" className="input-field py-7 pl-16 font-black bg-white/60" /></div></div>
                </div>
-            </div>
-          )}
-
-          {STEPS[step].id === 'menu' && (
-            <div className="space-y-8 animate-reveal">
-              <div><h3 className="text-xl font-black uppercase italic text-primary">{t('select_weekly_menu')}</h3><p className="mt-2 text-sm text-primary/60">{t('select_menu_before_payment')}</p><p className="mt-2 text-xs font-bold uppercase tracking-widest text-gold">{t('service_week_starting')} {upcomingServiceWeekStart()}</p></div>
-              {menuLoading && <p role="status" className="text-sm text-primary/60">{t('loading_menu')}</p>}
-              {!menuLoading && !Object.values(initialMenuOptions).some((items) => items.length > 0) && <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">{t('menu_not_published')}</p>}
-              {!menuLoading && Object.values(initialMenuOptions).some((items) => items.length > 0) && SERVICE_DAYS.map((day) => <section key={day} className="rounded-2xl border border-primary/10 bg-white/60 p-5"><h4 className="mb-4 font-black uppercase tracking-widest text-primary">{t(day)}</h4><div className="grid gap-3 sm:grid-cols-2">{packageMenuMeals.map((meal) => {
-                const key = `${day}|${meal}`;
-                const options = initialMenuOptions[key] || [];
-                const selected = initialMenuSelections[key];
-                return <label key={key} className="text-xs font-bold uppercase tracking-widest text-primary/60">{t(meal)}<select className="input-field mt-2 w-full py-4 text-sm font-semibold normal-case" value={selected?.dish_id || ''} onChange={(event) => {
-                  const dish = options.find((item) => item.id === event.target.value);
-                  setInitialMenuSelections((current) => {
-                    const updated = { ...current };
-                    if (dish) updated[key] = { dish_id: dish.id, dish_name: dish.name, dish_kcals: dish.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal, menu_period: menuPeriod };
-                    else delete updated[key];
-                    return updated;
-                  });
-                }} disabled={!selectionWindowOpen}><option value="">{options.length ? t('choose_meal') : t('menu_item_unavailable')}</option>{options.map((dish) => <option key={dish.id} value={dish.id}>{dish.name} · {dish.kcals} kcal</option>)}</select></label>;
-              })}</div></section>)}
-              {!selectionWindowOpen && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{t('menu_selection_closed')}</p>}
-              {Object.values(initialMenuOptions).some((items) => items.length > 0) && <p className="text-xs font-semibold text-primary/55">{Object.keys(initialMenuSelections).length}/{SERVICE_DAYS.length * packageMenuMeals.length} {t('meals_selected')}</p>}
             </div>
           )}
 

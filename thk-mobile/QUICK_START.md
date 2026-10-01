@@ -37,13 +37,8 @@ After the migration completes, add these secrets in **Project Settings → Vault
 
 1. **BREVO_API_KEY** - Your Brevo email API key
 2. **SENDER_EMAIL** - Default sender email (e.g., kevmulgeo@gmail.com)
-3. **STRIPE_WEBHOOK_SECRET_VAULT** - Stripe webhook signing secret
-4. **TERRA_API_KEY** - Terra health API key
-5. **TERRA_DEV_ID** - Terra developer ID
-6. **DIBSY_API_KEY** - Dibsy payment gateway API key
-7. **DIBSY_WEBHOOK_SECRET** - Dibsy webhook secret
-8. **TAP_SECRET_KEY** - Tap Payments secret key
-9. **TAP_MERCHANT_ID** - Tap Payments merchant ID
+3. **TAP_SECRET_KEY** - Tap Payments secret key
+4. **TAP_MERCHANT_ID** - Tap Payments merchant ID
 
 ### Update Your App Configuration
 

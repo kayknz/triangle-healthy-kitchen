@@ -72,7 +72,7 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
 
     await supabase.from('health_data').insert({
       subscriber_id: subscriber.id,
-      terra_user_id: 'manual',
+      source: 'manual',
       data_type: 'body',
       payload,
       received_at: new Date().toISOString(),
@@ -93,7 +93,7 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
     setSaving(true);
     await supabase.from('health_data').insert({
       subscriber_id: subscriber.id,
-      terra_user_id: 'manual',
+      source: 'manual',
       data_type: 'goals',
       payload: goals,
       received_at: new Date().toISOString(),

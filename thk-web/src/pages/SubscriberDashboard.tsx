@@ -17,6 +17,7 @@ import {
 } from '../types/subscription';
 import HealthTab from '../components/HealthTab';
 import { useLanguage } from '../lib/LanguageContext';
+import { parseGoogleMapsUrl } from '../lib/location-utils';
 
 type Tab = 'menu' | 'delivery' | 'health' | 'settings';
 const qatarTomorrowString = () => { const date = new Date(`${getQatarDate()}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + 1); return date.toISOString().slice(0, 10); };
@@ -914,6 +915,28 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
 
          <div className="space-y-10">
             <h3 className="text-xs font-black uppercase tracking-[0.5em] text-[#123F38]/60 ml-2">{t('shipment_details')}</h3>
+            <div className="space-y-4">
+               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#C5A059]">Google Maps Location Link (Optional)</p>
+               <input
+                 type="text"
+                 placeholder="Paste Google Maps URL or WhatsApp location link"
+                 className="input-field py-6 font-black text-sm bg-white/40"
+                 onChange={async (e) => {
+                   const val = e.target.value;
+                   if (val.trim()) {
+                     const parsed = await parseGoogleMapsUrl(val);
+                     if (parsed.isValid && parsed.latitude !== null && parsed.longitude !== null) {
+                       setForm(f => ({
+                         ...f,
+                         latitude: parsed.latitude,
+                         longitude: parsed.longitude,
+                         area: parsed.zone ? `${f.area} (Zone ${parsed.zone})` : f.area,
+                       }));
+                     }
+                   }
+                 }}
+               />
+            </div>
             <div className="grid grid-cols-2 gap-8">
                <div className="space-y-4">
                   <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#C5A059]">{t('building')}</p>

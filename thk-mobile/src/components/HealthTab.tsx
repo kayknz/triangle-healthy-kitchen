@@ -5,6 +5,7 @@ import {
   Activity, Target, Calendar,
 } from 'lucide-react';
 import SecuringProtocol from './SecuringProtocol';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/lib/supabase';
 import { getQatarStartOfDay, getUTCISO } from '@/lib/date-utils';
 import {
@@ -20,6 +21,9 @@ interface HealthTabProps {
 
 export default function HealthTab({ subscriber }: HealthTabProps) {
   const { t } = useLanguage();
+  const nativePlatform = Capacitor.getPlatform();
+  const isIOS = nativePlatform === 'ios';
+  const isAndroid = nativePlatform === 'android';
   const [entries, setEntries] = useState<HealthEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -78,7 +82,7 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
 
     await supabase.from('health_data').insert({
       subscriber_id: subscriber.id,
-      terra_user_id: 'manual',
+      source: 'manual',
       data_type: 'body',
       payload,
       received_at: new Date().toISOString(),
@@ -95,47 +99,62 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
     try {
       const isAvailable = await Health.isAvailable();
       if (!isAvailable.available) {
-        alert("Health data sync not available on this device.");
-        setLoading(false);
-        return;
+        throw new Error(isAvailable.reason || 'Health data sync is unavailable on this device.');
       }
 
-      await Health.requestAuthorization({
-        read: ['steps', 'calories', 'weight']
+      const authorization = await Health.requestAuthorization({
+        read: ['steps', 'distance', 'calories', 'weight'],
       });
+      if (authorization.readDenied.length > 0) {
+        throw new Error(t('health_permissions_denied'));
+      }
 
       const startOfDay = getQatarStartOfDay();
       const endOfDay = getUTCISO();
 
-      const [stepsRes, caloriesRes, weightRes] = await Promise.all([
+      const [stepsRes, distanceRes, caloriesRes, weightRes] = await Promise.all([
         Health.readSamples({ dataType: 'steps', startDate: startOfDay, endDate: endOfDay }),
+        Health.readSamples({ dataType: 'distance', startDate: startOfDay, endDate: endOfDay }),
         Health.readSamples({ dataType: 'calories', startDate: startOfDay, endDate: endOfDay }),
         Health.readSamples({ dataType: 'weight', startDate: startOfDay, endDate: endOfDay }),
       ]);
 
       const totalSteps = stepsRes.samples.reduce((sum, s) => sum + (s.value || 0), 0);
+      const totalDistance = distanceRes.samples.reduce((sum, s) => sum + (s.value || 0), 0);
       const totalCalories = caloriesRes.samples.reduce((sum, s) => sum + (s.value || 0), 0);
       const latestWeight = weightRes.samples.length > 0 ? weightRes.samples[weightRes.samples.length - 1].value : null;
 
-      const payload: any = { native_sync: true };
+      if (totalSteps === 0 && totalDistance === 0 && totalCalories === 0 && !latestWeight) {
+        alert(t(isAndroid ? 'health_no_samsung_data' : 'health_no_apple_data'));
+        return;
+      }
+
+      const payload: Record<string, unknown> = {
+        native_sync: true,
+        platform: isIOS ? 'apple_health' : 'health_connect',
+      };
       if (totalSteps > 0) payload.steps = Math.round(totalSteps);
+      if (totalDistance > 0) payload.distance_meters = Math.round(totalDistance);
       if (totalCalories > 0) payload.calories_burned = Math.round(totalCalories);
       if (latestWeight) payload.weight_kg = latestWeight;
 
-      await supabase.from('health_data').insert({
+      const { error } = await supabase.from('health_data').insert({
         subscriber_id: subscriber.id,
-        terra_user_id: 'native',
+        source: 'native',
         data_type: 'body',
         payload,
         received_at: new Date().toISOString(),
       });
+      if (error) throw error;
 
-      load();
+      await load();
+      alert(t('health_sync_success'));
     } catch (e) {
       console.error('Health sync failed:', e);
-      alert("Failed to sync health data.");
+      alert(e instanceof Error ? e.message : 'Failed to sync health data.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const deleteEntry = async (id: string) => {
@@ -147,7 +166,7 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
     setSaving(true);
     await supabase.from('health_data').insert({
       subscriber_id: subscriber.id,
-      terra_user_id: 'manual',
+      source: 'manual',
       data_type: 'goals',
       payload: goals,
       received_at: new Date().toISOString(),
@@ -209,15 +228,23 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
       {/* Sync Banner */}
       <div className="bg-[#0a3030] rounded-[2rem] p-6 text-white flex items-center justify-between shadow-2xl relative overflow-hidden group">
         <div className="relative z-10">
-          <h3 className="text-xl font-black mb-1">Native Health Sync</h3>
-          <p className="text-white/50 text-xs">Pull steps & energy from Apple Health / Google Fit.</p>
+          <h3 className="text-xl font-black mb-1">
+            {isIOS ? t('connect_apple_health') : isAndroid ? t('connect_samsung_health') : 'Health Sync'}
+          </h3>
+          <p className="text-white/70 text-xs max-w-xl">
+            {isIOS
+              ? t('apple_health_hint')
+              : isAndroid
+                ? t('samsung_health_hint')
+                : t('health_sync_web')}
+          </p>
           <button
             onClick={syncNativeHealthData}
-            disabled={loading}
+            disabled={loading || (!isIOS && !isAndroid)}
             className="mt-4 bg-white text-[#0a3030] px-6 py-2 rounded-full text-xs font-black hover:bg-gray-100 transition-all flex items-center gap-2"
           >
             <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform duration-500`} />
-            {loading ? 'Syncing...' : 'Sync Now'}
+            {loading ? 'Syncing...' : 'Connect & Sync'}
           </button>
         </div>
         <div className="relative z-10 w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-md">

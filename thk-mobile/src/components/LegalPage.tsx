@@ -17,20 +17,20 @@ export default function LegalPage({ type, onBack }: LegalPageProps) {
         {
           h: isRtl ? '١. جمع البيانات' : '1. Data Collection',
           p: isRtl
-            ? 'نحن نجمع المعلومات التي تقدمها لنا مباشرة عند التسجيل، مثل اسمك ورقم هاتفك وعنوانك وتفاصيل ملفك الصحي (مثل الوزن والطول والحساسية).'
-            : 'We collect information you provide directly to us when registering, such as your name, phone number, address, and health profile details (weight, height, allergies).'
+            ? 'نجمع المعلومات التي تقدمها عند التسجيل، مثل اسمك ورقم هاتفك وعنوانك وتفاصيل ملفك الصحي. وبموافقتك، يمكن للتطبيق قراءة الخطوات ومسافة المشي والطاقة النشطة والوزن من Apple Health على iPhone أو Health Connect على Android. ويمكن أن تصل بيانات Samsung Health عبر Health Connect بعد تفعيل المشاركة في تطبيق Samsung Health.'
+            : 'We collect information you provide when registering, including your name, phone number, address, and health profile. If you choose to connect, the app reads steps, walking distance, active energy, and weight from Apple Health on iPhone or Health Connect on Android. Samsung Health data can flow through Health Connect after you enable sharing in Samsung Health.'
         },
         {
           h: isRtl ? '٢. استخدام المعلومات' : '2. Use of Information',
           p: isRtl
-            ? 'نستخدم بياناتك لتخصيص خطط الوجبات الخاصة بك، ومعالجة طلباتك، والتواصل معك بشأن اشتراكك.'
-            : 'We use your data to personalize your meal plans, process your orders, and communicate with you about your subscription.'
+            ? 'نستخدم بياناتك لتخصيص خطط الوجبات، ومعالجة الطلبات، والتواصل بشأن الاشتراك، وعرض تقدمك الصحي. لا تتم مزامنة بيانات الصحة إلا عندما تختار ذلك من التطبيق.'
+            : 'We use your data to personalize meal plans, process orders, communicate about your subscription, and show your wellness progress. Health data is synced only when you choose to sync it in the app.'
         },
         {
           h: isRtl ? '٣. حماية البيانات' : '3. Data Protection',
           p: isRtl
-            ? 'نحن نطبق تدابير أمنية لحماية معلوماتك الشخصية. لا نشارك بياناتك الصحية مع أطراف ثالثة لأغراض تسويقية.'
-            : 'We implement security measures to protect your personal information. We do not share your health data with third parties for marketing purposes.'
+            ? 'نحمي معلوماتك باستخدام ضوابط الوصول والأمان في خدماتنا. تُرسل البيانات التي تختار مزامنتها إلى حسابك في Triangle Healthy Kitchen عبر Supabase لتظهر في تقدمك الصحي. لا نبيع البيانات الصحية ولا نستخدمها للإعلانات أو التسويق.'
+            : 'We protect your information using access controls and security measures in our services. Health data you choose to sync is sent to your Triangle Healthy Kitchen account through Supabase so it can appear in your wellness progress. We do not sell health data or use it for advertising or marketing.'
         }
       ]
     },

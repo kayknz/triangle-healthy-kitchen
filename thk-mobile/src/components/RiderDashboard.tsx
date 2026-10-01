@@ -10,6 +10,7 @@ import { decode } from 'base64-arraybuffer';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { getQatarDate, addDays } from '@/lib/date-utils';
+import { getGoogleMapsLink } from '@/lib/location-utils';
 
 interface Delivery {
   id: string;
@@ -452,7 +453,13 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
                       <MessageSquare className="w-6 h-6" />
                     </button>
                     <button
-                      onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${d.building} ${d.street} ${d.zone} ${d.area}`)}`)}
+                      onClick={() => {
+                        const sub = (d as any).subscriber;
+                        const lat = sub?.latitude;
+                        const lng = sub?.longitude;
+                        const fallback = `${d.building} ${d.street} ${d.zone} ${d.area} Doha Qatar`;
+                        window.open(getGoogleMapsLink(lat, lng, fallback), '_blank');
+                      }}
                       className="flex-1 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-2xl text-sm transition-all border border-white/10 active:scale-[0.98]"
                     >
                       <Navigation className="w-5 h-5 text-[#D4A843]" />

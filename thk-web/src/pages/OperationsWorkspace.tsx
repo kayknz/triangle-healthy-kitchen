@@ -8,6 +8,7 @@ import { supabase } from '../supabase';
 import { useAuth } from '../lib/auth';
 import { getQatarDate } from '../lib/date-utils';
 import { useLanguage } from '../lib/LanguageContext';
+import { getGoogleMapsLink } from '../lib/location-utils';
 import type { ParsedMenuEntry } from '../lib/monthly-menu-pdf';
 
 type Module = 'overview' | 'customers' | 'subscriptions' | 'menu' | 'kitchen' | 'packing' | 'delivery' | 'drivers' | 'payments' | 'reminders' | 'reports' | 'bookings' | 'team' | 'settings';
@@ -396,7 +397,8 @@ function DeliverySection({ date, setDate, subscribers, riders, deliveries, savin
     <div className="grid gap-3 sm:grid-cols-3"><Metric label="Customers in view" value={list.length}/><Metric label="Assigned stops" value={list.filter((s: Row) => deliveryFor(s.id)).length}/><Metric label="Needs rider" value={list.filter((s: Row) => !deliveryFor(s.id)).length}/></div>
     <DataTable headers={['Customer','Zone','Delivery address','Delivery window','Rider assignment','Status','Map']} rows={list.map((s: Row) => {
       const d = deliveryFor(s.id);
-      const map = s.latitude && s.longitude ? `https://www.google.com/maps?q=${s.latitude},${s.longitude}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([s.building_number,s.street,s.area,'Doha Qatar'].filter(Boolean).join(' '))}`;
+      const fallback = [s.building_number, s.street, s.area, 'Doha Qatar'].filter(Boolean).join(' ');
+      const map = getGoogleMapsLink(s.latitude, s.longitude, fallback);
       return [<strong>{s.full_name || 'Customer'}</strong>,s.zone_number ? `Zone ${s.zone_number}` : <span className="text-amber-700">Needs zone</span>,[s.building_number,s.street,s.area].filter(Boolean).join(', ') || 'Address missing',s[windowKey] || 'Time not set',<select aria-label={`Assign ${meal} rider for ${s.full_name || 'customer'}`} className="ops-control min-w-40" value={d?.rider_application_id || ''} disabled={saving} onChange={(e) => assignRider(s.id,e.target.value,meal)}><option value="">Assign rider…</option>{riders.map((r: Row) => <option key={r.id} value={r.id}>{r.full_name || r.phone || 'Rider'}</option>)}</select>,d ? <select aria-label={`Update delivery status for ${s.full_name || 'customer'}`} className="ops-control" value={d.status} disabled={saving} onChange={(e) => updateDeliveryStatus(d.id,e.target.value)}><option value="pending">Pending</option><option value="delivered">Delivered</option><option value="failed">Failed</option></select> : <Status value="Unassigned"/>,<a className="text-sm font-semibold text-primary underline" target="_blank" rel="noreferrer" href={map}>Open map</a>];
     })} empty="No active customers in this zone." />
   </section>;

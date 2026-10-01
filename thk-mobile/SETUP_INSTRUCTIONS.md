@@ -36,13 +36,8 @@ Navigate to **Project Settings → Vault** and add:
 
 1. **BREVO_API_KEY** - Your Brevo email API key
 2. **SENDER_EMAIL** - Default sender email (e.g., kevmulgeo@gmail.com)
-3. **STRIPE_WEBHOOK_SECRET_VAULT** - Stripe webhook signing secret (if using Stripe)
-4. **TERRA_API_KEY** - Terra health API key
-5. **TERRA_DEV_ID** - Terra developer ID
-6. **DIBSY_API_KEY** - Dibsy payment gateway API key
-7. **DIBSY_WEBHOOK_SECRET** - Dibsy webhook secret
-8. **TAP_SECRET_KEY** - Tap Payments secret key
-9. **TAP_MERCHANT_ID** - Tap Payments merchant ID
+3. **TAP_SECRET_KEY** - Tap Payments secret key
+4. **TAP_MERCHANT_ID** - Tap Payments merchant ID
 
 ### How to Add Secrets
 1. Go to **Project Settings → Vault**
@@ -106,8 +101,7 @@ The migration creates the following tables:
 ### Subscriber Data Tables
 - **weekly_menu_selections** - Weekly meal choices
 - **progress_entries** - Weight/health progress tracking
-- **health_connections** - Health app connections (Terra)
-- **health_data** - Cached health data
+- **health_data** - Client-entered or Apple/Google native health data
 
 ### Rider Tables
 - **rider_applications** - Rider signup and approval
@@ -116,10 +110,6 @@ The migration creates the following tables:
 ### Helper Functions
 - `is_provider()` - Check if user is a provider/owner
 - `get_brevo_config()` - Fetch Brevo API credentials
-- `get_stripe_webhook_secret()` - Fetch Stripe webhook secret
-- `get_terra_config()` - Fetch Terra API credentials
-- `get_dibsy_config()` - Fetch Dibsy API credentials
-- `get_dibsy_webhook_secret()` - Fetch Dibsy webhook secret
 - `get_tap_config()` - Fetch Tap Payments credentials
 
 ## Provider Email Addresses

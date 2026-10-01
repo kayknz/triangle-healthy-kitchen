@@ -11,6 +11,7 @@ import { useLanguage } from '@/lib/LanguageContext';
 import { PACKAGE_MEALS } from '@/types/subscription';
 import EditorialPanel from './EditorialPanel';
 import { resolveQatarDeliveryZone } from '@/lib/delivery-zone';
+import { parseGoogleMapsUrl } from '@/lib/location-utils';
 
 type InitialMenuChoice = { dish_id: string; dish_name: string; dish_kcals: number; day_of_week: string; meal_type: string; menu_period: string };
 const SERVICE_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
@@ -77,6 +78,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     delivery_notes: '',
   });
   const [deliveryPlace, setDeliveryPlace] = useState<'home' | 'office' | 'gym' | 'other'>('home');
+  const [googleMapsInput, setGoogleMapsInput] = useState('');
 
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
@@ -90,7 +92,6 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     if (!user) {
       base.push({ label: 'Create Account', id: 'identity' });
     }
-    base.push({ label: t('select_weekly_menu'), id: 'menu' });
     base.push(
       { label: 'Payment', id: 'payment' },
       { label: 'Review', id: 'audit' }
@@ -181,9 +182,6 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     if (currentStep === 'identity' && (!name.trim() || !email.trim() || password.length < 6 || !phone.trim())) {
       setError('Enter your name, email, phone number, and a password with at least 6 characters.');
       return;
-    }
-    if (currentStep === 'menu' && Object.values(initialMenuOptions).some((items) => items.length > 0) && Object.keys(initialMenuSelections).length !== SERVICE_DAYS.length * packageMenuMeals.length) {
-      setError(t('select_each_meal_before_payment')); return;
     }
     if (currentStep === 'payment' && !termsAccepted) {
       setError('Please accept the plan and payment terms to continue.');
@@ -453,6 +451,33 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="group" aria-label="Delivery destination">
                   {(['home', 'office', 'gym', 'other'] as const).map((place) => <button type="button" key={place} aria-pressed={deliveryPlace === place} onClick={() => setDeliveryPlace(place)} className={`rounded-xl border px-3 py-3 text-xs font-black uppercase tracking-wider ${deliveryPlace === place ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-200 bg-white text-gray-600'}`}>{place === 'office' ? 'Work' : place}</button>)}
                 </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-gray-400">Google Maps Location Link (Optional)</label>
+                  <input
+                    type="text"
+                    value={googleMapsInput}
+                    onChange={async (e) => {
+                      const val = e.target.value;
+                      setGoogleMapsInput(val);
+                      if (val.trim()) {
+                        const parsed = await parseGoogleMapsUrl(val);
+                        if (parsed.isValid && parsed.latitude !== null && parsed.longitude !== null) {
+                          setAddress((prev) => ({
+                            ...prev,
+                            latitude: parsed.latitude,
+                            longitude: parsed.longitude,
+                            zone: parsed.zone || prev.zone,
+                          }));
+                          setLocationMessage(parsed.zone
+                            ? `Google Maps location detected! Delivery zone ${parsed.zone} applied.`
+                            : 'Google Maps location coordinates detected!');
+                        }
+                      }
+                    }}
+                    placeholder="Paste Google Maps URL or WhatsApp location link"
+                    className="input-field py-3 font-bold"
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-black uppercase text-gray-400">Building Number</label>
@@ -542,27 +567,6 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                     required
                   />
                 </div>
-              </div>
-            )}
-
-            {STEPS[step]?.id === 'menu' && (
-              <div className="space-y-5 animate-in">
-                <div>
-                  <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{t('select_weekly_menu')}</h3>
-                  <p className="mt-2 text-sm text-gray-500">{t('select_menu_before_payment')}</p>
-                  <p className="mt-2 text-xs font-bold uppercase tracking-widest text-[#C5A059]">{t('service_week_starting')} {upcomingServiceWeekStart()}</p>
-                </div>
-                {menuLoading && <p role="status" className="text-sm text-gray-500">{t('loading_menu')}</p>}
-                {!menuLoading && !Object.values(initialMenuOptions).some((items) => items.length > 0) && <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{t('menu_not_published')}</p>}
-                {!menuLoading && Object.values(initialMenuOptions).some((items) => items.length > 0) && SERVICE_DAYS.map((day) => <section key={day} className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="mb-3 font-black uppercase tracking-widest text-[#0a3030]">{t(day)}</h4><div className="grid gap-3 sm:grid-cols-2">{packageMenuMeals.map((meal) => {
-                  const key = `${day}|${meal}`; const options = initialMenuOptions[key] || []; const selected = initialMenuSelections[key];
-                  return <label key={key} className="text-xs font-bold uppercase tracking-widest text-gray-500">{t(meal)}<select className="input-field mt-2 w-full py-3 text-sm font-semibold normal-case" disabled={!options.length || !selectionWindowOpen} value={selected?.dish_id || ''} onChange={(event) => {
-                    const dish = options.find((item) => item.id === event.target.value);
-                    setInitialMenuSelections((current) => { const updated = { ...current }; if (dish) updated[key] = { dish_id: dish.id, dish_name: dish.name, dish_kcals: dish.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal, menu_period: menuPeriod }; else delete updated[key]; return updated; });
-                  }}><option value="">{options.length ? t('choose_meal') : t('menu_item_unavailable')}</option>{options.map((dish) => <option key={dish.id} value={dish.id}>{dish.name} · {dish.kcals} kcal</option>)}</select></label>;
-                })}</div></section>)}
-                {!selectionWindowOpen && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{t('menu_selection_closed')}</p>}
-                {Object.values(initialMenuOptions).some((items) => items.length > 0) && <p className="text-xs font-semibold text-gray-500">{Object.keys(initialMenuSelections).length}/{SERVICE_DAYS.length * packageMenuMeals.length} {t('meals_selected')}</p>}
               </div>
             )}
 

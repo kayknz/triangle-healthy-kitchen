@@ -67,6 +67,14 @@ The config already sets `allowMixedContent: true`. You should be fine.
 
 ## 3. Test on a real device or emulator
 
+### Apple Health and Samsung Health
+
+- On iPhone, the app reads steps, walking distance, active energy, and weight from Apple Health after the customer approves access.
+- On Android, the app reads the same metrics through Health Connect. Samsung Health must first be allowed to share data with Health Connect in Samsung Health settings; then the customer taps **Connect & Sync** in the app.
+- Health data sync is customer-initiated. The app does not read health data in the background.
+- The iOS target includes the HealthKit capability and usage description. The Apple Developer App ID and distribution profile must also allow HealthKit before a signed store build can request access.
+- The customer can revoke access in Apple Health or Health Connect at any time.
+
 In Android Studio:
 - Click the green **Run** button (or Shift+F10)
 - Choose a connected phone or an emulator
@@ -138,7 +146,7 @@ The `.aab` file will be created (usually under `android/app/release/` or shown i
 | Issue                        | Status in this package                  |
 |-----------------------------|-----------------------------------------|
 | Blank screen on launch      | Dark background + splash configured     |
-| Payment page breaks app     | `allowNavigation` for Tap / Stripe / Dibsy |
+| Payment page breaks app     | `allowNavigation` for Tap Payments |
 | Location not working        | Permissions listed + Geolocation plugin |
 | Status bar ugly             | StatusBar plugin configured             |
 | Keyboard covers inputs      | Keyboard plugin configured              |
