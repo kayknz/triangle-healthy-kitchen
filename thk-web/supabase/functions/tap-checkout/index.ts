@@ -86,13 +86,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: tapConfig, error: tapConfigError } = await adminClient.rpc("get_tap_config");
-    const tapSecretKey = tapConfig?.api_key;
-    if (tapConfigError || typeof tapSecretKey !== "string" || !tapSecretKey) {
-      console.error("Tap configuration unavailable.", tapConfigError?.message);
-      return jsonResponse({ error: "Payment configuration unavailable." }, 503);
-    }
-
     // ---------------------------------------------------------
     // 2. PARSE REQUEST
     // ---------------------------------------------------------
@@ -107,6 +100,8 @@ Deno.serve(async (req: Request) => {
         400,
       );
     }
+
+    const paymentMethod = body?.payment_method === 'cash' ? 'cash' : 'tap';
 
     const packageId =
       (typeof body?.packageId === "string" && body.packageId.trim())
@@ -130,10 +125,30 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: availablePackage, error: availablePackageError } = await adminClient
-      .from("packages").select("id, active").eq("id", packageId).maybeSingle();
+      .from("packages").select("id, active, meal_periods").eq("id", packageId).maybeSingle();
     if (availablePackageError) throw new Error(`Package lookup failed: ${availablePackageError.message}`);
     if (!availablePackage || !availablePackage.active) {
       return jsonResponse({ error: "This package is unavailable." }, 400);
+    }
+    const requestedSelections = body?.profile?.initial_menu_selections;
+    if (!Array.isArray(requestedSelections) || requestedSelections.length === 0 || requestedSelections.length > 24) {
+      return jsonResponse({ error: "Choose meals from the published menu before requesting payment." }, 400);
+    }
+    const allowedPeriods: string[] = Array.isArray(availablePackage.meal_periods) ? availablePackage.meal_periods : ['breakfast','lunch','dinner','snacks'];
+    const selectedSlots = new Set<string>();
+    for (const choice of requestedSelections) {
+      const day = typeof choice?.day_of_week === 'string' ? choice.day_of_week : '';
+      const meal = choice?.meal_type === 'snack' ? 'snacks' : choice?.meal_type;
+      const week = typeof choice?.week_start_date === 'string' ? choice.week_start_date : '';
+      if (!['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday'].includes(day)
+        || !['breakfast','lunch','dinner','snack','snacks'].includes(choice?.meal_type)
+        || !allowedPeriods.includes(meal) || typeof choice?.dish_id !== 'string' || !choice.dish_id
+        || !/^\d{4}-\d{2}-\d{2}$/.test(week)) {
+        return jsonResponse({ error: "A selected meal does not match this package or the published weekly menu." }, 400);
+      }
+      const key = `${week}|${day}|${meal}`;
+      if (selectedSlots.has(key)) return jsonResponse({ error: "Choose only one dish for each meal period." }, 400);
+      selectedSlots.add(key);
     }
 
     // ---------------------------------------------------------
@@ -320,6 +335,8 @@ Deno.serve(async (req: Request) => {
         weight_kg: safeNumber(profile.weight_kg),
         height_cm: safeNumber(profile.height_cm),
         fitness_goal: safeText(profile.fitness_goal, 80),
+        allergies: Array.isArray(profile.allergies) ? profile.allergies.slice(0, 30).map((value: unknown) => safeText(value, 80)).filter(Boolean) : [],
+        dislikes: Array.isArray(profile.dislikes) ? profile.dislikes.slice(0, 30).map((value: unknown) => safeText(value, 120)).filter(Boolean) : [],
         building_number: safeText(profile.building_number, 80),
         street: safeText(profile.street, 160),
         area: safeText(profile.area, 120),
@@ -340,6 +357,7 @@ Deno.serve(async (req: Request) => {
         amount,
         currency,
         status: "pending",
+        payment_provider: paymentMethod,
         metadata: transactionMetadata,
       })
       .select("id")
@@ -351,6 +369,24 @@ Deno.serve(async (req: Request) => {
           transactionError?.message || "Unknown error"
         }`,
       );
+    }
+
+    if (paymentMethod === 'cash') {
+      await adminClient.from('payment_logs').insert({
+        tap_charge_id: null,
+        event_type: 'cash_collection_requested',
+        payload: { transaction_id: transaction.id, subscriber_id: subscriber.id, amount, currency, package_id: pkg.id },
+        severity: 'info',
+      });
+      return jsonResponse({ cash_pending: true, transaction_id: transaction.id, message: 'We will reach out to activate your account after cash is collected and verified.' }, 200);
+    }
+
+    const { data: tapConfig, error: tapConfigError } = await adminClient.rpc("get_tap_config");
+    const tapSecretKey = tapConfig?.api_key;
+    if (tapConfigError || typeof tapSecretKey !== "string" || !tapSecretKey) {
+      await adminClient.from('payment_transactions').update({ status: 'failed', updated_at: new Date().toISOString() }).eq('id', transaction.id);
+      console.error("Tap configuration unavailable.", tapConfigError?.message);
+      return jsonResponse({ error: "Payment configuration unavailable." }, 503);
     }
 
     // ---------------------------------------------------------

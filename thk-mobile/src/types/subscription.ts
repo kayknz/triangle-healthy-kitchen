@@ -125,8 +125,8 @@ export const PACKAGE_MEALS: Record<string, string[]> = {
   '4m': ['breakfast', 'lunch', 'dinner', 'snacks'],
   '4m1s': ['breakfast', 'lunch', 'dinner', 'snacks'],
   '4m2s': ['breakfast', 'lunch', 'dinner', 'snacks'],
-  '1100kcal': ['breakfast', 'lunch', 'dinner', 'snacks'],
-  '1400kcal': ['breakfast', 'lunch', 'dinner', 'snacks'],
+  '1100kcal': ['lunch', 'dinner', 'snacks'],
+  '1400kcal': ['breakfast', 'lunch', 'dinner'],
   '1500kcal': ['breakfast', 'lunch', 'dinner', 'snacks'],
   '2000kcal': ['breakfast', 'lunch', 'dinner', 'snacks'],
 };

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
-  Loader2, Navigation, CreditCard, AlertCircle, CheckCircle2
+  Loader2, Navigation, CreditCard, AlertCircle, CheckCircle2, Banknote
 } from 'lucide-react';
 import { safeHaptics } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
@@ -18,6 +18,7 @@ import type { CountryCode } from 'libphonenumber-js';
 type InitialMenuChoice = { dish_id: string; dish_name: string; dish_kcals: number; day_of_week: string; meal_type: string; menu_period: string };
 const SERVICE_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
 const PACKAGE_MENU_MEALS = ['breakfast', 'lunch', 'dinner', 'snacks'];
+const CHECKOUT_ALLERGENS = ['Fish', 'Dairy', 'Eggs', 'Gluten', 'Seafood', 'Sesame', 'Nuts'];
 function upcomingServiceWeekStart() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const date = new Date(`${today}T12:00:00Z`);
@@ -45,11 +46,15 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [cashPending, setCashPending] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'tap' | 'cash'>('tap');
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [availablePackages, setAvailablePackages] = useState<Array<{ id: string; name: string; description: string; price: number; currency: string }>>([]);
+  const [availablePackages, setAvailablePackages] = useState<Array<{ id: string; name: string; description: string; price: number; currency: string; meal_periods?: string[] }>>([]);
   const [waitingForPayment, setWaitingForPayment] = useState(false);
   const [initialMenuOptions, setInitialMenuOptions] = useState<Record<string, Array<{ id: string; name: string; kcals: number }>>>({});
   const [initialMenuSelections, setInitialMenuSelections] = useState<Record<string, InitialMenuChoice>>({});
+  const [foodAllergies, setFoodAllergies] = useState<string[]>([]);
+  const [foodDislikes, setFoodDislikes] = useState('');
   const [menuPeriod, setMenuPeriod] = useState('autumn');
   const [menuLoading, setMenuLoading] = useState(false);
 
@@ -64,7 +69,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const [bmiReport, setBmiReport] = useState<File | null>(null);
 
   const [pkgId, setPkgId] = useState('');
-  const packageMenuMeals = PACKAGE_MEALS[pkgId] || PACKAGE_MENU_MEALS;
+  const packageMenuMeals = availablePackages.find((item) => item.id === pkgId)?.meal_periods || PACKAGE_MEALS[pkgId] || PACKAGE_MENU_MEALS;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [signupChannel, setSignupChannel] = useState<PhoneChannel>('email');
@@ -118,7 +123,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       setTermsAccepted(false);
       setSignupOtpStep(false);
       setSignupOtpCode('');
-      void supabase.from('packages').select('id, name, description, price, currency').eq('active', true).order('sort_order').then(({ data, error: packageError }) => {
+      void supabase.from('packages').select('id, name, description, price, currency, meal_periods').eq('active', true).order('sort_order').then(({ data, error: packageError }) => {
         if (packageError) {
           setError('Meal plans are temporarily unavailable. Please try again shortly.');
           return;
@@ -186,8 +191,8 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     if (currentStep === 'menu') {
       if (menuLoading) { setError('Please wait while the weekly menu loads.'); return; }
       if (!Object.values(initialMenuOptions).some((choices) => choices.length)) { setError('The kitchen has not published a menu yet. Please check back after the weekly menu is released.'); return; }
-      const requiredKeys = SERVICE_DAYS.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`));
-      if (requiredKeys.some((key) => !(initialMenuOptions[key] || []).length)) { setError('The published menu is missing meals for this plan. The kitchen needs to complete the weekly menu before checkout.'); return; }
+      const requiredKeys = SERVICE_DAYS.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`).filter((key) => (initialMenuOptions[key] || []).length));
+      if (!requiredKeys.length) { setError('No meals are available for this package in the published menu.'); return; }
       if (requiredKeys.some((key) => !initialMenuSelections[key])) { setError('Choose one meal for every day and meal period to continue.'); return; }
     }
     if (currentStep === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) {
@@ -306,6 +311,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       const { data: checkout, error: checkoutError } = await supabase.functions.invoke('tap-checkout', {
         body: {
           package_id: pkg.id,
+          payment_method: paymentMethod,
           profile: {
             email: billingEmail.trim().toLowerCase() || email.trim().toLowerCase() || activeUser.email || '',
             full_name: name || activeUser.user_metadata?.full_name || 'Triangle Member',
@@ -316,6 +322,8 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             weight_kg: assessment.weight,
             height_cm: assessment.height,
             fitness_goal: assessment.fitness_goal,
+            allergies: foodAllergies,
+            dislikes: foodDislikes.split(',').map((item) => item.trim()).filter(Boolean),
             building_number: address.building_number,
             street: address.street,
             area: address.area || 'Doha',
@@ -328,6 +336,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
           },
       });
       if (checkoutError) throw checkoutError;
+      if (paymentMethod === 'cash' && checkout?.cash_pending && checkout?.transaction_id) {
+        setCashPending(true);
+        setSuccess(true);
+        return;
+      }
       if (!checkout?.checkout_url || !checkout?.transaction_id) throw new Error(checkout?.error || 'Tap did not return a valid checkout session.');
 
       if (Capacitor.isNativePlatform()) await Browser.open({ url: checkout.checkout_url });
@@ -376,9 +389,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto text-emerald-600 shadow-xl">
               <CheckCircle2 className="w-10 h-10" />
             </div>
-            <h3 className="text-2xl font-black text-[#0a3030] uppercase italic">Subscription Protocol Activated!</h3>
+            <h3 className="text-2xl font-black text-[#0a3030] uppercase italic">{cashPending ? 'Cash collection requested' : 'Subscription Protocol Activated!'}</h3>
             <p className="text-gray-500 text-sm max-w-md mx-auto">
-              Tap confirmed your payment. Your plan is now active and ready for operations review.
+              {cashPending ? 'We will reach out to collect cash. Your plan stays pending and activates only after Admin or CEO verifies collection.' : 'Tap confirmed your payment. Your plan is now active and ready for operations review.'}
             </p>
             <button
               onClick={() => { onClose(); window.location.hash = '#my-plan'; }}
@@ -484,6 +497,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {STEPS[step]?.id === 'menu' && (
               <div className="space-y-4 animate-in">
                 <div><h3 className="text-[#0a3030] font-black text-lg uppercase italic">Choose your meals</h3><p className="mt-1 text-sm text-gray-500">Select meals from this week’s published kitchen menu. Kitchen’s choice is preselected where available.</p></div>
+                <section className="rounded-2xl border border-red-200 bg-white p-4"><h4 className="font-black uppercase text-[#0a3030]">Allergies and kitchen notes</h4><p className="mt-1 text-xs text-gray-500">Shared with the kitchen for food safety and preparation.</p><div className="mt-3 flex flex-wrap gap-2">{CHECKOUT_ALLERGENS.map((item) => <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${foodAllergies.includes(item) ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 text-gray-700'}`}><input type="checkbox" checked={foodAllergies.includes(item)} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item] : current.filter((value) => value !== item))}/>{item}</label>)}</div><label className="mt-4 block text-xs font-bold text-gray-700">Ingredients to avoid or general kitchen notes<textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder="For example: no onions, mild spice" className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
                 {menuLoading ? <p className="py-6 text-sm text-gray-500">Loading menu…</p> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">The kitchen has not published a menu yet. Check back after the weekly menu is released.</p> : SERVICE_DAYS.map((day) => {
                   const meals = packageMenuMeals.filter((meal) => (initialMenuOptions[`${day}|${meal}`] || []).length);
                   if (!meals.length) return null;
@@ -638,15 +652,16 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {/* Step 4: Payment Selection */}
             {STEPS[step]?.id === 'payment' && (
               <div className="space-y-4 animate-in">
-                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Secure payment with Tap</h3>
+                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Choose payment method</h3>
                 <div><label className="text-[10px] font-black uppercase text-gray-400">Email for payment receipts</label><input type="email" value={billingEmail || email} onChange={(e) => setBillingEmail(e.target.value)} placeholder="email@example.com" className="input-field mt-1 py-3 font-bold" required /></div>
-                <div className="rounded-2xl border border-gray-100 bg-white p-5 flex items-start gap-3">
-                  <CreditCard className="w-5 h-5 text-[#C5A059] shrink-0" />
-                  <p className="text-gray-600 text-sm">Card and wallet options available through Tap will appear in its secure checkout. Your plan activates only after Tap confirms payment.</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button type="button" onClick={() => setPaymentMethod('tap')} className={`rounded-2xl border p-5 text-left flex items-start gap-3 ${paymentMethod === 'tap' ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-100 bg-white text-gray-600'}`}><CreditCard className="w-5 h-5 text-[#C5A059] shrink-0"/><span><strong className="block">Pay online with Tap</strong><small className="mt-1 block opacity-80">Card and wallet checkout; plan activates after confirmation.</small></span></button>
+                  <button type="button" onClick={() => setPaymentMethod('cash')} className={`rounded-2xl border p-5 text-left flex items-start gap-3 ${paymentMethod === 'cash' ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-100 bg-white text-gray-600'}`}><Banknote className="w-5 h-5 text-[#C5A059] shrink-0"/><span><strong className="block">Cash collection</strong><small className="mt-1 block opacity-80">We’ll arrange collection before activating your plan.</small></span></button>
                 </div>
+                {paymentMethod === 'cash' && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Your plan stays pending until cash collection is verified by Admin or CEO.</p>}
                 <label className="flex items-start gap-3 rounded-2xl bg-white p-4 text-sm text-gray-600">
                   <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="mt-1 accent-[#0a3030]" />
-                  <span>I agree to the meal plan terms and authorize the selected Tap payment.</span>
+                  <span>I agree to the meal plan terms and authorize {paymentMethod === 'cash' ? 'cash collection before activation' : 'the selected Tap payment'}.</span>
                 </label>
               </div>
             )}
@@ -677,7 +692,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   disabled={submitting}
                   className="ml-auto px-10 py-4 rounded-2xl bg-[#0a3030] text-white font-black text-xs uppercase tracking-widest hover:bg-[#C5A059] transition-all shadow-xl flex items-center gap-2"
                 >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : waitingForPayment ? 'Waiting for Tap confirmation' : 'Continue to Tap checkout'}
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : waitingForPayment ? 'Waiting for Tap confirmation' : paymentMethod === 'cash' ? 'Request cash collection' : 'Continue to Tap checkout'}
                 </button>
               )}
             </div>

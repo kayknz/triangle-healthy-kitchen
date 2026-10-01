@@ -72,9 +72,11 @@ export interface GlobalSettings {
 }
 
 export const PACKAGE_MEALS: Record<string, string[]> = {
-  '1100kcal': ['breakfast', 'lunch', 'dinner', 'snacks'],
-  '1400kcal': ['breakfast', 'lunch', 'dinner', 'snacks'],
+  '1100kcal': ['lunch', 'dinner', 'snacks'],
+  '1400kcal': ['breakfast', 'lunch', 'dinner'],
   '1500kcal': ['breakfast', 'lunch', 'dinner', 'snacks'],
+  daily_trial: ['lunch', 'dinner', 'snacks'],
+  weekly_reset: ['lunch', 'dinner', 'snacks'],
 };
 
 export const MEAL_LABELS: Record<string, string> = {

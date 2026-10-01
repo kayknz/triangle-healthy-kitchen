@@ -242,7 +242,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
   };
 
   const whatsappCustomer = (d: Delivery) => {
-    const message = `Hi ${d.client_name}! This is Triangle Healthy Kitchen. I'm on my way with your ${d.meal_type.toUpperCase()} delivery!`;
+    const message = `Hi ${d.client_name}! This is Triangle Healthy Kitchen. I'm on my way with your daily meal delivery!`;
 
     // Ensure Qatar country code if missing
     let phone = d.client_phone.replace(/[^0-9]/g, '');
@@ -408,7 +408,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
                       <div>
                         <h3 className="text-white font-bold text-lg">{d.client_name}</h3>
                         <p className="text-white/40 text-xs flex items-center gap-1 capitalize">
-                          <Clock className="w-3 h-3" /> {d.meal_type} - {d.time_window}
+                          <Clock className="w-3 h-3" /> All meals · One daily delivery
                         </p>
                       </div>
                     </div>

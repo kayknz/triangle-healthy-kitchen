@@ -189,11 +189,11 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
           rider_user_id: assignedRider.user_id,
           subscriber_id: sub.id,
           delivery_date: targetPrepDateStr,
-          meal_type: 'lunch',
-          time_window: '12-2 PM',
+          meal_type: 'all',
+          time_window: 'One daily delivery',
           notes: sub.delivery_notes || null,
           status: 'pending',
-        }, { onConflict: 'subscriber_id,delivery_date,meal_type' });
+        }, { onConflict: 'subscriber_id,delivery_date' });
 
         count++;
       }
