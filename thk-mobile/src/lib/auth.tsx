@@ -21,6 +21,7 @@ interface AuthContextValue {
   isOwner: boolean;
   userRole: UserRole | null;
   isApprovedRider: boolean;
+  hasPersonal: boolean;
   canEdit: boolean;
   canManageDrivers: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
@@ -55,13 +56,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isOwner, setIsOwner] = useState(false);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [isApprovedRider, setIsApprovedRider] = useState(false);
+  const [hasPersonal, setHasPersonal] = useState(false);
 
   const canEdit = userRole === 'ceo' || userRole === 'admin' || userRole === 'owner';
   const canManageDrivers = canEdit || userRole === 'transport';
 
-  const getAuthAccess = async (u: User | null): Promise<{ role: UserRole | null; isOwner: boolean; isApprovedRider: boolean }> => {
+  const getAuthAccess = async (u: User | null): Promise<{ role: UserRole | null; isOwner: boolean; isApprovedRider: boolean; hasPersonal: boolean }> => {
     if (!u) {
-      return { role: null, isOwner: false, isApprovedRider: false };
+      return { role: null, isOwner: false, isApprovedRider: false, hasPersonal: false };
     }
 
     try {
@@ -74,24 +76,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .select('approved')
             .eq('user_id', u.id)
             .maybeSingle();
-          return { role, isOwner: false, isApprovedRider: rider?.approved === true };
+          return { role, isOwner: false, isApprovedRider: rider?.approved === true, hasPersonal: false };
         }
-        return { role, isOwner: role === 'ceo' || role === 'admin', isApprovedRider: false };
+        return { role, isOwner: role === 'ceo' || role === 'admin', isApprovedRider: false, hasPersonal: true };
       }
 
       const email = (u.email || '').toLowerCase().trim();
       const knownStaff = STAFF_EMAIL_MAP[email];
-      if (knownStaff && knownStaff.role !== 'driver') return knownStaff;
+      if (knownStaff && knownStaff.role !== 'driver') return { ...knownStaff, hasPersonal: true };
 
       const { data: sub } = await supabase
         .from('subscribers')
-        .select('is_owner')
+        .select('is_owner,payment_status,subscription_status,package_id')
         .eq('user_id', u.id)
         .maybeSingle();
 
       if (sub?.is_owner) {
-        return { role: 'ceo', isOwner: true, isApprovedRider: false };
+        return { role: 'ceo', isOwner: true, isApprovedRider: false, hasPersonal: true };
       }
+      const paidPlan = sub?.payment_status === 'Paid' && sub?.subscription_status === 'Active' && Boolean(sub?.package_id) && sub?.package_id !== 'pending';
 
       const { data: rider } = await supabase
           .from('rider_applications')
@@ -103,13 +106,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: 'driver',
           isOwner: false,
           isApprovedRider: rider?.approved === true,
+          hasPersonal: paidPlan,
         };
       }
     } catch (err) {
       console.warn('Metadata fetch warning:', err);
     }
 
-    return { role: 'customer', isOwner: false, isApprovedRider: false };
+    return { role: 'customer', isOwner: false, isApprovedRider: false, hasPersonal: false };
   };
 
   const applyAuthAccess = async (u: User | null) => {
@@ -118,12 +122,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserRole(access.role);
       setIsOwner(access.isOwner);
       setIsApprovedRider(access.isApprovedRider);
+      setHasPersonal(access.hasPersonal);
       return access;
     } catch (e) {
       setUserRole('customer');
       setIsOwner(false);
       setIsApprovedRider(false);
-      return { role: 'customer' as UserRole, isOwner: false, isApprovedRider: false };
+      setHasPersonal(false);
+      return { role: 'customer' as UserRole, isOwner: false, isApprovedRider: false, hasPersonal: false };
     }
   };
 
@@ -282,7 +288,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
-    setIsOwner(false);
+      setIsOwner(false);
+      setHasPersonal(false);
     setUserRole(null);
     setIsApprovedRider(false);
   };
@@ -346,7 +353,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      session, user, loading, isOwner, userRole, isApprovedRider, canEdit, canManageDrivers,
+      session, user, loading, isOwner, userRole, isApprovedRider, hasPersonal, canEdit, canManageDrivers,
       signIn, signInPhone, signUp, signUpPhone, verifySignupOtp, completePhoneSignup, sendOtp, verifyOtp, signOut, resetPassword, refreshAuth,
       enableBiometric, biometricLogin
     }}>

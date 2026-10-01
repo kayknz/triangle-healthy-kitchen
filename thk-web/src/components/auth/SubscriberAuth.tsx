@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Loader2, Mail, Lock, User, KeyRound, CheckCircle2, Smartphone } from 'lucide-react';
+import { Loader2, Mail, Lock, KeyRound, CheckCircle2, Smartphone } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import AuthLayout from './AuthLayout';
 import { useLanguage } from '../../lib/LanguageContext';
@@ -9,22 +9,20 @@ import type { CountryCode } from 'libphonenumber-js';
 interface SubscriberAuthProps {
   onBack: () => void;
   onSuccess: (dual?: boolean) => void;
+  onChoosePlan: () => void;
 }
 
-type Mode = 'signin' | 'signup' | 'forgot';
+type Mode = 'signin' | 'forgot';
 
-export default function SubscriberAuth({ onBack, onSuccess }: SubscriberAuthProps) {
-  const { signIn, signInPhone, signUp, signUpPhone, verifySignupOtp, resetPassword } = useAuth();
+export default function SubscriberAuth({ onBack, onSuccess, onChoosePlan }: SubscriberAuthProps) {
+  const { signIn, signInPhone, resetPassword } = useAuth();
   const { t, isRtl } = useLanguage();
-  const [mode, setMode] = useState<Mode>('signup');
+  const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [country, setCountry] = useState<CountryCode>('QA');
   const [channel, setChannel] = useState<PhoneChannel>('email');
-  const [otpStep, setOtpStep] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
@@ -44,23 +42,7 @@ export default function SubscriberAuth({ onBack, onSuccess }: SubscriberAuthProp
         return;
       }
 
-      if (otpStep) {
-        const destination = channel === 'email' ? email.trim().toLowerCase() : toE164Phone(phone, country);
-        if (!destination) throw new Error('Enter a valid phone number for the selected country.');
-        const result = await verifySignupOtp(destination, otpCode.trim(), channel);
-        if (result.error) setError(result.error);
-        else onSuccess();
-      } else if (mode === 'signup') {
-        if (password.length < 6) throw new Error('Password must be at least 6 characters.');
-        if (channel === 'email' && !email.trim()) throw new Error('Enter your email address.');
-        if (channel === 'whatsapp' && !toE164Phone(phone, country)) throw new Error('Enter a valid phone number for the selected country.');
-        const result = channel === 'email'
-          ? await signUp(email.trim().toLowerCase(), password, 'subscriber', name)
-          : await signUpPhone(toE164Phone(phone, country)!, password, name, 'whatsapp');
-        if (result.error) setError(result.error);
-        else if (result.needsVerification) setOtpStep(true);
-        else onSuccess();
-      } else {
+      {
         const destination = channel === 'email' ? email.trim().toLowerCase() : toE164Phone(phone, country);
         if (!destination) throw new Error(channel === 'email' ? 'Enter your email address.' : 'Enter a valid phone number for the selected country.');
         const result = channel === 'email'
@@ -79,8 +61,8 @@ export default function SubscriberAuth({ onBack, onSuccess }: SubscriberAuthProp
   return (
     <AuthLayout
       onBack={onBack}
-      title={mode === 'signup' ? t('register_title') : mode === 'signin' ? t('login_title') : t('forgot_password')}
-      subtitle={otpStep ? 'Enter the verification code we sent you.' : mode === 'signup' ? t('register_subtitle') : mode === 'signin' ? t('login_subtitle') : 'Enter your email to reset'}
+      title={mode === 'signin' ? t('login_title') : t('forgot_password')}
+      subtitle={mode === 'signin' ? t('login_subtitle') : 'Enter your email to reset'}
     >
       {error && (
         <div className="mb-6 bg-red-50 border border-red-100 rounded-2xl px-5 py-4 text-red-600 text-[10px] font-black uppercase tracking-widest leading-relaxed">
@@ -96,25 +78,9 @@ export default function SubscriberAuth({ onBack, onSuccess }: SubscriberAuthProp
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {!otpStep && mode === 'signup' && (
-          <div className="space-y-2">
-            <label className="text-primary/40 text-[9px] font-black uppercase tracking-[0.3em] ml-2 flex items-center gap-2">
-              <User className="w-3 h-3" /> {t('identity_name')}
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your full name"
-              className="input-field py-5 bg-white/40 font-black italic tracking-tighter"
-              required
-            />
-          </div>
-        )}
-
-        {!otpStep && mode !== 'forgot' && (
+        {mode !== 'forgot' && (
           <fieldset className="space-y-2">
-            <legend className="text-primary/40 text-[9px] font-black uppercase tracking-[0.3em] ml-2">{isRtl ? 'كيف نرسل رمز التحقق؟' : 'How should we send your verification code?'}</legend>
+            <legend className="text-primary/40 text-[9px] font-black uppercase tracking-[0.3em] ml-2">{isRtl ? 'تسجيل الدخول باستخدام' : 'Sign in using'}</legend>
             <div className="grid grid-cols-2 gap-3">
               {(['email', 'whatsapp'] as const).map((value) => (
                 <label key={value} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold transition-colors ${channel === value ? 'border-primary bg-primary/5 text-primary' : 'border-primary/10 bg-white/40 text-primary/60'}`}>
@@ -127,7 +93,7 @@ export default function SubscriberAuth({ onBack, onSuccess }: SubscriberAuthProp
           </fieldset>
         )}
 
-        {!otpStep && (channel === 'email' || mode === 'forgot') ? <div className="space-y-2">
+        {(channel === 'email' || mode === 'forgot') ? <div className="space-y-2">
           <label className="text-primary/40 text-[9px] font-black uppercase tracking-[0.3em] ml-2 flex items-center gap-2">
             <Mail className="w-3 h-3" /> {t('operational_email')}
           </label>
@@ -139,7 +105,7 @@ export default function SubscriberAuth({ onBack, onSuccess }: SubscriberAuthProp
             className="input-field py-5 bg-white/40 font-black italic tracking-tighter"
             required
           />
-        </div> : !otpStep && (
+        </div> : (
           <div className="space-y-2">
             <label className="text-primary/40 text-[9px] font-black uppercase tracking-[0.3em] ml-2">{isRtl ? 'رقم الهاتف' : 'Mobile number'}</label>
             <div className="flex gap-2">
@@ -151,15 +117,7 @@ export default function SubscriberAuth({ onBack, onSuccess }: SubscriberAuthProp
           </div>
         )}
 
-        {otpStep && (
-          <div className="space-y-2">
-            <label className="text-primary/40 text-[9px] font-black uppercase tracking-[0.3em] ml-2">{isRtl ? 'رمز التحقق' : 'Verification code'}</label>
-            <p className="px-2 text-xs text-primary/60">{isRtl ? 'تم الإرسال إلى' : 'Sent to'} {channel === 'email' ? email : toE164Phone(phone, country)}</p>
-            <input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\s/g, ''))} placeholder="Enter code" className="input-field bg-white/40 py-5 text-center text-xl font-black tracking-[0.35em]" required />
-          </div>
-        )}
-
-        {!otpStep && mode !== 'forgot' && (
+        {mode !== 'forgot' && (
           <div className="space-y-2">
             <label className="text-primary/40 text-[9px] font-black uppercase tracking-[0.3em] ml-2 flex items-center gap-2">
               <Lock className="w-3 h-3" /> {t('security_key')}
@@ -182,7 +140,7 @@ export default function SubscriberAuth({ onBack, onSuccess }: SubscriberAuthProp
         >
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin text-gold" />
-          ) : otpStep ? (isRtl ? 'تحقق من الرمز' : 'VERIFY CODE') : mode === 'signup' ? t('register_button') : mode === 'signin' ? t('login_button') : 'SEND RESET LINK'}
+          ) : mode === 'signin' ? t('login_button') : 'SEND RESET LINK'}
         </button>
       </form>
 
@@ -207,17 +165,13 @@ export default function SubscriberAuth({ onBack, onSuccess }: SubscriberAuthProp
           <div className="flex flex-col gap-4">
             <button
               onClick={() => {
-                setMode(mode === 'signup' ? 'signin' : 'signup');
-                setOtpStep(false);
-                setOtpCode('');
                 setError(null);
                 setResetSent(false);
+                onChoosePlan();
               }}
               className="text-primary/30 hover:text-gold text-[9px] font-black uppercase tracking-[0.3em] transition-colors underline underline-offset-8 decoration-primary/10"
             >
-              {mode === 'signup'
-                ? t('existing_account')
-                : t('new_account')}
+              {isRtl ? 'عميل جديد؟ اختر خطة أولاً' : 'New customer? Choose a plan first'}
             </button>
 
             <div className="pt-6 border-t border-primary/5">

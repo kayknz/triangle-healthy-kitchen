@@ -209,116 +209,9 @@ export default function SubscriberDashboard() {
           </div>
         </header>
 
-        {/* My Rhythm Hero Section */}
-        <section className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-8 sm:gap-12 items-stretch animate-reveal">
-           <div className="p-8 sm:p-20 bg-primary text-white relative overflow-hidden shadow-4xl rounded-[3rem] sm:rounded-[4rem] group">
-              <div className="absolute inset-0 bg-food-atmosphere opacity-5 grayscale pointer-events-none group-hover:scale-105 transition-transform duration-[10s]" />
-              <div className="relative z-10 space-y-12 sm:space-y-16">
-                 <div className="flex justify-between items-start">
-                    <div>
-                       <p className="text-gold text-[9px] sm:text-[10px] font-black uppercase tracking-[0.6em] mb-3 sm:mb-4">Momentum</p>
-                       <h2 className="text-4xl sm:text-8xl font-serif italic tracking-tighter leading-none">Your Progress.</h2>
-                    </div>
-                    <div className="badge bg-gold/10 text-gold py-3 px-6 sm:py-4 sm:px-8 border border-gold/20 flex flex-col items-center min-w-[100px] sm:min-w-[120px]">
-                       <span className="font-black text-2xl sm:text-3xl italic leading-none">{rhythmMetrics.streak}</span>
-                       <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest mt-1 sm:mt-2">DAY STREAK</span>
-                    </div>
-                 </div>
-
-                 <div className="space-y-8 sm:space-y-10">
-                    <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6">
-                       <span className="text-6xl sm:text-8xl lg:text-[10rem] font-black italic tracking-tighter leading-none sm:leading-[0.8]">{rhythmMetrics.steps.toLocaleString()}</span>
-                       <div className="pb-2 sm:pb-4 space-y-1 sm:space-y-2">
-                          <p className="text-white/40 text-[10px] sm:text-sm font-black uppercase tracking-widest">Goal: {rhythmMetrics.goal.toLocaleString()}</p>
-                          <div className="flex items-center gap-2 sm:gap-3">
-                             <div className="w-2 h-2 rounded-full bg-gold animate-pulse shadow-[0_0_10px_#C5A059]" />
-                             <p className="text-gold text-sm sm:text-lg font-black uppercase tracking-tighter italic">{Math.round(progressPct)}% DONE</p>
-                          </div>
-                       </div>
-                    </div>
-                    <div className="w-full bg-white/5 h-4 sm:h-5 rounded-full overflow-hidden p-1 shadow-inner relative border border-white/5">
-                       <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progressPct}%` }}
-                        transition={{ duration: 2, ease: "easeOut" }}
-                        className="bg-gold h-full rounded-full shadow-[0_0_40px_rgba(197,160,89,0.8)] relative"
-                       >
-                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-                       </motion.div>
-                    </div>
-                 </div>
-
-                 <div className="flex flex-wrap items-center gap-4 sm:gap-8 pt-4">
-                    <div className="flex items-center gap-2 sm:gap-3 bg-white/5 px-4 py-2 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl border border-white/10 backdrop-blur-md">
-                       <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
-                       <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-white">Live Monitoring</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setTab('menu');
-                        // Use scrollIntoView with a small delay to allow the tab to switch
-                        setTimeout(() => {
-                          const el = document.getElementById('menu-anchor');
-                          if (el) {
-                            el.scrollIntoView({ behavior: 'smooth' });
-                          } else {
-                             // Fallback to top if anchor not found
-                             window.scrollTo({ top: 500, behavior: 'smooth' });
-                          }
-                        }, 100);
-                      }}
-                      className="flex items-center gap-2 sm:gap-3 bg-gold text-primary px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-black text-[9px] sm:text-[10px] uppercase tracking-[0.2em] sm:tracking-[0.3em] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-gold/20"
-                    >
-                       <Utensils className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> CHOOSE FOOD
-                    </button>
-                 </div>
-              </div>
-           </div>
-
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-10">
-              <div className="glass-card p-12 bg-white/40 backdrop-blur-xl border-white/60 shadow-4xl group hover:border-[#C5A059] transition-all duration-700 flex flex-col justify-between">
-                 <div className="flex justify-between items-start mb-10">
-                    <div className="w-16 h-16 rounded-[2rem] bg-[#123F38] text-white flex items-center justify-center shadow-2xl group-hover:bg-[#C5A059] group-hover:text-[#123F38] transition-all duration-700">
-                       <Trophy className="w-8 h-8" />
-                    </div>
-                    <div className="text-right">
-                       <p className="text-[#123F38]/30 text-[9px] font-black uppercase tracking-widest mb-1">Asset Value</p>
-                       <h4 className="text-4xl font-black text-[#123F38] italic tracking-tighter leading-none">{rhythmMetrics.points.toLocaleString()} <span className="text-[10px] not-italic opacity-40 ml-1">PTS</span></h4>
-                    </div>
-                 </div>
-                 <p className="text-[#123F38]/50 text-xs italic leading-relaxed mb-8">Exchange your activity for premium rewards and upgrades.</p>
-                 <button onClick={() => navigate('/rewards')} className="btn-primary w-full !py-5 text-[9px] tracking-[0.4em] flex items-center justify-center gap-3 hover:scale-105 active:scale-95">
-                    ENTER THE VAULT <ArrowUpRight className="w-3.5 h-3.5" />
-                 </button>
-              </div>
-
-              <div className="glass-card p-12 bg-[#123F38] text-white shadow-4xl relative overflow-hidden flex flex-col justify-between group hover:shadow-[#C5A059]/10 transition-all duration-700">
-                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#C5A059]/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-[#C5A059]/20 transition-all" />
-                 <div className="relative z-10 flex flex-col h-full justify-between gap-8">
-                    <div className="flex items-center gap-5">
-                       <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center shadow-inner border border-white/5">
-                          <Users className="w-6 h-6 text-[#C5A059]" />
-                       </div>
-                       <div>
-                          <p className="text-[#C5A059] text-[9px] font-black uppercase tracking-widest mb-1">Regional Tribe</p>
-                          <h4 className="text-2xl font-black italic tracking-tighter uppercase leading-none truncate max-w-[180px]">{(subscriber as any)?.regional_community || 'Doha'} Collective</h4>
-                       </div>
-                    </div>
-                    <div className="space-y-6">
-                       <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-white/40">
-                          <span>Collective Momentum</span>
-                          <span className="text-[#C5A059]">68%</span>
-                       </div>
-                       <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden p-[2px]">
-                          <div className="bg-[#C5A059] h-full w-[68%] rounded-full shadow-[0_0_15px_#C5A059]" />
-                       </div>
-                       <button onClick={() => navigate('/community')} className="flex items-center gap-3 text-[#C5A059] hover:text-white transition-all text-[10px] font-black uppercase tracking-[0.3em] active:translate-x-2">
-                          OPEN COMMUNICATIONS <ChevronRight className="w-4 h-4" />
-                       </button>
-                    </div>
-                 </div>
-              </div>
-           </div>
+        <section className="mb-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-primary/10 bg-white p-5 shadow-sm">
+          <div><h2 className="font-bold text-primary">Your goals and rewards</h2><p className="mt-1 text-sm text-primary/60">Track progress and use your points from the Rewards page.</p></div>
+          <button type="button" onClick={() => navigate('/rewards')} className="btn-primary px-5 py-3 text-xs">Open Rewards</button>
         </section>
 
         <AnimatePresence mode="wait">
@@ -415,16 +308,18 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
         .from('menu_availability')
         .select('*, dishes(*)')
         .eq('collection', settings?.active_season || 'autumn')
-        .gte('available_from', qatarMidnight(releaseStart))
-        .lt('available_from', qatarMidnight(releaseEnd))
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .lte('available_from', new Date().toISOString())
+        .order('available_from', { ascending: false });
       setMenuWeek(1);
       if (menuError) throw menuError;
-      setMenuHasItems(Boolean(menuData?.length));
+      const latestRelease = menuData?.[0]?.available_from;
+      const releasedMenu = latestRelease ? (menuData || []).filter((row: any) => row.available_from === latestRelease) : [];
+      setMenuHasItems(Boolean(releasedMenu.length));
 
       // Ingredients are linked through meal_ingredient_config, not directly
       // from dishes. Load that relation separately so PostgREST can resolve it.
-      let menuWithIngredients = menuData || [];
+      let menuWithIngredients = releasedMenu;
       const dishSlugs = [...new Set(menuWithIngredients.map((row: any) => row.dishes?.slug).filter(Boolean))];
       if (dishSlugs.length) {
         const { data: configs, error: configError } = await supabase
@@ -559,6 +454,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
 
   return (
     <div className="space-y-12">
+      <AllergyPreferences subscriber={subscriber} onUpdate={onUpdate} />
       {/* 1. Header & Week Selector */}
       <div className="flex flex-col xl:flex-row items-center justify-between gap-8 bg-white/40 backdrop-blur-2xl p-8 rounded-[3rem] border border-white/20 shadow-3xl">
         <div className="flex items-center gap-6">
@@ -974,10 +870,23 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
   );
 }
 
+function AllergyPreferences({ subscriber, onUpdate }: { subscriber: Subscriber; onUpdate: () => void }) {
+  const { t } = useLanguage();
+  const [allergies, setAllergies] = useState<string[]>(subscriber.allergies || []);
+  const [saving, setSaving] = useState(false);
+  const allergens = ['Fish', 'Dairy', 'Eggs', 'Gluten', 'Seafood', 'Sesame', 'Nuts'];
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase.from('subscribers').update({ allergies }).eq('id', subscriber.id);
+    setSaving(false);
+    if (error) alert(t('error_generic')); else { alert(t('safety_confirmed')); onUpdate(); }
+  };
+  return <section className="rounded-3xl border border-red-200 bg-white p-6 sm:p-8 shadow-sm"><div className="mb-5 flex items-center gap-3"><ShieldAlert className="h-5 w-5 text-red-600"/><div><h3 className="font-black uppercase tracking-wide text-primary">Allergies & food safety</h3><p className="text-xs text-primary/60">These notes help flag unsuitable dishes for the kitchen.</p></div></div><div className="flex flex-wrap gap-2">{allergens.map((allergen) => { const selected=allergies.includes(allergen); return <button type="button" key={allergen} aria-pressed={selected} onClick={() => setAllergies((previous) => selected ? previous.filter((item) => item !== allergen) : [...previous, allergen])} className={`rounded-full border px-4 py-2 text-xs font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-primary/15 text-primary/70'}`}>{t(allergen.toLowerCase()) || allergen}</button>; })}</div><button type="button" onClick={save} disabled={saving} className="btn-primary mt-5 px-6 py-3 text-xs">{saving ? 'Saving…' : 'Save food-safety notes'}</button></section>;
+}
+
 function PlanSettings({ subscriber, onUpdate, updating, setUpdating }: { subscriber: Subscriber, onUpdate: () => void, updating: boolean, setUpdating: (v: boolean) => void }) {
   const { signOut, user } = useAuth();
   const { t } = useLanguage();
-  const [allergies, setAllergies] = useState<string[]>(subscriber.allergies || []);
   const [pauseRequest, setPauseRequest] = useState<any>(null);
   const [requestDate, setRequestDate] = useState(qatarTomorrowString);
   const [requestReason, setRequestReason] = useState('');
@@ -988,23 +897,6 @@ function PlanSettings({ subscriber, onUpdate, updating, setUpdating }: { subscri
       .then(({ data }) => { if (mounted) setPauseRequest(data); });
     return () => { mounted = false; };
   }, [subscriber.id]);
-
-  const toggleAllergy = (allergen: string) => {
-    setAllergies(prev =>
-      prev.includes(allergen) ? prev.filter(a => a !== allergen) : [...prev, allergen]
-    );
-  };
-
-  const saveAllergies = async () => {
-    setUpdating(true);
-    const { error } = await supabase.from('subscribers').update({ allergies }).eq('id', subscriber.id);
-    if (error) alert(t('error_generic'));
-    else {
-      alert(t('safety_confirmed'));
-      onUpdate();
-    }
-    setUpdating(false);
-  };
 
   const togglePause = async () => {
     if (!subscriber) return;
@@ -1035,57 +927,8 @@ function PlanSettings({ subscriber, onUpdate, updating, setUpdating }: { subscri
     setUpdating(false);
   };
 
-  const ALLERGEN_LIST = ['Fish', 'Dairy', 'Eggs', 'Gluten', 'Seafood', 'Sesame', 'Nuts'];
-
   return (
     <div className="space-y-12 animate-reveal">
-       {/* Biological Safety Hub */}
-       <div className="glass-card p-12 sm:p-16 border-none shadow-4xl bg-[#123F38] text-white relative overflow-hidden rounded-[4rem]">
-          <div className="absolute inset-0 bg-food-atmosphere opacity-5 grayscale pointer-events-none" />
-          <div className="relative z-10 space-y-12">
-             <div className="flex items-center gap-6">
-                <div className="w-20 h-20 rounded-[2.5rem] bg-[#C5A059]/20 flex items-center justify-center">
-                   <Shield className="w-10 h-10 text-[#C5A059] animate-glow" />
-                </div>
-                <div>
-                   <h3 className="text-4xl font-black italic uppercase tracking-tighter mb-2">{t('safety_restrictions')}</h3>
-                   <p className="text-[#C5A059]/60 text-[10px] font-black uppercase tracking-[0.4em]">Clinical Risk Mitigation Protocol</p>
-                </div>
-             </div>
-
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                {ALLERGEN_LIST.map((allergen) => {
-                  const isActive = allergies.includes(allergen);
-                  return (
-                    <button
-                      key={allergen}
-                      onClick={() => toggleAllergy(allergen)}
-                      className={`p-6 rounded-[2rem] border-2 transition-all duration-500 flex flex-col items-center gap-4 group ${
-                        isActive ? 'bg-red-500 border-white shadow-2xl scale-105' : 'bg-white/5 border-white/10 hover:border-[#C5A059]/30'
-                      }`}
-                    >
-                       <ShieldAlert className={`w-6 h-6 ${isActive ? 'text-white' : 'text-white/20 group-hover:text-[#C5A059]'}`} />
-                       <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-white' : 'text-white/40'}`}>{t(allergen.toLowerCase())}</span>
-                    </button>
-                  );
-                })}
-             </div>
-
-             <div className="pt-6 border-t border-white/10 flex items-center justify-between gap-8">
-                <p className="text-[10px] font-medium italic text-white/40 max-w-xl">
-                  {t('safety_desc_protocol')}
-                </p>
-                <button
-                  onClick={saveAllergies}
-                  disabled={updating}
-                  className="btn-primary !bg-[#C5A059] !text-[#123F38] px-12 py-5 shadow-2xl active:scale-95 whitespace-nowrap"
-                >
-                  {updating ? 'SYNCING...' : t('modify_restrictions')}
-                </button>
-             </div>
-          </div>
-       </div>
-
        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           <div className="glass-card p-16 border-white/20 bg-white/5 group">
              <div className="w-20 h-20 rounded-[2.5rem] bg-[#123F38]/10 flex items-center justify-center mb-10 group-hover:bg-[#C5A059] transition-all duration-700">

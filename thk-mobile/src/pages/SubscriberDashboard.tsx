@@ -198,93 +198,10 @@ export default function SubscriberDashboard() {
           </div>
         </header>
 
-        {/* My Rhythm Integration: Hero Goal & Streak */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-20 animate-reveal">
-          <div className="lg:col-span-2">
-            <div className="bg-[#1A2E2E] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl h-full">
-              <div className="relative z-10">
-                <div className="flex justify-between items-start mb-8">
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#C5A059] opacity-80">{t('daily_activity') || 'Daily Activity'}</span>
-                    <h2 className="text-3xl font-serif mt-1" style={{ fontFamily: "'DM Serif Display', serif" }}>{t('keep_the_pace') || 'Keep the pace'}</h2>
-                  </div>
-                  <div className="bg-white/10 p-3 rounded-2xl">
-                    <Activity className="w-5 h-5 text-[#C5A059]" />
-                  </div>
-                </div>
-
-                <div className="flex items-end gap-4 mb-6">
-                  <span className="text-6xl font-serif" style={{ fontFamily: "'DM Serif Display', serif" }}>{activityData.steps.toLocaleString()}</span>
-                  <span className="text-white/60 font-sans mb-2 uppercase tracking-widest text-xs">{t('steps') || 'Steps'}</span>
-                </div>
-
-                <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden mb-8">
-                  <div
-                    className="bg-[#C5A059] h-full rounded-full shadow-[0_0_15px_rgba(197,160,89,0.5)] transition-all duration-1000"
-                    style={{ width: `${Math.min((activityData.steps / activityData.goal) * 100, 100)}%` }}
-                  />
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <Award className="w-4 h-4 text-[#C5A059]" />
-                    <span className="text-sm font-sans text-white/80">{t('goal') || 'Goal'}: {activityData.goal.toLocaleString()} {t('steps') || 'steps'}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-[#C5A059]">{subscriber.points_balance?.toLocaleString() || 0} PTS</p>
-                       <p className="text-[8px] text-white/40 uppercase tracking-widest">Balance</p>
-                    </div>
-                    <button
-                      onClick={() => loadDashboardData()}
-                      className="bg-[#C5A059] text-[#1A2E2E] px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform"
-                    >
-                      {t('sync_now') || 'Sync Now'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-[#2D4B4B] rounded-full blur-[80px] opacity-40" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-[2.5rem] p-8 border border-primary/5 shadow-xl flex flex-col justify-between">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-serif text-xl text-[#1A2E2E]" style={{ fontFamily: "'DM Serif Display', serif" }}>{t('weekly_streak') || 'Weekly Streak'}</h3>
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#C5A059]">{subscriber.current_streak || 0} {t('days') || 'Days'}</span>
-            </div>
-
-            <div className="flex justify-between gap-2">
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
-                const isActive = activityData.streak[i] === 1;
-                const isToday = i === (getQatarDayOfWeek() + 6) % 7; // Adjust for Monday start
-
-                return (
-                  <div key={i} className="flex flex-col items-center gap-2">
-                    <span className="text-[8px] font-black text-primary/30">{day}</span>
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
-                      isActive ? 'bg-[#8AA694]/20 text-[#8AA694]' :
-                      isToday ? 'bg-[#C5A059] text-white shadow-lg' :
-                      'bg-primary/5 text-primary/20'
-                    }`}>
-                      {isActive ? <CheckCircle2 className="w-4 h-4" /> : isToday ? <Circle className="w-4 h-4 animate-pulse" /> : <Circle className="w-4 h-4" />}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-8 p-4 rounded-2xl bg-[#FDFCF7] border border-primary/5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-[#C5A059] mb-1">{t('next_milestone') || 'Next Milestone'}</p>
-              <p className="text-xs font-medium text-primary/60">
-                {(subscriber.current_streak || 0) >= 7
-                  ? "You're on fire! Keep the momentum for exclusive rewards."
-                  : `Complete today's rhythm to earn ${50} bonus points.`
-                }
-              </p>
-            </div>
-          </div>
-        </div>
+        <section className="mb-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-primary/10 bg-white p-5 shadow-sm">
+          <div><h2 className="font-bold text-primary">Your goals and rewards</h2><p className="mt-1 text-sm text-primary/60">Track progress and use your points from the Rewards page.</p></div>
+          <button type="button" onClick={() => (window.location.hash = 'rewards')} className="btn-primary px-5 py-3 text-xs">Open Rewards</button>
+        </section>
 
         <AnimatePresence mode="wait">
           <motion.div
@@ -321,6 +238,15 @@ export default function SubscriberDashboard() {
       </div>
     </div>
   );
+}
+
+function AllergyPreferences({ subscriber, onUpdate }: { subscriber: Subscriber; onUpdate: () => void }) {
+  const { t } = useLanguage();
+  const [allergies, setAllergies] = useState<string[]>(subscriber.allergies || []);
+  const [saving, setSaving] = useState(false);
+  const allergens = ['Fish', 'Dairy', 'Eggs', 'Gluten', 'Seafood', 'Sesame', 'Nuts'];
+  const save = async () => { setSaving(true); const { error } = await supabase.from('subscribers').update({ allergies }).eq('id', subscriber.id); setSaving(false); if (error) alert(t('error_generic')); else { alert(t('safety_confirmed')); onUpdate(); } };
+  return <section className="rounded-2xl border border-red-200 bg-white p-4"><div className="mb-3 flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-red-600"/><div><h3 className="text-sm font-black uppercase text-primary">Allergies & food safety</h3><p className="text-[10px] text-primary/60">Kitchen safety notes for your meals.</p></div></div><div className="flex flex-wrap gap-2">{allergens.map((allergen) => { const selected=allergies.includes(allergen); return <button type="button" key={allergen} aria-pressed={selected} onClick={() => setAllergies((previous) => selected ? previous.filter((item) => item !== allergen) : [...previous, allergen])} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-primary/15 text-primary/70'}`}>{t(allergen.toLowerCase()) || allergen}</button>; })}</div><button type="button" onClick={save} disabled={saving} className="btn-primary mt-3 px-4 py-2 text-[10px]">{saving ? 'Saving…' : 'Save food-safety notes'}</button></section>;
 }
 
 function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscriber, settings: GlobalSettings | null, onUpdate: () => void }) {
@@ -376,16 +302,18 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
         .from('menu_availability')
         .select('*, dishes(*)')
         .eq('collection', settings?.active_season || 'autumn')
-        .gte('available_from', qatarMidnight(releaseStart))
-        .lt('available_from', qatarMidnight(releaseEnd))
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .lte('available_from', new Date().toISOString())
+        .order('available_from', { ascending: false });
       setMenuWeek(1);
       if (menuError) throw menuError;
-      setMenuHasItems(Boolean(menuData?.length));
+      const latestRelease = menuData?.[0]?.available_from;
+      const releasedMenu = latestRelease ? (menuData || []).filter((row: any) => row.available_from === latestRelease) : [];
+      setMenuHasItems(Boolean(releasedMenu.length));
 
       // Ingredients are linked through meal_ingredient_config, not directly
       // from dishes. Fetch the join rows separately so PostgREST can resolve them.
-      let menuWithIngredients = menuData || [];
+      let menuWithIngredients = releasedMenu;
       const dishSlugs = [...new Set(menuWithIngredients.map((row: any) => row.dishes?.slug).filter(Boolean))];
       if (dishSlugs.length) {
         const { data: configs, error: configError } = await supabase
@@ -516,6 +444,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
 
   return (
     <div className="space-y-6">
+      <AllergyPreferences subscriber={subscriber} onUpdate={onUpdate} />
       {/* 1. Header & Week Selector */}
       <div className="flex items-center justify-between bg-white p-5 rounded-2xl border border-primary/5 shadow-lg">
         <div className="text-center">

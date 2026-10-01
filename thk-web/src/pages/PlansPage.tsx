@@ -13,7 +13,7 @@ interface PlansPageProps {
 
 export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
   const { t, isRtl } = useLanguage();
-  const { user, userRole } = useAuth();
+  const { hasPersonal } = useAuth();
   const navigate = useNavigate();
   const [packages, setPackages] = useState<Array<{ id: string; name: string; description: string | null; price: number; currency: string; kcals: number; duration: string | null }>>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
@@ -55,7 +55,7 @@ export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
     return () => { cancelled = true; window.clearTimeout(timeout); };
   }, [packagesRetryCount]);
 
-  const isSubscribed = user && userRole === 'subscriber';
+  const isSubscribed = hasPersonal;
 
   return (
     <div className="min-h-screen bg-background py-32 px-6 md:px-12 relative overflow-hidden">

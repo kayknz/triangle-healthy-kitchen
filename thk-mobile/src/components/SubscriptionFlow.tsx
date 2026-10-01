@@ -95,6 +95,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     const base = [
       { label: 'Your Info', id: 'assessment' },
       ...(!preselectedPackage ? [{ label: 'Pick Plan', id: 'plan' }] : []),
+      { label: 'Choose meals', id: 'menu' },
       { label: 'Delivery Address', id: 'address' },
     ];
     if (!user) {
@@ -135,20 +136,17 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     const loadMenu = async () => {
       setMenuLoading(true);
       try {
-        const releaseStart = currentMenuReleaseStart();
-        const releaseEnd = new Date(`${releaseStart}T12:00:00Z`);
-        releaseEnd.setUTCDate(releaseEnd.getUTCDate() + 7);
-        const startAt = new Date(`${releaseStart}T00:00:00+03:00`).toISOString();
-        const endDate = releaseEnd.toISOString().slice(0, 10);
-        const endAt = new Date(`${endDate}T00:00:00+03:00`).toISOString();
+        const now = new Date().toISOString();
         const [{ data: settings }, { data: menu, error: menuError }] = await Promise.all([
           supabase.from('global_settings').select('active_season').maybeSingle(),
-          supabase.from('menu_availability').select('week_number,dish_id,day_of_week,meal_period,collection,is_kitchen_choice,dishes(id,name,kcals)').eq('is_active', true).gte('available_from', startAt).lt('available_from', endAt),
+          supabase.from('menu_availability').select('week_number,dish_id,day_of_week,meal_period,collection,is_kitchen_choice,available_from,dishes(id,name,kcals)').eq('is_active', true).lte('available_from', now).order('available_from', { ascending: false }),
         ]);
         if (menuError) throw menuError;
         if (cancelled) return;
         const collection = settings?.active_season || 'autumn';
-        const rows = (menu || []).filter((row: any) => row.collection === collection);
+        const published = (menu || []).filter((row: any) => row.collection === collection);
+        const latestRelease = published[0]?.available_from;
+        const rows = latestRelease ? published.filter((row: any) => row.available_from === latestRelease) : [];
         const options: Record<string, Array<{ id: string; name: string; kcals: number; kitchen_choice?: boolean }>> = {};
         const defaults: Record<string, InitialMenuChoice> = {};
         for (const day of SERVICE_DAYS) for (const meal of packageMenuMeals) {
@@ -185,6 +183,13 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       setError('Select an available meal plan to continue.');
       return;
     }
+    if (currentStep === 'menu') {
+      if (menuLoading) { setError('Please wait while the weekly menu loads.'); return; }
+      if (!Object.values(initialMenuOptions).some((choices) => choices.length)) { setError('The kitchen has not published a menu yet. Please check back after the weekly menu is released.'); return; }
+      const requiredKeys = SERVICE_DAYS.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`));
+      if (requiredKeys.some((key) => !(initialMenuOptions[key] || []).length)) { setError('The published menu is missing meals for this plan. The kitchen needs to complete the weekly menu before checkout.'); return; }
+      if (requiredKeys.some((key) => !initialMenuSelections[key])) { setError('Choose one meal for every day and meal period to continue.'); return; }
+    }
     if (currentStep === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) {
       setError('Enter your phone number and complete the building, street, area, and zone details.');
       return;
@@ -207,7 +212,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
           if (verified.error) { setError(verified.error); return; }
           setSignupOtpStep(false);
           setSignupOtpCode('');
-          setStep((currentStepIndex) => currentStepIndex);
+          setStep((currentStepIndex) => Math.min(currentStepIndex + 1, STEPS.length - 1));
           return;
         }
         const created = signupChannel === 'email'
@@ -215,7 +220,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
           : await signUpPhone(toE164Phone(phone, signupCountry)!, password, name, 'whatsapp', email.trim().toLowerCase());
         if (created.error) { setError(created.error); return; }
         if (created.needsVerification) { setSignupOtpStep(true); return; }
-        setStep((currentStepIndex) => currentStepIndex);
+        setStep((currentStepIndex) => Math.min(currentStepIndex + 1, STEPS.length - 1));
       } catch (accountError: any) {
         setError(accountError?.message || 'Could not create your account.');
       } finally {
@@ -417,8 +422,10 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                     <label className="text-[10px] font-black uppercase text-gray-400">Current Weight (kg)</label>
                     <input
                       type="number"
+                      min={40}
+                      max={150}
                       value={assessment.weight}
-                      onChange={(e) => setAssessment({ ...assessment, weight: Number(e.target.value) })}
+                      onChange={(e) => setAssessment({ ...assessment, weight: e.target.value === '' ? 40 : Math.min(150, Math.max(40, Number(e.target.value))) })}
                       className="input-field py-3 font-bold"
                     />
                   </div>
@@ -426,8 +433,10 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                     <label className="text-[10px] font-black uppercase text-gray-400">Standing Height (cm)</label>
                     <input
                       type="number"
+                      min={140}
+                      max={220}
                       value={assessment.height}
-                      onChange={(e) => setAssessment({ ...assessment, height: Number(e.target.value) })}
+                      onChange={(e) => setAssessment({ ...assessment, height: e.target.value === '' ? 140 : Math.min(220, Math.max(140, Number(e.target.value))) })}
                       className="input-field py-3 font-bold"
                     />
                   </div>
@@ -469,6 +478,17 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {STEPS[step]?.id === 'menu' && (
+              <div className="space-y-4 animate-in">
+                <div><h3 className="text-[#0a3030] font-black text-lg uppercase italic">Choose your meals</h3><p className="mt-1 text-sm text-gray-500">Select meals from this week’s published kitchen menu. Kitchen’s choice is preselected where available.</p></div>
+                {menuLoading ? <p className="py-6 text-sm text-gray-500">Loading menu…</p> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">The kitchen has not published a menu yet. Check back after the weekly menu is released.</p> : SERVICE_DAYS.map((day) => {
+                  const meals = packageMenuMeals.filter((meal) => (initialMenuOptions[`${day}|${meal}`] || []).length);
+                  if (!meals.length) return null;
+                  return <section key={day} className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="mb-3 font-black uppercase text-[#0a3030]">{day}</h4>{meals.map((meal) => { const key = `${day}|${meal}`; const choices = initialMenuOptions[key]; return <label key={key} className="mb-3 block text-xs font-bold uppercase text-gray-500">{meal}<select value={initialMenuSelections[key]?.dish_id || ''} onChange={(event) => { const selected = choices.find((choice) => choice.id === event.target.value); if (selected) setInitialMenuSelections((previous) => ({ ...previous, [key]: { dish_id: selected.id, dish_name: selected.name, dish_kcals: selected.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal, menu_period: menuPeriod } })); }} className="input-field mt-1 py-3 normal-case">{choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.kcals} kcal</option>)}</select></label>; })}</section>;
+                })}
               </div>
             )}
 

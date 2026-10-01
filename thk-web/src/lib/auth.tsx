@@ -18,6 +18,7 @@ interface AuthContextValue {
   isOwner: boolean;
   isApprovedRider: boolean;
   onboardingComplete: boolean;
+  hasPersonal: boolean;
   accessMode: AccessMode | null;
   setAccessMode: (mode: AccessMode) => void;
   hasDualAccess: boolean;
@@ -50,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isOwner, setIsOwner] = useState(false);
   const [isApprovedRider, setIsApprovedRider] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [hasPersonal, setHasPersonal] = useState(false);
   const [accessMode, setAccessModeState] = useState<AccessMode | null>(null);
   const [hasDualAccess, setHasDualAccess] = useState(false);
 
@@ -70,11 +72,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 1. Check for personal subscription status
     const { data: sub } = await supabase
       .from('subscribers')
-      .select('id, is_owner, onboarding_completed')
+      .select('id, is_owner, onboarding_completed, payment_status, subscription_status, package_id')
       .eq('user_id', u.id)
       .maybeSingle();
 
-    const hasPersonal = !!sub;
+    // A Supabase Auth user is not a customer account by itself. Customer portal
+    // access is granted only after the Tap capture trigger marks a real plan paid.
+    const hasPersonal = sub?.payment_status === 'Paid'
+      && sub?.subscription_status === 'Active'
+      && Boolean(sub?.package_id)
+      && sub?.package_id !== 'pending';
     const owner = sub?.is_owner === true;
     const onboardingCompleted = sub?.onboarding_completed === true;
 
@@ -113,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // 4. Default to Subscriber
-    return { role: 'subscriber', staffRole: null, isOwner: false, isApprovedRider: false, hasPersonal: true, onboardingCompleted };
+    return { role: 'subscriber', staffRole: null, isOwner: false, isApprovedRider: false, hasPersonal, onboardingCompleted };
   };
 
   const applyAuthAccess = async (u: User | null) => {
@@ -123,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsOwner(access.isOwner);
     setIsApprovedRider(access.isApprovedRider);
     setOnboardingComplete(access.onboardingCompleted);
+    setHasPersonal(access.hasPersonal);
 
     const dual = (access.isOwner || access.role === 'rider') && access.hasPersonal;
     setHasDualAccess(dual);
@@ -261,6 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       session, user, loading, userRole, staffRole, isOwner, isApprovedRider, onboardingComplete,
+      hasPersonal,
       accessMode, setAccessMode: (m) => { setAccessModeState(m); localStorage.setItem('thk_access_mode', m); },
       hasDualAccess,
       signIn, signInPhone, signUp, signUpPhone, verifySignupOtp, signOut, resetPassword, refreshAuth

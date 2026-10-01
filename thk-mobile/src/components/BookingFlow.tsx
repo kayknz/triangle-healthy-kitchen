@@ -313,10 +313,10 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                 <h3 className="text-[#0a3030] font-black text-2xl uppercase italic leading-none">{t('biological_profile')}</h3>
                 <div className="grid grid-cols-2 gap-6">
                   <FormEntry label={t('current_weight')} sub="kg">
-                    <input type="number" inputMode="decimal" value={data.weight_kg} onChange={(e) => update({ weight_kg: e.target.value })} placeholder="72" className="input-field py-5 font-black text-lg" />
+                    <input type="number" inputMode="decimal" min={40} max={150} value={data.weight_kg} onChange={(e) => update({ weight_kg: e.target.value === '' ? '40' : String(Math.min(150, Math.max(40, Number(e.target.value)))) })} placeholder="72" className="input-field py-5 font-black text-lg" />
                   </FormEntry>
                   <FormEntry label={t('standing_height')} sub="cm">
-                    <input type="number" inputMode="decimal" value={data.height_cm} onChange={(e) => update({ height_cm: e.target.value })} placeholder="175" className="input-field py-5 font-black text-lg" />
+                    <input type="number" inputMode="decimal" min={140} max={220} value={data.height_cm} onChange={(e) => update({ height_cm: e.target.value === '' ? '140' : String(Math.min(220, Math.max(140, Number(e.target.value)))) })} placeholder="175" className="input-field py-5 font-black text-lg" />
                   </FormEntry>
                 </div>
                 <div>

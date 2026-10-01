@@ -25,13 +25,13 @@ import { LanguageProvider, useLanguage } from '@/lib/LanguageContext';
 type Route = 'home' | 'provider-auth' | 'operations-web' | 'rider-dashboard' | 'subscriber-auth' | 'subscriber-dashboard' | 'today' | 'community' | 'rewards' | 'privacy' | 'terms';
 
 const OPERATIONS_WEB_URL = import.meta.env.VITE_OPERATIONS_WEB_URL || 'https://trianglehealthy-kitchen.vercel.app';
-const getSignedInRoute = (role: string | null | undefined): Route =>
+const getSignedInRoute = (role: string | null | undefined, hasPersonal = false): Route =>
   role === 'driver' || role === 'rider' ? 'rider-dashboard'
     : ['ceo', 'admin', 'kitchen', 'transport', 'owner'].includes(role || '') ? 'operations-web'
-      : 'subscriber-dashboard';
+      : hasPersonal ? 'subscriber-dashboard' : 'home';
 
 function AppContent() {
-  const { session, loading: authLoading, user, userRole } = useAuth();
+  const { session, loading: authLoading, user, userRole, hasPersonal } = useAuth();
   const { t } = useLanguage();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -66,7 +66,7 @@ function AppContent() {
       }
     };
     if (!authLoading) checkOnboarding();
-  }, [user, authLoading]);
+  }, [user, authLoading, hasPersonal]);
 
   useEffect(() => {
     const initApp = async () => {
@@ -132,12 +132,12 @@ function AppContent() {
       const target = hash || path;
 
       if (target === '#provider' || target === '#dashboard' || target === '/provider') {
-        setRoute(session ? getSignedInRoute(userRole) : 'provider-auth');
+        setRoute(session ? getSignedInRoute(userRole, hasPersonal) : 'provider-auth');
       } else if (target === '#subscribe') {
-        setRoute(session ? getSignedInRoute(userRole) : 'subscriber-auth');
-        if (session && (userRole === 'subscriber' || userRole === 'customer')) setSubscribeOpen(true);
+        setRoute(session ? getSignedInRoute(userRole, hasPersonal) : 'subscriber-auth');
+        if (session && (userRole === 'subscriber' || userRole === 'customer') && !hasPersonal) setSubscribeOpen(true);
       } else if (target === '#my-plan' || target === '#account' || target === '/my-plan') {
-        setRoute(session ? getSignedInRoute(userRole) : 'subscriber-auth');
+        setRoute(session ? getSignedInRoute(userRole, hasPersonal) : 'subscriber-auth');
       } else if (target === '#today' || target === '/today') {
         setRoute(session ? 'today' : 'subscriber-auth');
       } else if (target === '#community' || target === '/community') {
@@ -159,7 +159,7 @@ function AppContent() {
       window.removeEventListener('hashchange', handleRouting);
       window.removeEventListener('popstate', handleRouting);
     };
-  }, [session, userRole]);
+  }, [session, userRole, hasPersonal]);
 
   useEffect(() => {
     if (!session || !user || Capacitor.getPlatform() === 'web') return;
@@ -201,7 +201,7 @@ function AppContent() {
 
   // Precise Role Route Guard
   useEffect(() => {
-    if (!authLoading && session && route === 'home') {
+    if (!authLoading && session && route === 'home' && hasPersonal) {
       if (userRole === 'driver' || userRole === 'rider') {
         setRoute('rider-dashboard');
       } else if (['ceo', 'admin', 'kitchen', 'transport', 'owner'].includes(userRole || '')) {
@@ -210,14 +210,14 @@ function AppContent() {
         setRoute('subscriber-dashboard');
       }
     }
-  }, [authLoading, session, userRole, route]);
+  }, [authLoading, session, userRole, route, hasPersonal]);
 
   if (authLoading || onboardingComplete === null) {
     return <SecuringProtocol message="Securing Protocol" subtitle="Verifying authenticated access to the culinary rhythm ledger..." />;
   }
 
   // Onboarding ONLY for subscribers
-  if (session && !onboardingComplete && (userRole === 'subscriber' || userRole === 'customer')) {
+  if (session && hasPersonal && !onboardingComplete && (userRole === 'subscriber' || userRole === 'customer')) {
     return <OnboardingFlow onComplete={() => setOnboardingComplete(true)} />;
   }
 
@@ -271,9 +271,10 @@ function AppContent() {
         isOpen={route === 'subscriber-auth'}
         onClose={() => { setRoute('home'); window.location.hash = ''; }}
         onSuccess={() => {
-          setRoute('subscriber-dashboard');
-          window.location.hash = 'account';
+          setRoute(hasPersonal ? 'subscriber-dashboard' : 'home');
+          window.location.hash = hasPersonal ? 'account' : '';
         }}
+        onChoosePlan={() => { setPreselectedPackage(null); setSubscribeOpen(true); setRoute('home'); }}
       />
       <ProviderAuth
         isOpen={route === 'provider-auth'}

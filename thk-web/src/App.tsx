@@ -22,7 +22,7 @@ import PaymentCallbackPage from './pages/PaymentCallbackPage';
 import LegalPage from './pages/LegalPage';
 
 function ProtectedRoute({ children, role, mode }: { children: React.ReactNode, role?: UserRole | UserRole[], mode?: 'work' | 'personal' }) {
-  const { user, userRole, loading, accessMode, onboardingComplete } = useAuth();
+  const { user, userRole, loading, accessMode, onboardingComplete, hasPersonal } = useAuth();
 
   if (loading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
@@ -31,6 +31,10 @@ function ProtectedRoute({ children, role, mode }: { children: React.ReactNode, r
   );
 
   if (!user) return <Navigate to="/login" />;
+
+  // Unpaid customer signups must return to plan selection/checkout. A login in
+  // Supabase Auth alone never unlocks the customer portal.
+  if (userRole === 'subscriber' && !hasPersonal) return <Navigate to="/plans" replace />;
 
   // Force onboarding for subscribers
   if (userRole === 'subscriber' && !onboardingComplete) {
@@ -56,7 +60,7 @@ function ProtectedRoute({ children, role, mode }: { children: React.ReactNode, r
 }
 
 function AppContent() {
-  const { user, accessMode, hasDualAccess, onboardingComplete, userRole } = useAuth();
+  const { user, accessMode, hasDualAccess, onboardingComplete, userRole, hasPersonal } = useAuth();
   const [showSubFlow, setShowSubFlow] = useState(false);
   const [showBookFlow, setShowBookFlow] = useState(false);
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
@@ -74,7 +78,7 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-background text-primary selection:bg-teal/10 selection:text-teal flex flex-col overflow-x-hidden">
       {/* Show Onboarding for subscribers if not complete */}
-      {user && userRole === 'subscriber' && !onboardingComplete && <OnboardingFlow onComplete={() => window.location.reload()} />}
+      {user && userRole === 'subscriber' && hasPersonal && !onboardingComplete && <OnboardingFlow onComplete={() => window.location.reload()} />}
 
       {/* Show Access Selector if user is logged in with dual access but no mode selected */}
       {user && hasDualAccess && !accessMode && <AccessSelector />}

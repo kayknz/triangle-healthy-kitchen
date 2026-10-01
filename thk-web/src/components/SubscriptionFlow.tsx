@@ -40,7 +40,7 @@ function currentMenuReleaseStart() {
 
 export default function SubscriptionFlow({ open, onClose, preselectedPackage }: SubscriptionFlowProps) {
   const navigate = useNavigate();
-  const { user, signUp, signUpPhone, verifySignupOtp } = useAuth();
+  const { user, signUp, signUpPhone, verifySignupOtp, refreshAuth } = useAuth();
   const { t, isRtl } = useLanguage();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -102,6 +102,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const STEPS = [
     { label: t('your_info'), id: 'assessment' },
     ...(preselectedPackage ? [] : [{ label: t('pick_plan'), id: 'plan' }]),
+    { label: 'Choose meals', id: 'menu' },
     { label: t('delivery_address'), id: 'address' },
     ...(user ? [] : [{ label: t('create_account'), id: 'identity' }]),
     { label: t('payment'), id: 'payment' },
@@ -124,21 +125,18 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     const loadInitialMenu = async () => {
       setMenuLoading(true);
       try {
-        const releaseStart = currentMenuReleaseStart();
-        const releaseEnd = new Date(`${releaseStart}T12:00:00Z`);
-        releaseEnd.setUTCDate(releaseEnd.getUTCDate() + 7);
-        const startAt = new Date(`${releaseStart}T00:00:00+03:00`).toISOString();
-        const endDate = releaseEnd.toISOString().slice(0, 10);
-        const endAt = new Date(`${endDate}T00:00:00+03:00`).toISOString();
+        const now = new Date().toISOString();
         const [{ data: settings }, { data: menu, error: menuError }] = await Promise.all([
           supabase.from('global_settings').select('active_season').maybeSingle(),
-          supabase.from('menu_availability').select('week_number,dish_id,day_of_week,meal_period,collection,is_kitchen_choice,dishes(id,name,kcals)')
-            .eq('is_active', true).gte('available_from', startAt).lt('available_from', endAt),
+          supabase.from('menu_availability').select('week_number,dish_id,day_of_week,meal_period,collection,is_kitchen_choice,available_from,dishes(id,name,kcals)')
+            .eq('is_active', true).lte('available_from', now).order('available_from', { ascending: false }),
         ]);
         if (menuError) throw menuError;
         if (cancelled) return;
         const collection = settings?.active_season || 'autumn';
-        const rows = (menu || []).filter((row: any) => row.collection === collection);
+        const published = (menu || []).filter((row: any) => row.collection === collection);
+        const latestRelease = published[0]?.available_from;
+        const rows = latestRelease ? published.filter((row: any) => row.available_from === latestRelease) : [];
         setMenuPeriod(collection);
         const options: Record<string, Array<{ id: string; name: string; kcals: number }>> = {};
         const defaults: Record<string, InitialMenuChoice> = {};
@@ -191,6 +189,13 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     const currentStepId = STEPS[step].id;
     if (currentStepId === 'assessment' && (!assessment.weight || !assessment.height || assessment.age < 13 || assessment.age > 110)) return setError('Enter your age, weight, and height to continue.');
     if (currentStepId === 'plan' && !pkgId) return setError(t('error_select_package'));
+    if (currentStepId === 'menu') {
+      if (menuLoading) return setError('Please wait while the weekly menu loads.');
+      if (!Object.keys(initialMenuOptions).some((key) => (initialMenuOptions[key] || []).length)) return setError('The menu is not published yet. Please check back after the kitchen releases this week’s menu.');
+      const requiredKeys = SERVICE_DAYS.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`));
+      if (requiredKeys.some((key) => !(initialMenuOptions[key] || []).length)) return setError('The published menu is missing meals for this plan. The kitchen needs to complete the weekly menu before checkout.');
+      if (requiredKeys.some((key) => !initialMenuSelections[key])) return setError('Choose one meal for every day and meal period to continue.');
+    }
     if (currentStepId === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) return setError('Enter your phone number and complete the building, street, area, and zone details.');
     if (currentStepId === 'identity') {
       if (!identity.fullName || !identity.email || identity.password.length < 6) return setError('Enter your name and billing email. Password must be at least 6 characters.');
@@ -204,7 +209,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
           if (verified.error) return setError(verified.error);
           setSignupOtpStep(false);
           setSignupOtpCode('');
-          setStep((currentStepIndex) => currentStepIndex);
+          setStep((currentStepIndex) => Math.min(currentStepIndex + 1, STEPS.length - 1));
           return;
         }
         const created = signupChannel === 'email'
@@ -215,7 +220,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
           setSignupOtpStep(true);
           return;
         }
-        setStep((currentStepIndex) => currentStepIndex);
+        setStep((currentStepIndex) => Math.min(currentStepIndex + 1, STEPS.length - 1));
       } catch (signupError: any) {
         setError(signupError?.message || 'Could not create your account.');
       } finally {
@@ -336,7 +341,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         await new Promise((resolve) => window.setTimeout(resolve, 3000));
         const { data: transaction, error: statusError } = await supabase.from('payment_transactions').select('status').eq('id', result.transaction_id).maybeSingle();
         if (statusError) throw statusError;
-        if (transaction?.status === 'captured') { setSuccess(true); return; }
+        if (transaction?.status === 'captured') { await refreshAuth(); setSuccess(true); return; }
         if (transaction && ['failed', 'cancelled', 'voided'].includes(transaction.status)) throw new Error('Tap did not capture the payment. You can try checkout again.');
       }
       throw new Error('Payment is still awaiting Tap confirmation. Your plan will activate automatically after the verified payment arrives.');
@@ -423,6 +428,17 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                    <p className="text-2xl sm:text-3xl font-black italic tracking-tighter">{p.price} <span className="opacity-40 text-xs font-bold uppercase not-italic ml-1">{p.currency}</span></p>
                  </button>
                ))}
+            </div>
+          )}
+
+          {STEPS[step].id === 'menu' && (
+            <div className="space-y-6 animate-reveal">
+              <div><h3 className="text-xl font-black uppercase italic text-primary">Choose your meals</h3><p className="mt-2 text-sm text-primary/60">Select from the kitchen’s published choices for your plan. Kitchen’s choice is preselected where available.</p></div>
+              {menuLoading ? <div className="flex items-center gap-3 text-sm font-semibold text-primary/60"><Loader2 className="h-5 w-5 animate-spin"/>Loading this week’s menu…</div> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-900">No published meals are available yet. The kitchen needs to publish a menu before checkout can continue.</div> : SERVICE_DAYS.map((day) => {
+                const meals = packageMenuMeals.filter((meal) => (initialMenuOptions[`${day}|${meal}`] || []).length);
+                if (!meals.length) return null;
+                return <section key={day} className="rounded-2xl border border-primary/10 bg-white/70 p-5"><h4 className="mb-4 font-black uppercase tracking-wider text-primary">{t(day) || day}</h4><div className="grid gap-3 sm:grid-cols-2">{meals.map((meal) => { const key = `${day}|${meal}`; const choices = initialMenuOptions[key]; return <label key={key} className="space-y-2 text-xs font-bold uppercase tracking-wider text-primary/60">{t(meal) || meal}<select value={initialMenuSelections[key]?.dish_id || ''} onChange={(event) => { const selected = choices.find((choice) => choice.id === event.target.value); if (!selected) return; setInitialMenuSelections((previous) => ({ ...previous, [key]: { dish_id: selected.id, dish_name: selected.name, dish_kcals: selected.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal, menu_period: menuPeriod } })); }} className="input-field py-3 normal-case">{choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.kcals} kcal</option>)}</select></label>; })}</div></section>;
+              })}
             </div>
           )}
 

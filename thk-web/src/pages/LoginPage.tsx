@@ -3,8 +3,10 @@ import { supabase } from '../supabase';
 import SubscriberAuth from '../components/auth/SubscriberAuth';
 import ProviderAuth from '../components/auth/ProviderAuth';
 import { type UserRole } from '../lib/auth';
+import { useNavigate } from 'react-router-dom';
 
 export default function LoginPage() {
+  const navigate = useNavigate();
   const [authType, setAuthType] = useState<'subscriber' | 'provider'>('subscriber');
   const [passwordRecovery, setPasswordRecovery] = useState(() => new URLSearchParams(window.location.search).get('password-recovery') === '1');
 
@@ -42,6 +44,7 @@ export default function LoginPage() {
     <SubscriberAuth
       onBack={() => window.location.href = '/'}
       onSuccess={(dual) => handleSuccess(undefined, dual)}
+      onChoosePlan={() => navigate('/plans')}
     />
   );
 }

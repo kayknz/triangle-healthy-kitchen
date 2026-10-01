@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Award, Gift, Zap, History, ChevronRight, Star, ShieldCheck, ArrowUpRight, Loader2, Sparkles, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Award, Gift, Zap, History, ChevronRight, Star, ShieldCheck, ArrowUpRight, Loader2, Sparkles, ShoppingBag, ArrowRight, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabase';
 import { useAuth } from '../lib/auth';
@@ -15,6 +15,7 @@ const RewardsPage: React.FC = () => {
   const { user } = useAuth();
   const { t, isRtl } = useLanguage();
   const [subscriber, setSubscriber] = useState<any>(null);
+  const [dailyProgress, setDailyProgress] = useState({ steps: 0, goal: 10000 });
   const [rewards, setRewards] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +27,14 @@ const RewardsPage: React.FC = () => {
     try {
       const { data: sub } = await supabase.from('subscribers').select('*').eq('user_id', user.id).maybeSingle();
       setSubscriber(sub);
+      if (sub?.id) {
+        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+        const [{ data: activity }, { data: goal }] = await Promise.all([
+          supabase.from('daily_activity_summaries').select('total_value').eq('subscriber_id', sub.id).eq('local_date', today).maybeSingle(),
+          supabase.from('user_daily_goals').select('target_value').eq('subscriber_id', sub.id).eq('target_date', today).maybeSingle(),
+        ]);
+        setDailyProgress({ steps: activity?.total_value || 0, goal: goal?.target_value || 10000 });
+      }
 
       const [{ data: rewardsList }, { data: ledgerData }] = await Promise.all([
         supabase.from('rewards').select('*').eq('is_active', true).order('point_cost', { ascending: true }),
@@ -113,6 +122,11 @@ const RewardsPage: React.FC = () => {
              </div>
           </div>
         </header>
+
+        <section className="grid gap-4 px-4 sm:grid-cols-2 sm:px-0" aria-label="Activity goals">
+          <div className="rounded-3xl border border-primary/10 bg-white p-6 shadow-sm"><div className="flex items-center gap-3"><Activity className="h-5 w-5 text-gold"/><h2 className="font-bold text-primary">Today’s activity goal</h2></div><p className="mt-4 text-3xl font-black text-primary">{dailyProgress.steps.toLocaleString()} <span className="text-sm font-semibold text-primary/50">/ {dailyProgress.goal.toLocaleString()} steps</span></p><div className="mt-3 h-2 overflow-hidden rounded-full bg-primary/10"><div className="h-full rounded-full bg-gold" style={{ width: `${Math.min((dailyProgress.steps / dailyProgress.goal) * 100, 100)}%` }}/></div></div>
+          <div className="rounded-3xl border border-primary/10 bg-primary p-6 text-white shadow-sm"><p className="text-xs font-bold uppercase tracking-wider text-gold">Your reward balance</p><p className="mt-3 text-3xl font-black">{(subscriber?.points_balance || 0).toLocaleString()} points</p><p className="mt-2 text-sm text-white/65">Your activity goals, milestones, and rewards are together here.</p></div>
+        </section>
 
         {/* Tier Status Pulse */}
         <section>
