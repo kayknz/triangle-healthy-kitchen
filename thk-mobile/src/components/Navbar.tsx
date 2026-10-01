@@ -228,6 +228,13 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
                 >
                   {t('nav_my_plan') || 'My Plan'}
                 </a>
+                <a
+                  href="#provider"
+                  onClick={() => setOpen(false)}
+                  className="text-[10px] font-black tracking-[0.25em] uppercase text-[#123F38]/70 hover:text-[#C5A059]"
+                >
+                  {t('rider_access')}
+                </a>
                 <button
                   onClick={() => { setOpen(false); onBookClick(); }}
                   className="bg-[#123F38] text-[#F5F3EB] py-4 rounded-xl text-[10px] font-black tracking-[0.3em] uppercase shadow-lg hover:bg-[#123F38]/90 transition-all"

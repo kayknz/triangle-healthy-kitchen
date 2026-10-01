@@ -208,18 +208,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) return { error: error.message };
 
-    if (requestedRole === 'driver' && data.user) {
-      try {
-        await supabase.from('rider_applications').insert({
-          user_id: data.user.id,
-          full_name: name,
-          phone: phone,
-          email: targetEmail,
-          approved: false
-        });
-      } catch (e) {}
-    }
-
     const access = await applyAuthAccess(data.user);
     return { error: null, role: access.role ?? requestedRole, approved: access.isApprovedRider, needsVerification: !data.session };
   };
