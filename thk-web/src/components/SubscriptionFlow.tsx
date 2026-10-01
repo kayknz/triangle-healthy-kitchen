@@ -276,6 +276,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const handleSubscribe = async () => {
     setSubmitting(true);
     setError(null);
+    let checkoutWindow: Window | null = null;
 
     try {
       let finalUser = user;
@@ -299,6 +300,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       if (!finalUser) throw new Error("Connection failed.");
 
       if (!pkg) throw new Error('Select an available meal plan before continuing.');
+      // Open synchronously during the click gesture so browsers do not block
+      // Tap's hosted checkout after the asynchronous upload/function request.
+      checkoutWindow = window.open('about:blank', '_blank');
       let bmiReportPath: string | null = null;
       if (bmiReport) {
         const objectName = `${finalUser.id}/${crypto.randomUUID()}-${bmiReport.name.replace(/[^\w.-]/g, '_')}`;
@@ -335,18 +339,25 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
       if (fetchErr) throw fetchErr;
       if (!result?.checkout_url || !result?.transaction_id) throw new Error(result?.error || 'Tap did not return a valid checkout session.');
-      const checkoutWindow = window.open(result.checkout_url, '_blank', 'noopener,noreferrer');
-      if (!checkoutWindow) window.location.assign(result.checkout_url);
+      if (checkoutWindow) checkoutWindow.location.href = result.checkout_url;
+      else window.location.assign(result.checkout_url);
       for (let attempt = 0; attempt < 40; attempt += 1) {
         await new Promise((resolve) => window.setTimeout(resolve, 3000));
         const { data: transaction, error: statusError } = await supabase.from('payment_transactions').select('status').eq('id', result.transaction_id).maybeSingle();
         if (statusError) throw statusError;
-        if (transaction?.status === 'captured') { await refreshAuth(); setSuccess(true); return; }
-        if (transaction && ['failed', 'cancelled', 'voided'].includes(transaction.status)) throw new Error('Tap did not capture the payment. You can try checkout again.');
+        if (transaction?.status === 'captured') { checkoutWindow?.close(); await refreshAuth(); setSuccess(true); return; }
+        if (transaction && ['failed', 'cancelled', 'voided'].includes(transaction.status)) { checkoutWindow?.close(); throw new Error('Tap did not capture the payment. You can try checkout again.'); }
       }
       throw new Error('Payment is still awaiting Tap confirmation. Your plan will activate automatically after the verified payment arrives.');
 
     } catch (e: any) {
+      if (checkoutWindow && !checkoutWindow.closed) {
+        try {
+          if (checkoutWindow.location.href === 'about:blank') checkoutWindow.close();
+        } catch {
+          // A redirected Tap window is cross-origin; leave it open for the customer.
+        }
+      }
       setError(e.message || "Payment Gateway Offline");
     } finally {
       setSubmitting(false);

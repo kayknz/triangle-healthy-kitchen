@@ -373,7 +373,7 @@ Deno.serve(async (req: Request) => {
 
     const origin =
       Deno.env.get("PUBLIC_APP_URL") ||
-      "https://trianglehealthy-kitchen.vercel.app";
+      "https://trianglehealthykitchen.vercel.app";
 
     const redirectUrl =
       `${origin}/payment/callback`;
