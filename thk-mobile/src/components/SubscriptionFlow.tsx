@@ -70,6 +70,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
   const [pkgId, setPkgId] = useState('');
   const packageMenuMeals = availablePackages.find((item) => item.id === pkgId)?.meal_periods || PACKAGE_MEALS[pkgId] || PACKAGE_MENU_MEALS;
+  const packageMenuDays = pkgId === 'daily_trial' ? [SERVICE_DAYS[0]] : SERVICE_DAYS;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [signupChannel, setSignupChannel] = useState<PhoneChannel>('email');
@@ -154,7 +155,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         const rows = latestRelease ? published.filter((row: any) => row.available_from === latestRelease) : [];
         const options: Record<string, Array<{ id: string; name: string; kcals: number; kitchen_choice?: boolean }>> = {};
         const defaults: Record<string, InitialMenuChoice> = {};
-        for (const day of SERVICE_DAYS) for (const meal of packageMenuMeals) {
+        for (const day of packageMenuDays) for (const meal of packageMenuMeals) {
           const key = `${day}|${meal}`;
           const matching = rows.filter((row: any) => row.day_of_week === day && row.meal_period === meal).flatMap((row: any) => {
             const dish = Array.isArray(row.dishes) ? row.dishes[0] : row.dishes;
@@ -191,7 +192,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     if (currentStep === 'menu') {
       if (menuLoading) { setError('Please wait while the weekly menu loads.'); return; }
       if (!Object.values(initialMenuOptions).some((choices) => choices.length)) { setError('The kitchen has not published a menu yet. Please check back after the weekly menu is released.'); return; }
-      const requiredKeys = SERVICE_DAYS.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`).filter((key) => (initialMenuOptions[key] || []).length));
+      const requiredKeys = packageMenuDays.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`).filter((key) => (initialMenuOptions[key] || []).length));
       if (!requiredKeys.length) { setError('No meals are available for this package in the published menu.'); return; }
       if (requiredKeys.some((key) => !initialMenuSelections[key])) { setError('Choose one meal for every day and meal period to continue.'); return; }
     }
@@ -498,7 +499,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
               <div className="space-y-4 animate-in">
                 <div><h3 className="text-[#0a3030] font-black text-lg uppercase italic">Choose your meals</h3><p className="mt-1 text-sm text-gray-500">Select meals from this week’s published kitchen menu. Kitchen’s choice is preselected where available.</p></div>
                 <section className="rounded-2xl border border-red-200 bg-white p-4"><h4 className="font-black uppercase text-[#0a3030]">Allergies and kitchen notes</h4><p className="mt-1 text-xs text-gray-500">Shared with the kitchen for food safety and preparation.</p><div className="mt-3 flex flex-wrap gap-2">{CHECKOUT_ALLERGENS.map((item) => <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${foodAllergies.includes(item) ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 text-gray-700'}`}><input type="checkbox" checked={foodAllergies.includes(item)} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item] : current.filter((value) => value !== item))}/>{item}</label>)}</div><label className="mt-4 block text-xs font-bold text-gray-700">Ingredients to avoid or general kitchen notes<textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder="For example: no onions, mild spice" className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
-                {menuLoading ? <p className="py-6 text-sm text-gray-500">Loading menu…</p> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">The kitchen has not published a menu yet. Check back after the weekly menu is released.</p> : SERVICE_DAYS.map((day) => {
+                {menuLoading ? <p className="py-6 text-sm text-gray-500">Loading menu…</p> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">The kitchen has not published a menu yet. Check back after the weekly menu is released.</p> : packageMenuDays.map((day) => {
                   const meals = packageMenuMeals.filter((meal) => (initialMenuOptions[`${day}|${meal}`] || []).length);
                   if (!meals.length) return null;
                   return <section key={day} className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="mb-3 font-black uppercase text-[#0a3030]">{day}</h4>{meals.map((meal) => { const key = `${day}|${meal}`; const choices = initialMenuOptions[key]; return <label key={key} className="mb-3 block text-xs font-bold uppercase text-gray-500">{meal}<select value={initialMenuSelections[key]?.dish_id || ''} onChange={(event) => { const selected = choices.find((choice) => choice.id === event.target.value); if (selected) setInitialMenuSelections((previous) => ({ ...previous, [key]: { dish_id: selected.id, dish_name: selected.name, dish_kcals: selected.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal, menu_period: menuPeriod } })); }} className="input-field mt-1 py-3 normal-case">{choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.kcals} kcal</option>)}</select></label>; })}</section>;

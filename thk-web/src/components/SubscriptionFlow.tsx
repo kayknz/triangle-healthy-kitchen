@@ -101,6 +101,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const [menuPeriod, setMenuPeriod] = useState('autumn');
   const [menuLoading, setMenuLoading] = useState(false);
   const packageMenuMeals = availablePackages.find((item) => item.id === pkgId)?.meal_periods || PACKAGE_MEALS[pkgId] || PACKAGE_MENU_MEALS;
+  const packageMenuDays = pkgId === 'daily_trial' ? [SERVICE_DAYS[0]] : SERVICE_DAYS;
 
 
   // Dynamic Steps: Insert Identity if user is not logged in
@@ -145,7 +146,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         setMenuPeriod(collection);
         const options: Record<string, Array<{ id: string; name: string; kcals: number }>> = {};
         const defaults: Record<string, InitialMenuChoice> = {};
-        for (const day of SERVICE_DAYS) for (const meal of packageMenuMeals) {
+        for (const day of packageMenuDays) for (const meal of packageMenuMeals) {
           const key = `${day}|${meal}`;
           const matching = rows.filter((row: any) => row.day_of_week === day && row.meal_period === meal).flatMap((row: any) => {
             const dish = Array.isArray(row.dishes) ? row.dishes[0] : row.dishes;
@@ -197,7 +198,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     if (currentStepId === 'menu') {
       if (menuLoading) return setError('Please wait while the weekly menu loads.');
       if (!Object.keys(initialMenuOptions).some((key) => (initialMenuOptions[key] || []).length)) return setError('The menu is not published yet. Please check back after the kitchen releases this week’s menu.');
-      const requiredKeys = SERVICE_DAYS.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`).filter((key) => (initialMenuOptions[key] || []).length));
+      const requiredKeys = packageMenuDays.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`).filter((key) => (initialMenuOptions[key] || []).length));
       if (!requiredKeys.length) return setError('No meals are available for this package in the published menu.');
       if (requiredKeys.some((key) => !initialMenuSelections[key])) return setError('Choose one meal for every day and meal period to continue.');
     }
@@ -455,7 +456,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             <div className="space-y-6 animate-reveal">
               <div><h3 className="text-xl font-black uppercase italic text-primary">Choose your meals</h3><p className="mt-2 text-sm text-primary/60">Select from the kitchen’s published choices for your plan. Kitchen’s choice is preselected where available.</p></div>
               <section className="rounded-2xl border border-red-200 bg-white/80 p-5"><h4 className="font-black uppercase text-primary">Allergies and kitchen notes</h4><p className="mt-1 text-xs text-primary/60">These notes are shared with the kitchen for food safety and preparation.</p><div className="mt-3 flex flex-wrap gap-2">{CHECKOUT_ALLERGENS.map((item) => <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${foodAllergies.includes(item) ? 'border-red-600 bg-red-600 text-white' : 'border-primary/15 text-primary/70'}`}><input type="checkbox" checked={foodAllergies.includes(item)} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item] : current.filter((value) => value !== item))}/>{item}</label>)}</div><label className="mt-4 block text-xs font-bold text-primary/70">Ingredients to avoid or general kitchen notes<textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder="For example: no onions, mild spice" className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
-              {menuLoading ? <div className="flex items-center gap-3 text-sm font-semibold text-primary/60"><Loader2 className="h-5 w-5 animate-spin"/>Loading this week’s menu…</div> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-900">No published meals are available yet. The kitchen needs to publish a menu before checkout can continue.</div> : SERVICE_DAYS.map((day) => {
+              {menuLoading ? <div className="flex items-center gap-3 text-sm font-semibold text-primary/60"><Loader2 className="h-5 w-5 animate-spin"/>Loading this week’s menu…</div> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-primary-900">No published meals are available yet. The kitchen needs to publish a menu before checkout can continue.</div> : packageMenuDays.map((day) => {
                 const meals = packageMenuMeals.filter((meal) => (initialMenuOptions[`${day}|${meal}`] || []).length);
                 if (!meals.length) return null;
                 return <section key={day} className="rounded-2xl border border-primary/10 bg-white/70 p-5"><h4 className="mb-4 font-black uppercase tracking-wider text-primary">{t(day) || day}</h4><div className="grid gap-3 sm:grid-cols-2">{meals.map((meal) => { const key = `${day}|${meal}`; const choices = initialMenuOptions[key]; return <label key={key} className="space-y-2 text-xs font-bold uppercase tracking-wider text-primary/60">{t(meal) || meal}<select value={initialMenuSelections[key]?.dish_id || ''} onChange={(event) => { const selected = choices.find((choice) => choice.id === event.target.value); if (!selected) return; setInitialMenuSelections((previous) => ({ ...previous, [key]: { dish_id: selected.id, dish_name: selected.name, dish_kcals: selected.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal, menu_period: menuPeriod } })); }} className="input-field py-3 normal-case">{choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.kcals} kcal</option>)}</select></label>; })}</div></section>;

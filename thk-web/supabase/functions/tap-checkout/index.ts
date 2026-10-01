@@ -125,7 +125,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: availablePackage, error: availablePackageError } = await adminClient
-      .from("packages").select("id, active, meal_periods").eq("id", packageId).maybeSingle();
+      .from("packages").select("id, active, duration, meal_periods").eq("id", packageId).maybeSingle();
     if (availablePackageError) throw new Error(`Package lookup failed: ${availablePackageError.message}`);
     if (!availablePackage || !availablePackage.active) {
       return jsonResponse({ error: "This package is unavailable." }, 400);
@@ -135,7 +135,28 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Choose meals from the published menu before requesting payment." }, 400);
     }
     const allowedPeriods: string[] = Array.isArray(availablePackage.meal_periods) ? availablePackage.meal_periods : ['breakfast','lunch','dinner','snacks'];
+    const durationLabel = String(availablePackage.duration || '').toLowerCase();
+    const requiredServiceDays = durationLabel.includes('1 day') ? 1 : durationLabel.includes('1 week') || durationLabel.includes('6 day') || durationLabel.includes('4 week') || durationLabel.includes('24 service') ? 6 : 0;
+    if (!requiredServiceDays || allowedPeriods.length * requiredServiceDays > 24) {
+      return jsonResponse({ error: "This package needs a valid service duration and meal limit before checkout." }, 400);
+    }
+    const todayInQatar = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const serviceStart = new Date(`${todayInQatar}T12:00:00Z`);
+    serviceStart.setUTCDate(serviceStart.getUTCDate() + ((6 - serviceStart.getUTCDay() + 7) % 7 || 7));
+    const expectedWeek = serviceStart.toISOString().slice(0, 10);
+    const { data: menuRows, error: menuError } = await adminClient.from('menu_availability')
+      .select('dish_id,day_of_week,meal_period,collection,available_from')
+      .eq('is_active', true).lte('available_from', new Date().toISOString())
+      .order('available_from', { ascending: false }).limit(1000);
+    if (menuError) throw new Error(`Published menu lookup failed: ${menuError.message}`);
+    const activeSeason = (await adminClient.from('global_settings').select('active_season').maybeSingle()).data?.active_season;
+    const activeMenuRows = (menuRows || []).filter((row: any) => row.collection === (activeSeason || 'autumn'));
+    const latestRelease = activeMenuRows[0]?.available_from;
+    const releasedChoices = new Set(activeMenuRows.filter((row: any) => row.available_from === latestRelease)
+      .map((row: any) => `${row.day_of_week}|${row.meal_period}|${row.dish_id}`));
     const selectedSlots = new Set<string>();
+    const selectedDays = new Set<string>();
+    let selectedWeek = '';
     for (const choice of requestedSelections) {
       const day = typeof choice?.day_of_week === 'string' ? choice.day_of_week : '';
       const meal = choice?.meal_type === 'snack' ? 'snacks' : choice?.meal_type;
@@ -143,12 +164,20 @@ Deno.serve(async (req: Request) => {
       if (!['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday'].includes(day)
         || !['breakfast','lunch','dinner','snack','snacks'].includes(choice?.meal_type)
         || !allowedPeriods.includes(meal) || typeof choice?.dish_id !== 'string' || !choice.dish_id
-        || !/^\d{4}-\d{2}-\d{2}$/.test(week)) {
+        || week !== expectedWeek || (selectedWeek && selectedWeek !== week)) {
         return jsonResponse({ error: "A selected meal does not match this package or the published weekly menu." }, 400);
+      }
+      selectedWeek = week;
+      if (!releasedChoices.has(`${day}|${meal}|${choice.dish_id}`)) {
+        return jsonResponse({ error: "One of your selected dishes is not in the currently published menu." }, 400);
       }
       const key = `${week}|${day}|${meal}`;
       if (selectedSlots.has(key)) return jsonResponse({ error: "Choose only one dish for each meal period." }, 400);
       selectedSlots.add(key);
+      selectedDays.add(`${week}|${day}`);
+    }
+    if (selectedDays.size !== requiredServiceDays || selectedSlots.size !== requiredServiceDays * allowedPeriods.length) {
+      return jsonResponse({ error: "Choose every meal included in the selected plan for its service days." }, 400);
     }
 
     // ---------------------------------------------------------
