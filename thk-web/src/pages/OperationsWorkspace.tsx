@@ -9,11 +9,10 @@ import { useAuth } from '../lib/auth';
 import { getQatarDate } from '../lib/date-utils';
 import { useLanguage } from '../lib/LanguageContext';
 import { getGoogleMapsLink } from '../lib/location-utils';
-import type { ParsedMenuEntry } from '../lib/monthly-menu-pdf';
 
 type Module = 'overview' | 'customers' | 'subscriptions' | 'menu' | 'kitchen' | 'packing' | 'delivery' | 'drivers' | 'payments' | 'reminders' | 'reports' | 'bookings' | 'team' | 'settings';
 type Row = Record<string, any>;
-const MENU_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'] as const;
+const MENU_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const;
 const MENU_MEALS = ['breakfast', 'lunch', 'dinner', 'snacks'] as const;
 
 const MODULES: { id: Module; label: string; icon: React.ElementType; roles: string[] }[] = [
@@ -35,7 +34,7 @@ const MODULES: { id: Module; label: string; icon: React.ElementType; roles: stri
 
 const money = (value: number, currency = 'QAR') => `${Number(value || 0).toLocaleString()} ${currency}`;
 const addressOf = (s: Row) => [s.building_number, s.street, s.area].filter(Boolean).join(', ') || 'Address missing';
-const normalizedMeal = (meal: string) => meal === 'snack' ? 'snacks' : meal;
+const normalizedMeal = (meal: string) => ['snack', 'snack_2'].includes(meal) ? 'snacks' : meal;
 const statusTone = (status: string) => /active|paid|captured|delivered|approved|completed/i.test(status) ? 'bg-emerald-50 text-emerald-700' : /failed|cancel|expired|reject/i.test(status) ? 'bg-red-50 text-red-700' : /pending|initiated|trial|paused/i.test(status) ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-600';
 
 export default function OperationsWorkspace() {
@@ -137,14 +136,23 @@ export default function OperationsWorkspace() {
   }, [refresh]);
   useEffect(() => { if (!visibleModules.some((item) => item.id === module)) setModule(visibleModules[0]?.id || 'overview'); }, [visibleModules, module]);
 
-  const activeSubscribers = subscribers.filter((s) => String(s.status || '').toLowerCase() === 'active');
-  const serviceWeekStart = (value: string) => { const d = new Date(`${value}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + ((6 - d.getUTCDay() + 7) % 7 || 7)); return d.toISOString().slice(0, 10); };
+  const demoSubscribers = subscribers.filter((s) => s.is_demo === true);
+  const activeDemoSubscribers = demoSubscribers.filter((s) => String(s.status || '').toLowerCase() === 'active');
+  const activeSubscribers = subscribers.filter((s) => String(s.status || '').toLowerCase() === 'active' && s.is_demo !== true);
+  const activeSubscribersIncludingDemo = subscribers.filter((s) => String(s.status || '').toLowerCase() === 'active');
+  const serviceWeekStart = (value: string) => { const d = new Date(`${value}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + ((6 - d.getUTCDay() + 7) % 7)); return d.toISOString().slice(0, 10); };
   const weekStart = serviceWeekStart(date);
   const zoneCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    activeSubscribers.forEach((s) => { const zone = String(s.zone_number || 'Needs zone'); counts.set(zone, (counts.get(zone) || 0) + 1); });
+    const counts = new Map<string, { live: number; demo: number }>();
+    activeSubscribersIncludingDemo.forEach((s) => {
+      const zone = String(s.zone_number || 'Needs zone');
+      const total = counts.get(zone) || { live: 0, demo: 0 };
+      if (s.is_demo === true) total.demo += 1;
+      else total.live += 1;
+      counts.set(zone, total);
+    });
     return [...counts.entries()].sort(([a], [b]) => a === 'Needs zone' ? 1 : b === 'Needs zone' ? -1 : Number(a) - Number(b));
-  }, [activeSubscribers]);
+  }, [activeSubscribersIncludingDemo]);
   const visibleSubscribers = subscribers.filter((s) =>
     [s.full_name, s.phone, s.email, s.area, s.zone_number, s.package_name].join(' ').toLowerCase().includes(search.toLowerCase()) &&
     (customerStatusFilter === 'All' || s.status === customerStatusFilter) &&
@@ -185,6 +193,29 @@ export default function OperationsWorkspace() {
       setSuccess('Cash collection verified. The customer plan is active.');
       await refresh(true);
     } catch (e: any) { setError(e?.message || 'Could not verify cash collection.'); }
+    finally { setSaving(false); }
+  };
+
+  const activateDemoSubscriber = async (subscriberId: string) => {
+    setSaving(true); setError('');
+    try {
+      const { error: rpcError } = await supabase.rpc('activate_demo_subscriber', { p_subscriber_id: subscriberId });
+      if (rpcError) throw rpcError;
+      setSuccess('Demo customer activated for operations. This remains unpaid demo data.');
+      await refresh(true);
+    } catch (e: any) { setError(e?.message || 'Could not activate demo customer.'); }
+    finally { setSaving(false); }
+  };
+
+  const activateAllDemoSubscribers = async () => {
+    if (!window.confirm('Activate all synthetic demo customers for operations? They will remain marked Demo — unpaid and will not count as real payments.')) return;
+    setSaving(true); setError('');
+    try {
+      const { data, error: rpcError } = await supabase.rpc('activate_all_demo_subscribers');
+      if (rpcError) throw rpcError;
+      setSuccess(`${data?.activated_count ?? 0} demo customers activated for operations. They remain unpaid demo data.`);
+      await refresh(true);
+    } catch (e: any) { setError(e?.message || 'Could not activate demo customers.'); }
     finally { setSaving(false); }
   };
 
@@ -256,10 +287,12 @@ export default function OperationsWorkspace() {
   const saveDish = async (item: Row) => {
     setSaving(true); setError('');
     try {
-      const patch = { name: item.name, kcals: Number(item.kcals), macros: { protein: Number(item.protein || 0), carbs: Number(item.carbs || 0), fats: Number(item.fats || 0) }, allergens: item.allergens };
-      const { error: updateError } = await supabase.from('dishes').update(patch).eq('id', item.id);
-      if (updateError) throw updateError;
-      setSelectedDish(null); setSuccess('Dish and nutrition details saved.'); await refresh(true);
+      const patch = { name: item.name, kcals: Number(item.kcals), macros: { protein: Number(item.protein || 0), carbs: Number(item.carbs || 0), fats: Number(item.fats || 0) }, allergens: item.allergens, is_active: item.is_active !== false };
+      const result = item.id
+        ? await supabase.from('dishes').update(patch).eq('id', item.id)
+        : await supabase.from('dishes').insert({ ...patch, slug: item.name.trim().toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), is_active: true });
+      if (result.error) throw result.error;
+      setSelectedDish(null); setSuccess(item.id ? 'Dish and nutrition details saved.' : 'Dish added to the shared catalogue.'); await refresh(true);
     } catch (e: any) { setError(e.message || 'Could not save dish.'); }
     finally { setSaving(false); }
   };
@@ -281,6 +314,7 @@ export default function OperationsWorkspace() {
 
   const sectionTitle = MODULES.find((item) => item.id === module)?.label || 'Operations';
   const productionRows = productionSelections.filter((row) => !row.week_start_date || row.week_start_date === weekStart);
+  const activeDemoCount = activeDemoSubscribers.length;
 
   return (
     <div className="ops-dashboard min-h-screen bg-slate-50 pt-24 text-slate-900" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -302,6 +336,11 @@ export default function OperationsWorkspace() {
           </div>
         </header>
 
+        {demoSubscribers.length > 0 && <aside role="status" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <strong>Demo data: {demoSubscribers.length} records · {activeDemoCount} active for operations.</strong>
+          <span className="ms-2">Demo customers are synthetic and unpaid; they never count as cash or Tap revenue.</span>
+        </aside>}
+
         {role === 'driver' ? <section className="mx-auto max-w-2xl rounded-2xl border border-emerald-200 bg-white p-8 text-center shadow-sm"><Truck size={36} className="mx-auto text-[#0F5D4E]"/><h2 className="mt-4 text-xl font-bold">Rider workspace</h2><p className="mt-2 text-sm text-slate-600">Riders accept routes and update delivery status in the THK mobile app. Sign in there with the rider’s assigned account.</p></section> : <>
 
         <nav aria-label="Operations sections" className="sticky top-20 z-30 mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
@@ -313,11 +352,11 @@ export default function OperationsWorkspace() {
         {loading ? <div className="flex justify-center py-24"><Loader2 className="h-9 w-9 animate-spin text-[#0F5D4E]" /></div> : (
           <>
             {module === 'overview' && <Overview role={role} leader={leader} subscribers={subscribers} selections={currentSelections} bookings={bookings} payments={payments} zones={zoneCounts} setModule={setModule} notifications={notifications} packages={packages} />}
-            {module === 'customers' && <section className="space-y-4"><PageTools search={search} setSearch={setSearch} placeholder="Search name, phone, email, area or zone" action={<button className="ops-button flex items-center gap-2" onClick={() => downloadCsv('customers',['Name','Phone','Email','Status','Package','Category','Zone','Area','Delivery address'],visibleSubscribers.map((s) => [s.full_name,s.phone,s.email,s.status,s.package_name,s.nutrition_category,s.zone_number,s.area,addressOf(s)]))}><Download size={16}/>Export customers</button>} /><div className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-4"><select className="ops-control" value={customerStatusFilter} onChange={(e) => setCustomerStatusFilter(e.target.value)}><option>All</option>{['active','paused','trialing','cancelled'].map((s) => <option key={s}>{s}</option>)}</select><select className="ops-control" value={customerCategoryFilter} onChange={(e) => setCustomerCategoryFilter(e.target.value)}><option>All</option>{['A','B','C','D','E','F','Needs review'].map((s) => <option key={s}>{s}</option>)}</select><select className="ops-control" value={customerZoneFilter} onChange={(e) => setCustomerZoneFilter(e.target.value)}><option>All</option>{[...new Set(subscribers.map((s) => s.zone_number || 'Needs zone'))].sort().map((s) => <option key={s}>{s}</option>)}</select></div><PauseRequestsSection requests={pauseRequests} subscribers={subscribers} saving={saving} review={reviewPauseRequest}/><DataTable headers={['Customer','Contact','Plan','Status','Category','Zone','Area','Action']} rows={visibleSubscribers.map((s) => [<strong>{s.full_name || 'Customer'}</strong>,<span>{s.phone || s.email || '—'}</span>,s.package_name || s.package_id || '—',<Status value={s.status}/>,s.nutrition_category || 'Needs review',s.zone_number ? `Zone ${s.zone_number}` : 'Needs zone',s.area || '—',<button onClick={() => setSelected({ ...s })} className="ops-button-secondary">View details</button>])} empty="No customer records found." /></section>}
-            {module === 'subscriptions' && <section className="space-y-4"><div className="grid gap-4 sm:grid-cols-3"><Metric label="Active customers" value={activeSubscribers.length}/><Metric label="Available packages" value={packages.filter((p) => p.active).length}/><Metric label="Payment-confirmed plans" value={subscribers.filter((s) => /paid/i.test(s.payment_status || '')).length}/></div><DataTable headers={['Package','Calories','Meals','Duration','Price','Availability','Action']} rows={packages.map((p) => [p.name,p.kcals, p.meals, p.duration,money(p.price,p.currency),<Status value={p.active ? 'Active' : 'Inactive'}/>,<button className="ops-button-secondary" onClick={() => setSelectedPackage({ ...p })}>Edit package</button>])} empty="No package records are available." /><p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Plan activation and billing state are controlled by verified Tap payments. Package edits update future selections and do not rewrite active Tap transactions.</p></section>}
-            {module === 'menu' && <section className="space-y-4">{leader && <MonthlyMenuPublisher collection={settings?.active_season || 'autumn'} onPublished={() => refresh(true)} />}<div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">Menu schedule and dish nutrition from the shared menu catalogue. The next monthly menu appears to customers on Saturday.</p><span className="text-xs font-semibold text-slate-500">{leader ? 'Leadership can publish a monthly PDF and edit menu availability.' : 'Kitchen view · read only'} · {settings?.active_season || 'Active'} collection</span></div><DataTable headers={['Week','Day','Meal','Dish','Calories','Schedule','Action']} rows={activeMenuAvailability.map((a) => { const dish = dishes.find((d) => d.id === a.dish_id); return [a.week_number,a.day_of_week,a.meal_period,dish?.name || 'Dish unavailable',dish?.kcals ?? '—',<Status value={a.is_active ? 'Active' : 'Unavailable'}/>,leader ? <div className="flex flex-wrap gap-2"><button className="ops-button-secondary" disabled={saving} onClick={() => setMenuAvailability(a,!a.is_active)}>{a.is_active ? 'Disable' : 'Enable'}</button>{dish && <button className="ops-button-secondary" onClick={() => setSelectedDish({ ...dish, protein: dish.macros?.protein, carbs: dish.macros?.carbs, fats: dish.macros?.fats })}>Edit dish</button>}{dish && <button className="ops-button-secondary" onClick={() => setSelectedRecipeDish(dish)}>Recipe ingredients</button>}</div> : '—']; })} empty="No scheduled meals found." /></section>}
+            {module === 'customers' && <section className="space-y-4">{leader && demoSubscribers.some((s) => s.status !== 'active') && <div className="ops-surface flex flex-wrap items-center justify-between gap-3"><div><p className="font-bold">Activate demo customers for operations</p><p className="text-sm text-muted">This shows their selections in kitchen and routing views while keeping them marked unpaid.</p></div><button className="ops-button" disabled={saving} onClick={activateAllDemoSubscribers}>{saving ? 'Activating…' : 'Activate all demo customers'}</button></div>}<PageTools search={search} setSearch={setSearch} placeholder="Search name, phone, email, area or zone" action={<button className="ops-button flex items-center gap-2" onClick={() => downloadCsv('customers',['Name','Phone','Email','Status','Package','Category','Zone','Area','Delivery address','Demo'],visibleSubscribers.map((s) => [s.full_name,s.phone,s.email,s.status,s.package_name,s.nutrition_category,s.zone_number,s.area,addressOf(s),s.is_demo ? 'DEMO · UNPAID' : '']))}><Download size={16}/>Export customers</button>} /><div className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-4"><select className="ops-control" value={customerStatusFilter} onChange={(e) => setCustomerStatusFilter(e.target.value)}><option>All</option>{['active','paused','trialing','cancelled'].map((s) => <option key={s}>{s}</option>)}</select><select className="ops-control" value={customerCategoryFilter} onChange={(e) => setCustomerCategoryFilter(e.target.value)}><option>All</option>{['A','B','C','D','E','F','Needs review'].map((s) => <option key={s}>{s}</option>)}</select><select className="ops-control" value={customerZoneFilter} onChange={(e) => setCustomerZoneFilter(e.target.value)}><option>All</option>{[...new Set(subscribers.map((s) => s.zone_number || 'Needs zone'))].sort().map((s) => <option key={s}>{s === 'Needs zone' ? s : `Zone ${s}`}</option>)}</select></div><PauseRequestsSection requests={pauseRequests} subscribers={subscribers} saving={saving} review={reviewPauseRequest}/><DataTable headers={['Customer','Contact','Plan','Status','Category','Zone','Area','Action']} rows={visibleSubscribers.map((s) => [<span className="inline-flex flex-wrap items-center gap-2"><strong>{s.full_name || 'Customer'}</strong>{qatarFriday && <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-900">Friday meals</span>}{s.is_demo && <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-900">DEMO · UNPAID</span>}</span>,<span>{s.phone || s.email || '—'}</span>,s.package_name || s.package_id || '—',<span><Status value={s.status}/>{s.is_demo && <span className="mt-1 block text-xs text-amber-800">Demo — unpaid</span>}</span>,s.nutrition_category || 'Needs review',s.zone_number ? `Zone ${s.zone_number}` : 'Needs zone',s.area || '—',<div className="flex flex-wrap gap-2"><button onClick={() => setSelected({ ...s })} className="ops-button-secondary">View details</button>{s.is_demo && s.status !== 'active' && <button disabled={saving} onClick={() => activateDemoSubscriber(s.id)} className="ops-button">Activate demo</button>}</div>])} empty="No customer records found." /></section>}
+            {module === 'subscriptions' && <section className="space-y-4"><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Active customers" value={activeSubscribers.length}/><Metric label="Active demo customers · unpaid" value={activeDemoSubscribers.length}/><Metric label="Available packages" value={packages.filter((p) => p.active).length}/><Metric label="Payment-confirmed plans" value={subscribers.filter((s) => s.is_demo !== true && /^paid$/i.test(s.payment_status || '')).length}/></div><DataTable headers={['Package','Calories','Meals','Duration','Price','Availability','Action']} rows={packages.map((p) => [p.name,p.kcals, p.meals, p.duration,money(p.price,p.currency),<Status value={p.active ? 'Active' : 'Inactive'}/>,<button className="ops-button-secondary" onClick={() => setSelectedPackage({ ...p })}>Edit package</button>])} empty="No package records are available." /><p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Demo activation is for kitchen and routing previews only. It does not verify or record cash or Tap payment.</p></section>}
+            {module === 'menu' && <section className="space-y-4">{leader && <><MonthlyMenuPublisher collection={settings?.active_season || 'autumn'} dishes={dishes.filter((dish) => dish.is_active !== false)} onPublished={() => refresh(true)} /><div className="flex justify-end"><button className="ops-button-secondary" onClick={() => setSelectedDish({ name:'',kcals:100,protein:0,carbs:0,fats:0,allergens:[],is_active:true })}>Add dish to catalogue</button></div></>}<div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">The shared dish catalogue is the source of the monthly menu. A published menu opens to customers on Saturday.</p><span className="text-xs font-semibold text-slate-500">{leader ? 'Leadership manages menu publishing and dishes.' : 'Kitchen can edit recipe quantities; menu schedule is read only.'} · {settings?.active_season || 'Active'} collection</span></div><DataTable headers={['Week','Day','Meal','Dish','Calories','Schedule','Action']} rows={activeMenuAvailability.map((a) => { const dish = dishes.find((d) => d.id === a.dish_id); return [a.week_number,a.day_of_week,a.meal_period,dish?.name || 'Dish unavailable',dish?.kcals ?? '—',<Status value={a.is_active ? 'Active' : 'Unavailable'}/>,<div className="flex flex-wrap gap-2">{leader && <><button className="ops-button-secondary" disabled={saving} onClick={() => setMenuAvailability(a,!a.is_active)}>{a.is_active ? 'Disable' : 'Enable'}</button>{dish && <button className="ops-button-secondary" onClick={() => setSelectedDish({ ...dish, protein: dish.macros?.protein, carbs: dish.macros?.carbs, fats: dish.macros?.fats })}>Edit dish</button>}</>}{dish && (leader || role === 'kitchen') && <button className="ops-button-secondary" onClick={() => setSelectedRecipeDish(dish)}>Recipe ingredients</button>}</div>]; })} empty="No scheduled meals found." /><section className="ops-surface"><SectionHeading title="Dish catalogue" helper="These dishes are reused to build every monthly menu. Edit catalogue details or adjust recipe quantities here."/><DataTable headers={['Dish','Calories','Catalogue status','Action']} rows={dishes.map((dish) => [dish.name,dish.kcals,<Status value={dish.is_active === false ? 'Inactive' : 'Active'}/>,<div className="flex flex-wrap gap-2">{leader && <button className="ops-button-secondary" onClick={() => setSelectedDish({ ...dish, protein:dish.macros?.protein, carbs:dish.macros?.carbs, fats:dish.macros?.fats })}>Edit dish</button>}{(leader || role === 'kitchen') && <button className="ops-button-secondary" onClick={() => setSelectedRecipeDish(dish)}>Recipe ingredients</button>}</div>])} empty="No dishes in the catalogue."/></section></section>}
             {(module === 'kitchen' || module === 'packing') && <ProductionSection module={module} date={date} setDate={setDate} rows={productionRows} portionRanges={settings?.portion_ranges} downloadCsv={downloadCsv} />}
-            {module === 'delivery' && <DeliverySection date={date} setDate={setDate} subscribers={activeSubscribers} riders={riders} deliveries={deliveries} saving={saving} assignRider={assignRider} updateDeliveryStatus={updateDeliveryStatus} />}
+            {module === 'delivery' && <DeliverySection date={date} setDate={setDate} subscribers={activeSubscribersIncludingDemo} riders={riders} deliveries={deliveries} saving={saving} assignRider={assignRider} updateDeliveryStatus={updateDeliveryStatus} />}
             {module === 'drivers' && <DriversSection riders={riders} deliveries={deliveries} subscribers={subscribers} date={date} setDate={setDate} />}
             {module === 'payments' && <PaymentsSection payments={payments} logs={paymentLogs} pending={pendingPayments} subscribers={subscribers} verifyCashPayment={verifyCashPayment} saving={saving} />}
             {module === 'reminders' && <section className="space-y-4"><div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Email delivery history from the notification log. Transactional email is sent by the configured Brevo-backed functions; this dashboard shows delivery outcomes and does not fabricate scheduled reminders.</div><DataTable headers={['When','Recipient','Subject','Provider','Status','Error']} rows={notifications.map((n) => [new Date(n.created_at).toLocaleString(),n.recipient || '—',n.subject,n.provider || '—',<Status value={n.status}/>,n.error || '—'])} empty="No email events recorded." /></section>}
@@ -340,20 +379,23 @@ export default function OperationsWorkspace() {
 function Overview({ role, leader, subscribers, selections, bookings, payments, zones, setModule, notifications, packages }: any) {
   const kitchen = role === 'kitchen';
   const transport = role === 'transport';
-  const activeSubscribers = subscribers.filter((subscriber: Row) => subscriber.status === 'active');
+  const activeSubscribers = subscribers.filter((subscriber: Row) => subscriber.status === 'active' && subscriber.is_demo !== true);
+  const activeDemoCount = subscribers.filter((subscriber: Row) => subscriber.status === 'active' && subscriber.is_demo === true).length;
   const active = activeSubscribers.length;
   const missingZones = activeSubscribers.filter((subscriber: Row) => !subscriber.zone_number).length;
+  const liveSubscriberCount = subscribers.filter((subscriber: Row) => subscriber.is_demo !== true).length;
   const pendingPayments = payments.filter((payment: Row) => ['initiated','pending','failed'].includes(String(payment.status).toLowerCase())).length;
-  const statusCounts = ['active','trialing','paused','cancelled'].map((status) => [status, subscribers.filter((subscriber: Row) => subscriber.status === status).length] as const);
+  const statusCounts = ['active','trialing','paused','cancelled'].map((status) => [status, subscribers.filter((subscriber: Row) => subscriber.status === status && subscriber.is_demo !== true).length] as const);
   const paymentCounts = ['captured','pending','failed','initiated'].map((status) => [status, payments.filter((payment: Row) => payment.status === status).length] as const);
-  const revenue = activeSubscribers.reduce((sum: number, subscriber: Row) => sum + (Number(packages.find((item: Row) => item.id === subscriber.package_id)?.price) || 0), 0);
+  const revenue = activeSubscribers.reduce((sum: number, subscriber: Row) => sum + ((Number(packages.find((item: Row) => item.id === subscriber.package_id)?.price) || 0) + (subscriber.friday_delivery_addon ? 199 : 0)), 0);
   const recentEvents = [
     ...bookings.map((booking: Row) => ({ at: booking.created_at, label: `Consultation · ${booking.client_name}`, status: booking.status })),
     ...notifications.map((notification: Row) => ({ at: notification.created_at, label: `Email · ${notification.subject}`, status: notification.status })),
   ].filter((event) => event.at).sort((a,b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0,8);
-  const kitchenDishCounts = Object.values((selections as Row[]).reduce((totals: Record<string, { dish: string; portions: number; day: string; meal: string }>, selection) => {
-    const key = [selection.day_of_week, selection.meal_type, selection.dish_name].join('|');
-    if (!totals[key]) totals[key] = { dish: selection.dish_name || 'Unassigned dish', portions: 0, day: selection.day_of_week || '—', meal: selection.meal_type || '—' };
+  const kitchenDishCounts = Object.values((selections as Row[]).reduce((totals: Record<string, { dish: string; portions: number; day: string; meal: string; isDemo: boolean }>, selection) => {
+    const isDemo = selection.is_demo === true || subscribers.some((subscriber: Row) => subscriber.id === selection.subscriber_id && subscriber.is_demo === true);
+    const key = [isDemo ? 'demo' : 'live', selection.day_of_week, selection.meal_type, selection.dish_name].join('|');
+    if (!totals[key]) totals[key] = { dish: selection.dish_name || 'Unassigned dish', portions: 0, day: selection.day_of_week || '—', meal: selection.meal_type || '—', isDemo };
     totals[key].portions += Number(selection.servings || 1);
     return totals;
   }, {})).sort((a: any, b: any) => a.day.localeCompare(b.day) || a.meal.localeCompare(b.meal) || a.dish.localeCompare(b.dish));
@@ -367,11 +409,13 @@ function Overview({ role, leader, subscribers, selections, bookings, payments, z
   return <div className="space-y-6">
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {kitchen ? <>
-        <Metric label="Meal portions for this service week" value={(selections as Row[]).reduce((sum, row) => sum + Number(row.servings || 1), 0)}/>
+        <Metric label="Live meal portions" value={(selections as Row[]).filter((row) => row.is_demo !== true && !subscribers.some((subscriber: Row) => subscriber.id === row.subscriber_id && subscriber.is_demo === true)).reduce((sum, row) => sum + Number(row.servings || 1), 0)}/>
+        <Metric label="Demo meal portions" value={(selections as Row[]).filter((row) => row.is_demo === true || subscribers.some((subscriber: Row) => subscriber.id === row.subscriber_id && subscriber.is_demo === true)).reduce((sum, row) => sum + Number(row.servings || 1), 0)}/>
         <Metric label="Dish and meal combinations" value={kitchenDishCounts.length}/>
         <Metric label="Portions with dietary safety notes" value={kitchenCustomersWithNotes}/>
       </> : <>
         <Metric label="Active customers" value={active}/>
+        {leader && <Metric label="Active demo customers · unpaid" value={activeDemoCount}/>}
         {leader && <Metric label="Active-plan monthly list value" value={money(revenue)}/>}
         {leader && <Metric label="Consultations awaiting review" value={bookings.filter((booking: Row) => booking.status === 'pending').length}/>}
         {leader && <Metric label="Tap items to reconcile" value={pendingPayments}/>}
@@ -380,14 +424,14 @@ function Overview({ role, leader, subscribers, selections, bookings, payments, z
     </div>
 
     <div className="grid gap-6 xl:grid-cols-2">
-      {(leader || transport) && <section className="ops-surface"><SectionHeading title="Active customers by Qatar zone" helper="Use these totals to group stops and plan rider coverage."/><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{zones.map(([zone,count]: [string,number]) => <div key={zone} className={`rounded-xl border p-4 ${zone === 'Needs zone' ? 'border-amber-200 bg-amber-50' : 'border-primary/10 bg-background'}`}><p className="text-xs font-semibold uppercase text-muted">{zone === 'Needs zone' ? zone : `Zone ${zone}`}</p><p className="mt-1 text-2xl font-bold text-primary">{count}</p></div>)}</div></section>}
+      {(leader || transport) && <section className="ops-surface"><SectionHeading title="Active customers by Qatar zone" helper="Live and demo routes are counted separately; demo records remain unpaid."/><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{zones.map(([zone,count]: [string,{ live: number; demo: number }]) => <div key={zone} className={`rounded-xl border p-4 ${zone === 'Needs zone' ? 'border-amber-200 bg-amber-50' : 'border-primary/10 bg-background'}`}><p className="text-xs font-semibold uppercase text-muted">{zone === 'Needs zone' ? zone : `Zone ${zone}`}</p><p className="mt-1 text-2xl font-bold text-primary">{count.live} live</p><p className="text-sm font-semibold text-amber-800">{count.demo} demo · unpaid</p></div>)}</div></section>}
       <section className="ops-surface"><SectionHeading title={kitchen ? 'Quick kitchen actions' : 'Quick actions'} helper={kitchen ? 'Move from menu choices to bulk prep and then customer portions.' : 'Jump to the work that needs attention.'}/><div className="grid gap-2 sm:grid-cols-2">{actions.map(([key,label]) => <button key={key} onClick={() => setModule(key)} className="rounded-xl border border-primary/10 bg-white p-4 text-start font-semibold text-primary hover:bg-emerald-50">{label}</button>)}</div></section>
     </div>
 
-    {kitchen && <section className="ops-surface"><SectionHeading title="Weekly dish forecast" helper="Bulk portions by selected dish. Open Packing for the client-by-client split after stock arrives."/><DataTable headers={['Service day','Meal','Dish','Portions']} rows={kitchenDishCounts.map((row: any) => [row.day,row.meal,row.dish,row.portions])} empty="No customer meal selections are available for this service week." /></section>}
+    {kitchen && <section className="ops-surface"><SectionHeading title="Weekly dish forecast" helper="Live and demo meal totals stay separate. Demo portions are synthetic and unpaid."/><DataTable headers={['Record','Service day','Meal','Dish','Portions']} rows={kitchenDishCounts.map((row: any) => [row.isDemo ? 'DEMO · UNPAID' : 'Live',row.day,row.meal,row.dish,row.portions])} empty="No customer meal selections are available for this service week." /></section>}
 
     {leader && <div className="grid gap-6 xl:grid-cols-2">
-      <section className="ops-surface"><SectionHeading title="Subscription status" helper="Live counts from the subscriber records."/><div className="space-y-3">{statusCounts.map(([status,count]) => <div key={status} className="flex items-center gap-3"><span className="w-24 text-sm capitalize">{status}</span><div className="h-2 flex-1 overflow-hidden rounded-full bg-background"><div className="h-full rounded-full bg-primary" style={{ width: `${subscribers.length ? Math.max(0, count / subscribers.length * 100) : 0}%` }}/></div><strong className="w-10 text-end">{count}</strong></div>)}</div></section>
+      <section className="ops-surface"><SectionHeading title="Subscription status" helper="Live counts exclude synthetic demo records."/><div className="space-y-3">{statusCounts.map(([status,count]) => <div key={status} className="flex items-center gap-3"><span className="w-24 text-sm capitalize">{status}</span><div className="h-2 flex-1 overflow-hidden rounded-full bg-background"><div className="h-full rounded-full bg-primary" style={{ width: `${liveSubscriberCount ? Math.max(0, count / liveSubscriberCount * 100) : 0}%` }}/></div><strong className="w-10 text-end">{count}</strong></div>)}</div></section>
       <section className="ops-surface"><SectionHeading title="Recent work" helper="Recent consultation and email events."/><div className="grid grid-cols-2 gap-3">{paymentCounts.map(([status,count]) => <div key={status} className="rounded-xl border border-primary/10 bg-background p-4"><p className="text-xs font-semibold uppercase text-muted">Tap {status}</p><p className="mt-1 text-2xl font-bold text-primary">{count}</p></div>)}</div><div className="mt-4 divide-y divide-primary/10">{recentEvents.map((event,i) => <div key={`${event.at}-${i}`} className="flex items-center justify-between gap-3 py-3 text-sm"><span className="truncate">{event.label}</span><Status value={event.status}/></div>)}{!recentEvents.length && <p className="text-sm text-muted">No recent work has been recorded.</p>}</div></section>
     </div>}
   </div>;
@@ -396,7 +440,8 @@ function Overview({ role, leader, subscribers, selections, bookings, payments, z
 function DeliverySection({ date, setDate, subscribers, riders, deliveries, saving, assignRider, updateDeliveryStatus }: any) {
   const [zone, setZone] = useState('All zones');
   const zones = [...new Set(subscribers.map((s: Row) => s.zone_number || 'Needs zone'))].sort((a: any,b: any) => a === 'Needs zone' ? 1 : b === 'Needs zone' ? -1 : Number(a)-Number(b));
-  const list = subscribers.filter((s: Row) => zone === 'All zones' || String(s.zone_number || 'Needs zone') === String(zone)).sort((a: Row,b: Row) => String(a.lunch_window || '').localeCompare(String(b.lunch_window || '')) || String(a.full_name).localeCompare(String(b.full_name)));
+  const qatarFriday = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Qatar', weekday: 'short' }).format(new Date(`${date}T12:00:00+03:00`)) === 'Fri';
+  const list = subscribers.filter((s: Row) => (!qatarFriday || s.friday_delivery_addon === true) && (zone === 'All zones' || String(s.zone_number || 'Needs zone') === String(zone))).sort((a: Row,b: Row) => String(a.lunch_window || '').localeCompare(String(b.lunch_window || '')) || String(a.full_name).localeCompare(String(b.full_name)));
   const deliveryFor = (id: string) => deliveries.find((d: Row) => d.subscriber_id === id);
   return <section className="space-y-4">
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
@@ -408,7 +453,7 @@ function DeliverySection({ date, setDate, subscribers, riders, deliveries, savin
       const d = deliveryFor(s.id);
       const fallback = [s.building_number, s.street, s.area, 'Doha Qatar'].filter(Boolean).join(' ');
       const map = getGoogleMapsLink(s.latitude, s.longitude, fallback);
-      return [<strong>{s.full_name || 'Customer'}</strong>,s.zone_number ? `Zone ${s.zone_number}` : <span className="text-amber-700">Needs zone</span>,[s.building_number,s.street,s.area].filter(Boolean).join(', ') || 'Address missing','One stop · all meals for the day',<select aria-label={`Assign rider for ${s.full_name || 'customer'}`} className="ops-control min-w-40" value={d?.rider_application_id || ''} disabled={saving} onChange={(e) => assignRider(s.id,e.target.value,'all')}><option value="">Assign rider…</option>{riders.map((r: Row) => <option key={r.id} value={r.id}>{r.full_name || r.phone || 'Rider'}</option>)}</select>,d ? <select aria-label={`Update delivery status for ${s.full_name || 'customer'}`} className="ops-control" value={d.status} disabled={saving} onChange={(e) => updateDeliveryStatus(d.id,e.target.value)}><option value="pending">Pending</option><option value="delivered">Delivered</option><option value="failed">Failed</option></select> : <Status value="Unassigned"/>,<a className="text-sm font-semibold text-primary underline" target="_blank" rel="noreferrer" href={map}>Open map</a>];
+      return [<span className="inline-flex flex-wrap items-center gap-2"><strong>{s.full_name || 'Customer'}</strong>{qatarFriday && <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-900">Friday meals</span>}{s.is_demo && <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-900">DEMO</span>}</span>,s.zone_number ? `Zone ${s.zone_number}` : <span className="text-amber-700">Needs zone</span>,[s.building_number,s.street,s.area].filter(Boolean).join(', ') || 'Address missing','One stop · all meals for the day',<select aria-label={`Assign rider for ${s.full_name || 'customer'}`} className="ops-control min-w-40" value={d?.rider_application_id || ''} disabled={saving} onChange={(e) => assignRider(s.id,e.target.value,'all')}><option value="">Assign rider…</option>{riders.map((r: Row) => <option key={r.id} value={r.id}>{r.full_name || r.phone || 'Rider'}</option>)}</select>,d ? <select aria-label={`Update delivery status for ${s.full_name || 'customer'}`} className="ops-control" value={d.status} disabled={saving} onChange={(e) => updateDeliveryStatus(d.id,e.target.value)}><option value="pending">Pending</option><option value="delivered">Delivered</option><option value="failed">Failed</option></select> : <Status value="Unassigned"/>,<a className="text-sm font-semibold text-primary underline" target="_blank" rel="noreferrer" href={map}>Open map</a>];
     })} empty="No active customers in this zone." />
   </section>;
 }
@@ -420,7 +465,7 @@ function DriversSection({ riders, deliveries, subscribers, date, setDate }: any)
 function ProductionSection({ module, date, setDate, rows, portionRanges, downloadCsv }: any) {
   const [ingredientRows, setIngredientRows] = useState<Row[]>([]);
   const [ingredientError, setIngredientError] = useState('');
-  const weekStart = (() => { const day = new Date(`${date}T12:00:00Z`).getUTCDay(); const saturday = new Date(`${date}T12:00:00Z`); saturday.setUTCDate(saturday.getUTCDate() + ((6 - day + 7) % 7 || 7)); return saturday.toISOString().slice(0, 10); })();
+  const weekStart = (() => { const day = new Date(`${date}T12:00:00Z`).getUTCDay(); const saturday = new Date(`${date}T12:00:00Z`); saturday.setUTCDate(saturday.getUTCDate() + ((6 - day + 7) % 7)); return saturday.toISOString().slice(0, 10); })();
   useEffect(() => {
     if (module !== 'kitchen') return;
     void supabase.from('kitchen_ingredient_order_view').select('*').eq('week_start_date', weekStart).order('ingredient_name')
@@ -428,10 +473,11 @@ function ProductionSection({ module, date, setDate, rows, portionRanges, downloa
   }, [module, weekStart]);
   const list = rows as Row[];
   const servingsFor = (row: Row) => Number(row.servings || 1);
-  const portions = list.reduce((counts: Record<string,number>, row) => { const category = row.nutrition_category || 'Needs category'; counts[category] = (counts[category] || 0) + servingsFor(row); return counts; }, {});
-  const dishCounts = Object.values(list.reduce((totals: Record<string, { day: string; meal: string; dish: string; portions: number }>, row) => {
-    const key = [row.day_of_week, row.meal_type, row.dish_name].join('|');
-    if (!totals[key]) totals[key] = { day: row.day_of_week || '—', meal: normalizedMeal(row.meal_type || '—'), dish: row.dish_name || 'Unassigned dish', portions: 0 };
+  const portions = list.reduce((counts: Record<string,number>, row) => { const category = `${row.is_demo ? 'demo' : 'live'}:${row.nutrition_category || 'Needs category'}`; counts[category] = (counts[category] || 0) + servingsFor(row); return counts; }, {});
+  const dishCounts = Object.values(list.reduce((totals: Record<string, { day: string; meal: string; dish: string; portions: number; isDemo: boolean }>, row) => {
+    const isDemo = row.is_demo === true;
+    const key = [isDemo ? 'demo' : 'live', row.day_of_week, row.meal_type, row.dish_name].join('|');
+    if (!totals[key]) totals[key] = { day: row.day_of_week || '—', meal: normalizedMeal(row.meal_type || '—'), dish: row.dish_name || 'Unassigned dish', portions: 0, isDemo };
     totals[key].portions += servingsFor(row);
     return totals;
   }, {})).sort((a, b) => a.day.localeCompare(b.day) || a.meal.localeCompare(b.meal) || a.dish.localeCompare(b.dish));
@@ -454,14 +500,14 @@ function ProductionSection({ module, date, setDate, rows, portionRanges, downloa
   const isKitchen = module === 'kitchen';
   return <section className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4"><div><h2 className="text-lg font-bold">{isKitchen ? 'Weekly bulk purchasing' : 'Portion packing'}</h2><p className="text-sm text-slate-600">{isKitchen ? 'Order ingredients from total recipe quantities; meal counts are grouped by dish and requested preparation.' : 'Split the bulk cook into the required A–F portion sizes and apply the aggregated safety notes.'}</p></div><label className="text-sm font-semibold">Service week <input type="date" className="ops-control ms-2" value={date} onChange={(event) => setDate(event.target.value)}/></label></div>
-    <div className="grid gap-3 sm:grid-cols-3"><Metric label={isKitchen ? 'Meal portions to prepare' : 'Meal portions to pack'} value={list.reduce((sum, row) => sum + servingsFor(row), 0)}/><Metric label={isKitchen ? 'Portions with dietary or prep notes' : 'Dish and portion combinations'} value={isKitchen ? mealsWithNotes : dishCounts.length}/><Metric label="Distinct dishes" value={new Set(list.map((row) => row.dish_name)).size}/></div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Live meal portions" value={list.filter((row) => !row.is_demo).reduce((sum, row) => sum + servingsFor(row), 0)}/><Metric label="Demo meal portions · unpaid" value={list.filter((row) => row.is_demo).reduce((sum, row) => sum + servingsFor(row), 0)}/><Metric label={isKitchen ? 'Portions with dietary or prep notes' : 'Dish and portion combinations'} value={isKitchen ? mealsWithNotes : dishCounts.length}/><Metric label="Distinct dishes" value={new Set(list.map((row) => row.dish_name)).size}/></div>
     {isKitchen ? <>
-      <div className="ops-surface"><SectionHeading title="Bulk ingredient totals" helper="Totals combine all active customers’ meal choices. Example: 2 chicken portions × 100 g per recipe = 200 g to purchase."/>{ingredientError ? <p role="alert" className="text-sm text-amber-800">Ingredient totals unavailable: {ingredientError}</p> : <DataTable headers={['Ingredient to purchase','Total quantity','Unit','Meals using ingredient']} rows={ingredientRows.map((item) => [item.ingredient_name,item.quantity_to_order,item.unit,item.meal_servings])} empty="No ingredient totals yet. Add recipe quantities to the dishes in Meal Plans, then the weekly selections will calculate the bulk order."/>}</div>
-      <div className="ops-surface"><SectionHeading title="Selected portions by dish" helper="Counts stay aggregated for purchasing and production planning."/><DataTable headers={['Service day','Meal','Dish','Portions']} rows={dishCounts.map((row) => [row.day,row.meal,row.dish,row.portions])} empty="No meal selections are saved for this service week."/></div>
-      <div className="ops-surface"><SectionHeading title="Dietary safety and preparation notes" helper="Aggregated by dish and requested modification; customer identities and delivery details stay out of kitchen production."/><DataTable headers={['Service day','Meal','Dish','Portions','A–F portion','Allergies','Avoid','Preparation notes']} rows={kitchenSafetyRows.map((row) => [row.day_of_week || '—',normalizedMeal(row.meal_type || '—'),row.dish_name || 'Unassigned dish',servingsFor(row),row.nutrition_category || 'Needs category',(Array.isArray(row.allergy_flags) ? row.allergy_flags : row.allergy_flags ? [row.allergy_flags] : []).join(', ') || '—',(Array.isArray(row.food_notes) ? row.food_notes : row.food_notes ? [row.food_notes] : []).join(', ') || '—',mealPrepNotes(row).join(' · ') || '—'])} empty="No allergy or meal-preparation notes were recorded for these selections."/></div>
+      <div className="ops-surface"><SectionHeading title="Bulk ingredient totals" helper="Starter quantities are estimates until kitchen staff confirm them in Meal Plans. Live and demo totals are separated."/>{ingredientError ? <p role="alert" className="text-sm text-amber-800">Ingredient totals unavailable: {ingredientError}</p> : <DataTable headers={['Record','Ingredient to purchase','Total quantity','Unit','Meals using ingredient','Recipe status']} rows={ingredientRows.map((item) => [item.is_demo ? 'DEMO · UNPAID' : 'Live',item.ingredient_name,item.quantity_to_order,item.unit,item.meal_servings,item.contains_estimates ? <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-900">Estimate · kitchen review</span> : <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800">Kitchen confirmed</span>])} empty="No ingredient totals yet. Add recipe quantities to the dishes in Meal Plans, then the weekly selections will calculate the bulk order."/>}</div>
+      <div className="ops-surface"><SectionHeading title="Selected portions by dish" helper="Live and demo counts stay separate for purchasing and production planning."/><DataTable headers={['Record','Service day','Meal','Dish','Portions']} rows={dishCounts.map((row) => [row.isDemo ? 'DEMO · UNPAID' : 'Live',row.day,row.meal,row.dish,row.portions])} empty="No meal selections are saved for this service week."/></div>
+      <div className="ops-surface"><SectionHeading title="Dietary safety and preparation notes" helper="Live and demo prep notes stay separate and aggregated by dish. Customer identities and delivery details stay out of kitchen production."/><DataTable headers={['Record','Service day','Meal','Dish','Portions','A–F portion','Allergies','Avoid','Preparation notes']} rows={kitchenSafetyRows.map((row) => [row.is_demo ? 'DEMO · UNPAID' : 'Live',row.day_of_week || '—',normalizedMeal(row.meal_type || '—'),row.dish_name || 'Unassigned dish',servingsFor(row),row.nutrition_category || 'Needs category',(Array.isArray(row.allergy_flags) ? row.allergy_flags : row.allergy_flags ? [row.allergy_flags] : []).join(', ') || '—',(Array.isArray(row.food_notes) ? row.food_notes : row.food_notes ? [row.food_notes] : []).join(', ') || '—',mealPrepNotes(row).join(' · ') || '—'])} empty="No allergy or meal-preparation notes were recorded for these selections."/></div>
     </> : <>
-      <div className="ops-surface"><SectionHeading title="A–F portions to pack" helper="Bulk counts by size category after ingredients arrive. Admin sets the gram ranges in Settings."/><div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">{['A','B','C','D','E','F','Needs category'].map((key) => { const range = portionRanges?.[key]; const grams = range?.min_grams != null || range?.max_grams != null ? `${range?.min_grams ?? '—'}–${range?.max_grams ?? '—'} g` : 'Range not set'; return <div key={key} className="rounded-xl border border-primary/10 bg-background p-3"><p className="text-xs font-semibold text-muted">{key}</p><p className="text-xl font-bold text-primary">{portions[key] || 0}</p><p className="mt-1 text-[10px] text-muted">{key === 'Needs category' ? 'Needs review' : grams}</p></div>; })}</div></div>
-      <DataTable headers={['Service day','Meal','Dish','Total portions','A–F category','Allergy flags','Preparation modification']} rows={list.map((row) => [row.day_of_week || '—',normalizedMeal(row.meal_type || '—'),row.dish_name,servingsFor(row),row.nutrition_category || 'Needs category',(row.allergy_flags || []).join(', ') || '—',[...(row.food_notes || []).map((note: string) => `Avoid: ${note}`),...mealPrepNotes(row)].join(' · ') || '—'])} empty="No meal selections are saved for this service week."/>
+      <div className="ops-surface"><SectionHeading title="A–F portions to pack" helper="Live and demo totals stay separate; Admin sets the gram ranges in Settings."/><div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">{['A','B','C','D','E','F','Needs category'].map((key) => { const range = portionRanges?.[key]; const grams = range?.min_grams != null || range?.max_grams != null ? `${range?.min_grams ?? '—'}–${range?.max_grams ?? '—'} g` : 'Range not set'; return <div key={key} className="rounded-xl border border-primary/10 bg-background p-3"><p className="text-xs font-semibold text-muted">{key}</p><p className="text-sm font-bold text-primary">Live {portions[`live:${key}`] || 0}</p><p className="text-sm font-bold text-amber-800">Demo {portions[`demo:${key}`] || 0}</p><p className="mt-1 text-[10px] text-muted">{key === 'Needs category' ? 'Needs review' : grams}</p></div>; })}</div></div>
+      <DataTable headers={['Record','Service day','Meal','Dish','Total portions','A–F category','Allergy flags','Preparation modification']} rows={list.map((row) => [row.is_demo ? 'DEMO · UNPAID' : 'Live',row.day_of_week || '—',normalizedMeal(row.meal_type || '—'),row.dish_name,servingsFor(row),row.nutrition_category || 'Needs category',(row.allergy_flags || []).join(', ') || '—',[...(row.food_notes || []).map((note: string) => `Avoid: ${note}`),...mealPrepNotes(row)].join(' · ') || '—'])} empty="No meal selections are saved for this service week."/>
     </>}
   </section>;
 }
@@ -471,7 +517,8 @@ function PaymentsSection({ payments, logs, pending, subscribers, verifyCashPayme
 }
 
 function ReportsSection({ subscribers, selections, payments, bookings, date, setDate, downloadCsv }: any) {
-  const active = subscribers.filter((s: Row) => s.status === 'active');
+  const active = subscribers.filter((s: Row) => s.status === 'active' && s.is_demo !== true);
+  const demo = subscribers.filter((s: Row) => s.is_demo === true);
   return <section className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4"><div><h2 className="font-bold">Operations reports</h2><p className="text-sm text-slate-600">Exports are generated from current Supabase records.</p></div><label className="text-sm font-semibold">Report date <input type="date" className="ops-control ms-2" value={date} onChange={(e) => setDate(e.target.value)}/></label></div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[["Customer A–Z",active.length,() => downloadCsv('THK-customer-directory',['Name','Phone','Email','Package','Status','Area','Zone','Address'],active.map((s: Row) => [s.full_name,s.phone,s.email,s.package_name,s.status,s.area,s.zone_number,[s.building_number,s.street].filter(Boolean).join(', ')]))],["Kitchen selections",selections.length,() => downloadCsv('THK-kitchen-report',['Customer','Week','Day','Meal','Dish','Calories','Notes'],selections.map((s: Row) => [s.full_name,s.week_start_date,s.day_of_week,s.meal_type,s.dish_name,s.dish_kcals,[...(s.allergies || []),...(s.dislikes || []),s.delivery_notes].filter(Boolean).join('; ')]))],["Tap transactions",payments.length,() => downloadCsv('THK-payment-report',['Transaction','Subscriber','Amount','Currency','Status','Created'],payments.map((p: Row) => [p.id,p.subscriber_id,p.amount,p.currency,p.status,p.created_at]))],["Consultations",bookings.length,() => downloadCsv('THK-consultation-report',['Customer','Package','Date','Time','Status'],bookings.map((b: Row) => [b.client_name,b.package_name,b.appointment_date,b.appointment_time,b.status]))]].map(([title,count,download]: any) => <article key={title} className="rounded-xl border border-slate-200 bg-white p-5"><p className="text-sm font-semibold text-slate-500">{title}</p><p className="my-3 text-3xl font-bold">{count}</p><button className="ops-button-secondary flex items-center gap-2" onClick={download}><Download size={16}/>Download CSV</button></article>)}</div><button className="ops-button-secondary" onClick={() => window.print()}>Print current view</button></section>;
 }
 
@@ -493,14 +540,14 @@ function CustomerModal({ customer, setCustomer, save, saving }: any) {
 function PackageModal({ item, setItem, save, saving }: any) {
   const set = (key: string, value: any) => setItem((current: Row) => ({ ...current, [key]: value }));
   const fields: [string,string][] = [['name','Package name'],['kcals','Calories'],['price','Price'],['meals','Included meals'],['duration','Duration'],['highlight','Highlight'],['description','Description']];
-  const periods = ['breakfast','lunch','dinner','snacks'];
+  const periods = ['breakfast','lunch','dinner','snacks','snacks_2'];
   const selectedPeriods = item.meal_periods || ['breakfast','lunch','dinner','snacks'];
   return <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/50 p-3" role="dialog" aria-modal="true" aria-label="Edit subscription package"><div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-xl font-bold">Edit package</h2><p className="text-sm text-slate-500">Updates the shared package catalogue.</p></div><button className="rounded-lg p-2 hover:bg-slate-100" onClick={() => setItem(null)} aria-label="Close"><X/></button></div><div className="grid gap-4 sm:grid-cols-2">{fields.map(([key,label]) => <label key={key} className={`text-sm font-semibold ${key === 'description' ? 'sm:col-span-2' : ''}`}>{label}{key === 'description' ? <textarea className="ops-control mt-1 min-h-24 w-full" value={item[key] ?? ''} onChange={(e) => set(key,e.target.value)}/> : <input className="ops-control mt-1 w-full" type={['kcals','price'].includes(key) ? 'number' : 'text'} min={['kcals','price'].includes(key) ? 0 : undefined} value={item[key] ?? ''} onChange={(e) => set(key,['kcals','price'].includes(key) ? Number(e.target.value) : e.target.value)}/>}</label>)}<fieldset className="sm:col-span-2"><legend className="mb-2 text-sm font-semibold">Meal periods included</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{periods.map((period) => <label key={period} className="flex items-center gap-2 rounded-lg border p-3 text-sm capitalize"><input type="checkbox" checked={selectedPeriods.includes(period)} onChange={(e) => set('meal_periods',e.target.checked ? [...selectedPeriods,period] : selectedPeriods.filter((value: string) => value !== period))}/>{period}</label>)}</div></fieldset><label className="flex items-center gap-2 text-sm font-semibold sm:col-span-2"><input type="checkbox" checked={!!item.active} onChange={(e) => set('active',e.target.checked)}/>Available for new subscriptions</label></div><div className="mt-6 flex justify-end gap-3"><button className="ops-button-secondary" onClick={() => setItem(null)}>Close</button><button className="ops-button" disabled={saving || !selectedPeriods.length} onClick={() => save(item)}>{saving ? 'Saving…' : 'Save package'}</button></div></div></div>;
 }
 
 function DishModal({ item, setItem, save, saving }: any) {
   const set = (key: string, value: any) => setItem((current: Row) => ({ ...current, [key]: value }));
-  return <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/50 p-3" role="dialog" aria-modal="true" aria-label="Edit dish nutrition"><div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-2xl sm:p-7"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-xl font-bold">Edit dish and nutrition</h2><p className="text-sm text-slate-500">Changes appear in the shared menu and customer selection view.</p></div><button className="rounded-lg p-2 hover:bg-slate-100" onClick={() => setItem(null)} aria-label="Close"><X/></button></div><div className="grid gap-4 sm:grid-cols-2">{[['name','Dish name','text'],['kcals','Calories','number'],['protein','Protein (g)','number'],['carbs','Carbohydrates (g)','number'],['fats','Fat (g)','number']].map(([key,label,type]) => <label key={key} className="text-sm font-semibold">{label}<input className="ops-control mt-1 w-full" type={type} min={type === 'number' ? 0 : undefined} value={item[key] ?? ''} onChange={(e) => set(key,type === 'number' ? Number(e.target.value) : e.target.value)}/></label>)}<label className="text-sm font-semibold sm:col-span-2">Allergens, comma separated<input className="ops-control mt-1 w-full" value={(item.allergens || []).join(', ')} onChange={(e) => set('allergens',e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))}/></label></div><div className="mt-6 flex justify-end gap-3"><button className="ops-button-secondary" onClick={() => setItem(null)}>Close</button><button className="ops-button" disabled={saving} onClick={() => save(item)}>{saving ? 'Saving…' : 'Save dish'}</button></div></div></div>;
+  return <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/50 p-3" role="dialog" aria-modal="true" aria-label={item.id ? 'Edit dish nutrition' : 'Add dish to catalogue'}><div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-2xl sm:p-7"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-xl font-bold">{item.id ? 'Edit dish and nutrition' : 'Add dish to catalogue'}</h2><p className="text-sm text-slate-500">Changes appear in the shared menu and customer selection view.</p></div><button className="rounded-lg p-2 hover:bg-slate-100" onClick={() => setItem(null)} aria-label="Close"><X/></button></div><div className="grid gap-4 sm:grid-cols-2">{[['name','Dish name','text'],['kcals','Calories','number'],['protein','Protein (g)','number'],['carbs','Carbohydrates (g)','number'],['fats','Fat (g)','number']].map(([key,label,type]) => <label key={key} className="text-sm font-semibold">{label}<input className="ops-control mt-1 w-full" type={type} min={type === 'number' ? 0 : undefined} value={item[key] ?? ''} onChange={(e) => set(key,type === 'number' ? Number(e.target.value) : e.target.value)}/></label>)}<label className="text-sm font-semibold sm:col-span-2">Allergens, comma separated<input className="ops-control mt-1 w-full" value={(item.allergens || []).join(', ')} onChange={(e) => set('allergens',e.target.value.split(',').map((x: string) => x.trim()).filter(Boolean))}/></label><label className="flex items-center gap-2 text-sm font-semibold sm:col-span-2"><input type="checkbox" checked={item.is_active !== false} onChange={(event) => set('is_active',event.target.checked)}/>Available in the dish catalogue and future menus</label></div><div className="mt-6 flex justify-end gap-3"><button className="ops-button-secondary" onClick={() => setItem(null)}>Close</button><button className="ops-button" disabled={saving || !item.name?.trim()} onClick={() => save(item)}>{saving ? 'Saving…' : item.id ? 'Save dish' : 'Add dish'}</button></div></div></div>;
 }
 
 function RecipeIngredientsModal({ dish, onClose }: { dish: Row; onClose: () => void }) {
@@ -512,11 +559,11 @@ function RecipeIngredientsModal({ dish, onClose }: { dish: Row; onClose: () => v
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   useEffect(() => {
-    void supabase.from('meal_ingredient_config').select('ingredient_slug,quantity_per_serving,unit,ingredients(name)')
+    void supabase.from('meal_ingredient_config').select('ingredient_slug,quantity_per_serving,unit,is_estimate,ingredients(name)')
       .eq('dish_slug', dish.slug).order('ingredient_slug').then(({ data, error: loadError }) => {
         if (loadError) setError(loadError.message);
         else {
-          const loaded = (data || []).map((row: Row) => ({ slug: row.ingredient_slug, name: row.ingredients?.name || row.ingredient_slug, quantity: row.quantity_per_serving, unit: row.unit || 'g' }));
+          const loaded = (data || []).map((row: Row) => ({ slug: row.ingredient_slug, name: row.ingredients?.name || row.ingredient_slug, quantity: row.quantity_per_serving, unit: row.unit || 'g', is_estimate: row.is_estimate === true, dirty: false }));
           setRows(loaded); setInitialSlugs(loaded.map((row) => row.slug));
         }
         setLoading(false);
@@ -532,7 +579,7 @@ function RecipeIngredientsModal({ dish, onClose }: { dish: Row; onClose: () => v
         if (!slug || !Number.isFinite(Number(row.quantity)) || Number(row.quantity) <= 0 || !row.unit.trim()) throw new Error(t('recipe_input_error'));
         const { error: ingredientError } = await supabase.from('ingredients').upsert({ slug, name: row.name.trim() }, { onConflict: 'slug' });
         if (ingredientError) throw ingredientError;
-        const { error: configError } = await supabase.from('meal_ingredient_config').upsert({ dish_slug: dish.slug, ingredient_slug: slug, quantity_per_serving: Number(row.quantity), unit: row.unit.trim() }, { onConflict: 'dish_slug,ingredient_slug' });
+        const { error: configError } = await supabase.from('meal_ingredient_config').upsert({ dish_slug: dish.slug, ingredient_slug: slug, quantity_per_serving: Number(row.quantity), unit: row.unit.trim(), is_estimate: row.dirty ? false : row.is_estimate === true }, { onConflict: 'dish_slug,ingredient_slug' });
         if (configError) throw configError;
         active.push(slug);
       }
@@ -540,82 +587,62 @@ function RecipeIngredientsModal({ dish, onClose }: { dish: Row; onClose: () => v
         const { error: deleteError } = await supabase.from('meal_ingredient_config').delete().eq('dish_slug', dish.slug).eq('ingredient_slug', slug);
         if (deleteError) throw deleteError;
       }
-      setInitialSlugs(active); setRows((current) => current.filter((row) => active.includes(row.slug) || row.name.trim())); setSaved(true);
+      setInitialSlugs(active); setRows((current) => current.filter((row) => active.includes(row.slug) || row.name.trim()).map((row) => ({ ...row, is_estimate: row.dirty ? false : row.is_estimate, dirty: false }))); setSaved(true);
     } catch (e: any) { setError(e?.message || t('recipe_save_failed')); }
     finally { setSaving(false); }
   };
-  return <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/50 p-3" role="dialog" aria-modal="true" aria-label={t('recipe_ingredients')} dir={isRtl ? 'rtl' : 'ltr'}><section className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-xl font-bold">{t('recipe_ingredients')}</h2><p className="text-sm text-slate-500">{dish.name} · {t('recipe_quantity_help')}</p></div><button className="rounded-lg p-2 hover:bg-slate-100" onClick={onClose} aria-label={t('close')}><X/></button></div>{loading ? <p className="text-sm text-slate-500">{t('loading_recipe')}</p> : <><div className="space-y-2">{rows.map((row,index) => <div key={`${row.slug || 'new'}-${index}`} className="grid gap-2 sm:grid-cols-[1fr_130px_120px_auto]"><input className="ops-control" aria-label={t('ingredient_name')} placeholder={t('ingredient_name')} value={row.name} onChange={(event) => update(index,{ name:event.target.value,slug:'' })}/><input className="ops-control" aria-label={t('quantity_per_serving')} type="number" min="0.001" step="0.001" value={row.quantity} onChange={(event) => update(index,{ quantity:Number(event.target.value) })}/><input className="ops-control" aria-label={t('unit')} placeholder="g, ml, pieces" value={row.unit} onChange={(event) => update(index,{ unit:event.target.value })}/><button type="button" className="ops-button-secondary" aria-label={t('remove_entry')} onClick={() => setRows((current) => current.filter((_,i) => i !== index))}><Trash2 size={16}/></button></div>)}</div><button className="ops-button-secondary mt-3" onClick={() => setRows((current) => [...current,{ name:'',quantity:1,unit:'g',slug:'' }])}>{t('add_ingredient')}</button></>}{error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}{saved && <p role="status" className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{t('recipe_saved')}</p>}<div className="mt-6 flex justify-end gap-3"><button className="ops-button-secondary" onClick={onClose}>{t('close')}</button><button className="ops-button" disabled={saving || loading} onClick={() => void save()}>{saving ? t('saving') : t('save_recipe')}</button></div></section></div>;
+  return <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/50 p-3" role="dialog" aria-modal="true" aria-label={t('recipe_ingredients')} dir={isRtl ? 'rtl' : 'ltr'}><section className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-xl font-bold">{t('recipe_ingredients')}</h2><p className="text-sm text-slate-500">{dish.name} · {t('recipe_quantity_help')}</p></div><button className="rounded-lg p-2 hover:bg-slate-100" onClick={onClose} aria-label={t('close')}><X/></button></div><p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{t('recipe_estimate_notice')}</p>{loading ? <p className="text-sm text-slate-500">{t('loading_recipe')}</p> : <><div className="space-y-2">{rows.map((row,index) => <div key={`${row.slug || 'new'}-${index}`}><div className="mb-1 flex items-center justify-between"><span className={`text-xs font-semibold ${row.is_estimate ? 'text-amber-800' : 'text-emerald-700'}`}>{row.dirty ? t('ingredient_changes_unsaved') : row.is_estimate ? t('ingredient_estimate') : t('ingredient_kitchen_confirmed')}</span></div><div className="grid gap-2 sm:grid-cols-[1fr_130px_120px_auto]"><input className="ops-control" aria-label={t('ingredient_name')} placeholder={t('ingredient_name')} value={row.name} onChange={(event) => update(index,{ name:event.target.value,slug:'',dirty:true })}/><input className="ops-control" aria-label={t('quantity_per_serving')} type="number" min="0.001" step="0.001" value={row.quantity} onChange={(event) => update(index,{ quantity:Number(event.target.value),dirty:true })}/><input className="ops-control" aria-label={t('unit')} placeholder="g, ml, pieces" value={row.unit} onChange={(event) => update(index,{ unit:event.target.value,dirty:true })}/><button type="button" className="ops-button-secondary" aria-label={t('remove_entry')} onClick={() => setRows((current) => current.filter((_,i) => i !== index))}><Trash2 size={16}/></button></div></div>)}</div><button className="ops-button-secondary mt-3" onClick={() => setRows((current) => [...current,{ name:'',quantity:1,unit:'g',slug:'',is_estimate:false,dirty:true }])}>{t('add_ingredient')}</button></>}{error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}{saved && <p role="status" className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{t('recipe_saved')}</p>}<div className="mt-6 flex justify-end gap-3"><button className="ops-button-secondary" onClick={onClose}>{t('close')}</button><button className="ops-button" disabled={saving || loading} onClick={() => void save()}>{saving ? t('saving') : t('save_recipe')}</button></div></section></div>;
 }
 
-function MonthlyMenuPublisher({ collection, onPublished }: { collection: string; onPublished: () => void }) {
+function MonthlyMenuPublisher({ collection, dishes, onPublished }: { collection: string; dishes: Row[]; onPublished: () => void }) {
   const { t, isRtl } = useLanguage();
   const nextMonth = new Date(); nextMonth.setMonth(nextMonth.getMonth() + 1, 1);
   const [month, setMonth] = useState(nextMonth.toISOString().slice(0, 7));
-  const [file, setFile] = useState<File | null>(null);
-  const [entries, setEntries] = useState<ParsedMenuEntry[]>([]);
-  const [repeatWeek, setRepeatWeek] = useState(true);
+  const [selections, setSelections] = useState<Record<string, string[]>>({});
+  const [kitchenChoices, setKitchenChoices] = useState<Record<string, number>>({});
+  const [step, setStep] = useState<'select'|'review'>('select');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [documents, setDocuments] = useState<Row[]>([]);
-  const canRepeat = entries.length > 0 && entries.every((entry) => entry.week_number === 1);
-  const choiceSlots = Object.values(entries.reduce<Record<string, number>>((counts, entry) => {
-    const key = `${entry.week_number}|${entry.day_of_week}|${entry.meal_period}`;
-    counts[key] = (counts[key] || 0) + 1;
-    return counts;
-  }, {}));
-  const threeChoiceSlots = choiceSlots.filter((count) => count === 3).length;
+  const activeDishes = dishes.filter((dish) => dish.is_active !== false);
+  const keyOf = (day: string, meal: string) => `${day}|${meal}`;
+  const allSlots = MENU_DAYS.flatMap((day) => MENU_MEALS.map((meal) => keyOf(day, meal)));
+  const selectedEntries = MENU_DAYS.flatMap((day) => MENU_MEALS.flatMap((meal) => {
+    const key = keyOf(day, meal);
+    return (selections[key] || []).map((dishId, index) => {
+      const dish = activeDishes.find((candidate) => candidate.id === dishId);
+      return dish ? { week_number: 1, day_of_week: day, meal_period: meal, dish_id: dish.id, name: dish.name, kcals: Number(dish.kcals || 0), kitchen_choice: (kitchenChoices[key] ?? 0) === index } : null;
+    }).filter(Boolean) as Row[];
+  }));
+  const menuComplete = allSlots.every((key) => (selections[key] || []).length === 3 && new Set(selections[key]).size === 3 && activeDishes.some((dish) => dish.id === selections[key]?.[kitchenChoices[key] ?? 0]));
 
   const refreshDocuments = async () => {
-    const { data, error: loadError } = await supabase.from('monthly_menu_documents').select('id,title,month_start,source_filename,storage_path,available_from,created_at,status').eq('status', 'published').order('created_at', { ascending: false }).limit(12);
+    const { data, error: loadError } = await supabase.from('monthly_menu_documents').select('id,title,month_start,source_filename,storage_path,source_type,available_from,created_at,status').eq('status', 'published').order('created_at', { ascending: false }).limit(12);
     if (!loadError) setDocuments(data || []);
   };
   useEffect(() => { void refreshDocuments(); }, []);
 
-  const handleFile = async (picked: File | null) => {
-    setFile(picked); setEntries([]); setMessage(''); setError('');
-    if (!picked) return;
-    if (picked.type !== 'application/pdf' || picked.size > 20 * 1024 * 1024) {
-      setError(t('menu_pdf_invalid')); setFile(null); return;
-    }
-    setBusy(true);
-    try {
-      const { parseMonthlyMenuPdf } = await import('../lib/monthly-menu-pdf');
-      const result = await parseMonthlyMenuPdf(picked);
-      setEntries(result);
-      setRepeatWeek(result.every((entry) => entry.week_number === 1));
-    } catch (e: any) { setError(e?.message || t('menu_pdf_parse_error')); }
-    finally { setBusy(false); }
+  const chooseDish = (key: string, index: number, dishId: string) => {
+    setSelections((current) => {
+      const next = [...(current[key] || ['', '', ''])];
+      next[index] = dishId;
+      return { ...current, [key]: next };
+    });
+    setError(''); setMessage('');
   };
-
-  const editEntry = (index: number, patch: Partial<ParsedMenuEntry>) => {
-    setEntries((current) => current.map((entry, i) => i === index ? { ...entry, ...patch } : entry));
-  };
-
-  const addEntry = () => setEntries((current) => [...current, {
-    week_number: 1, day_of_week: MENU_DAYS[0], meal_period: MENU_MEALS[0], name: '', kcals: 100,
-    kitchen_choice: false,
-  }]);
 
   const publish = async () => {
-    if (!file || entries.length < 24) return;
+    if (!menuComplete) return;
     setBusy(true); setError(''); setMessage('');
-    const safeName = file.name.replace(/[^\w.-]+/g, '_').slice(-120);
-    const storagePath = `${month}/${crypto.randomUUID()}-${safeName}`;
     try {
-      const { error: uploadError } = await supabase.storage.from('monthly-menu-pdfs').upload(storagePath, file, { contentType: 'application/pdf', upsert: false });
-      if (uploadError) throw uploadError;
-      const { data, error: publishError } = await supabase.rpc('publish_monthly_menu', {
-        p_title: new Date(`${month}-01T12:00:00`).toLocaleDateString(isRtl ? 'ar-QA' : 'en-QA', { month: 'long', year: 'numeric' }),
-        p_month_start: `${month}-01`, p_source_filename: file.name, p_storage_path: storagePath,
-        p_collection: collection, p_items: entries, p_repeat_single_week: repeatWeek,
+      const title = new Date(`${month}-01T12:00:00`).toLocaleDateString(isRtl ? 'ar-QA' : 'en-QA', { month: 'long', year: 'numeric' });
+      const { data, error: publishError } = await supabase.rpc('publish_catalogue_menu', {
+        p_title: title, p_month_start: `${month}-01`, p_collection: collection, p_items: selectedEntries,
       });
-      if (publishError) {
-        await supabase.storage.from('monthly-menu-pdfs').remove([storagePath]);
-        throw publishError;
-      }
+      if (publishError) throw publishError;
       setMessage(`${t('monthly_menu_published')} ${new Date(`${data.available_from}T12:00:00`).toLocaleDateString(isRtl ? 'ar-QA' : 'en-QA')}.`);
-      setFile(null); setEntries([]); await refreshDocuments(); onPublished();
+      setSelections({}); setKitchenChoices({}); setStep('select'); await refreshDocuments(); onPublished();
     } catch (e: any) { setError(e?.message || t('monthly_menu_publish_failed')); }
     finally { setBusy(false); }
   };
@@ -626,27 +653,23 @@ function MonthlyMenuPublisher({ collection, onPublished }: { collection: string;
   };
 
   return <section className="ops-surface space-y-4" dir={isRtl ? 'rtl' : 'ltr'}>
-    <div><h2 className="text-lg font-bold">{t('monthly_menu_title')}</h2><p className="mt-1 text-sm text-slate-600">{t('monthly_menu_help')}</p></div>
-    <div className="grid gap-3 sm:grid-cols-2">
-      <label className="text-sm font-semibold">{t('menu_month')}<input type="month" className="ops-control mt-1 w-full" value={month} onChange={(event) => setMonth(event.target.value)} /></label>
-      <label className="text-sm font-semibold">{t('menu_pdf_file')}<input type="file" accept="application/pdf,.pdf" className="ops-control mt-1 w-full" onChange={(event) => void handleFile(event.target.files?.[0] || null)} /></label>
-    </div>
-    {busy && <p role="status" className="text-sm text-slate-600">{entries.length ? t('publishing_menu') : t('reading_menu_pdf')}</p>}
+    <div><h2 className="text-lg font-bold">Build the monthly menu</h2><p className="mt-1 text-sm text-slate-600">Choose three dishes for each day and meal from the shared catalogue, review the selections, then publish. The chosen menu repeats for four service weeks; clients can select meals before payment.</p></div>
+    <label className="block max-w-xs text-sm font-semibold">{t('menu_month')}<input type="month" className="ops-control mt-1 w-full" value={month} onChange={(event) => setMonth(event.target.value)} disabled={step === 'review'}/></label>
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     {message && <p role="status" className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
-    {entries.length > 0 && <>
-      {canRepeat && <label className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><input type="checkbox" checked={repeatWeek} onChange={(event) => setRepeatWeek(event.target.checked)} />{t('repeat_monthly_menu_week')}</label>}
-      <div className="max-h-96 overflow-auto rounded-xl border border-slate-200">
-        <table className="min-w-full text-start text-sm"><thead className="sticky top-0 bg-slate-50"><tr><th className="p-2">{t('week')}</th><th className="p-2">{t('day')}</th><th className="p-2">{t('meal')}</th><th className="p-2">{t('dish')}</th><th className="p-2">{t('calories')}</th><th className="p-2">{t('kitchen_choice')}</th><th className="p-2">{t('remove_entry')}</th></tr></thead><tbody>
-          {entries.map((entry, index) => <tr key={`${entry.week_number}-${entry.day_of_week}-${entry.meal_period}-${index}`} className="border-t border-slate-100"><td className="p-2"><select className="ops-control" aria-label={t('week')} value={entry.week_number} onChange={(event) => editEntry(index, { week_number: Number(event.target.value) })}>{[1,2,3,4].map((value) => <option key={value} value={value}>{value}</option>)}</select></td><td className="p-2"><select className="ops-control" aria-label={t('day')} value={entry.day_of_week} onChange={(event) => editEntry(index, { day_of_week: event.target.value as ParsedMenuEntry['day_of_week'] })}>{MENU_DAYS.map((value) => <option key={value} value={value}>{t(value)}</option>)}</select></td><td className="p-2"><select className="ops-control" aria-label={t('meal')} value={entry.meal_period} onChange={(event) => editEntry(index, { meal_period: event.target.value as ParsedMenuEntry['meal_period'] })}>{MENU_MEALS.map((value) => <option key={value} value={value}>{t(value)}</option>)}</select></td><td className="p-2"><input className="ops-control min-w-48" aria-label={t('dish_name')} value={entry.name} onChange={(event) => editEntry(index, { name: event.target.value })} /></td><td className="p-2"><input className="ops-control w-24" aria-label={t('calories')} type="number" min={20} max={2500} value={entry.kcals} onChange={(event) => editEntry(index, { kcals: Number(event.target.value) })} /></td><td className="p-2 text-center"><input type="checkbox" aria-label={t('kitchen_choice')} checked={entry.kitchen_choice} onChange={(event) => editEntry(index, { kitchen_choice: event.target.checked })} /></td><td className="p-2"><button type="button" className="ops-button-secondary" aria-label={t('remove_entry')} onClick={() => setEntries((current) => current.filter((_, i) => i !== index))}><Trash2 size={16}/></button></td></tr>)}
-        </tbody></table>
-      </div>
-      <button type="button" className="ops-button-secondary" onClick={addEntry}>{t('add_menu_entry')}</button>
-      <p className="text-xs text-slate-500">{entries.length} {t('menu_entries_detected')} · {threeChoiceSlots}/{choiceSlots.length} meal slots have three choices · {t('menu_publishes_saturday')}</p>
-      {choiceSlots.length > 0 && threeChoiceSlots !== choiceSlots.length && <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">The usual menu has three options for each day and meal. Add or remove choices in the editable preview before scheduling if this menu should follow that format.</p>}
-      <button className="ops-button flex items-center gap-2" disabled={busy || entries.length < 24 || entries.some((entry) => !entry.name.trim() || entry.kcals < 20)} onClick={() => void publish()}><Upload size={16}/>{t('publish_monthly_menu')}</button>
+    {step === 'select' ? <>
+      <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Select exactly three different dishes for all 28 day/meal slots. Mark one as the kitchen’s default; that choice fills in when a customer misses the weekly deadline.</p>
+      {activeDishes.length < 3 ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Add at least three active dishes to the catalogue before building a menu.</p> : <div className="grid gap-4 xl:grid-cols-2">{MENU_DAYS.map((day) => <article key={day} className="rounded-xl border border-slate-200 bg-white p-4"><h3 className="mb-3 font-bold">{t(day)}</h3><div className="space-y-3">{MENU_MEALS.map((meal) => {
+        const key = keyOf(day, meal); const choices = selections[key] || ['', '', ''];
+        return <fieldset key={key} className="rounded-lg border border-slate-100 p-3"><legend className="px-1 text-sm font-semibold capitalize">{t(meal)}</legend><div className="space-y-2">{[0,1,2].map((index) => <div key={index} className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center"><select className="ops-control w-full" value={choices[index] || ''} onChange={(event) => chooseDish(key,index,event.target.value)} aria-label={`${t(day)} ${t(meal)} choice ${index + 1}`}><option value="">Choose dish {index + 1}</option>{activeDishes.map((dish) => <option key={dish.id} value={dish.id} disabled={choices.some((value, slotIndex) => slotIndex !== index && value === dish.id)}>{dish.name} · {dish.kcals} kcal</option>)}</select><label className="flex items-center gap-2 whitespace-nowrap text-xs font-semibold"><input type="radio" name={`default-${key}`} checked={(kitchenChoices[key] ?? 0) === index} disabled={!choices[index]} onChange={() => setKitchenChoices((current) => ({ ...current, [key]: index }))}/>{t('kitchen_choice')}</label></div>)}</div></fieldset>;
+      })}</div></article>)}</div>}
+      <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">{selectedEntries.length}/84 dishes selected · {activeDishes.length} active catalogue dishes</p><button className="ops-button" disabled={!menuComplete || busy} onClick={() => { setStep('review'); setError(''); }}>Review menu</button></div>
+    </> : <>
+      <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">Review all 84 dish choices. A star marks the default selected when a client misses the deadline.</p><button className="ops-button-secondary" disabled={busy} onClick={() => setStep('select')}>Back to selections</button></div>
+      <div className="max-h-[55vh] overflow-auto rounded-xl border border-slate-200"><table className="min-w-full text-start text-sm"><thead className="sticky top-0 bg-slate-50"><tr>{['Day','Meal','Dish choice','Calories','Default'].map((heading) => <th key={heading} className="p-2 text-start">{heading}</th>)}</tr></thead><tbody>{selectedEntries.map((entry,index) => <tr key={`${entry.day_of_week}-${entry.meal_period}-${entry.dish_id}`} className="border-t border-slate-100"><td className="p-2">{t(entry.day_of_week)}</td><td className="p-2 capitalize">{t(entry.meal_period)}</td><td className="p-2">{entry.name}</td><td className="p-2">{entry.kcals}</td><td className="p-2">{entry.kitchen_choice ? '★ Kitchen choice' : '—'}</td></tr>)}</tbody></table></div>
+      <button className="ops-button flex items-center gap-2" disabled={busy || !menuComplete} onClick={() => void publish()}><Upload size={16}/>{busy ? t('publishing_menu') : 'Publish monthly menu'}</button>
     </>}
-    {documents.length > 0 && <div className="border-t border-slate-100 pt-3"><h3 className="mb-2 text-sm font-bold">{t('published_menu_pdfs')}</h3><div className="space-y-2">{documents.map((document) => <div key={document.id} className="flex flex-wrap items-center justify-between gap-2 text-sm"><span>{document.title} · {new Date(document.available_from).toLocaleString(isRtl ? 'ar-QA' : 'en-QA', { timeZone: 'Asia/Qatar', dateStyle: 'medium' })}</span><button className="ops-button-secondary" onClick={() => void openPdf(document.storage_path)}>{t('view_pdf')}</button></div>)}</div></div>}
+    {documents.length > 0 && <div className="border-t border-slate-100 pt-3"><h3 className="mb-2 text-sm font-bold">Published menus</h3><div className="space-y-2">{documents.map((document) => <div key={document.id} className="flex flex-wrap items-center justify-between gap-2 text-sm"><span>{document.title} · {new Date(document.available_from).toLocaleString(isRtl ? 'ar-QA' : 'en-QA', { timeZone: 'Asia/Qatar', dateStyle: 'medium' })} · {document.source_type === 'catalogue' ? 'Dish catalogue' : document.source_filename}</span>{document.source_type !== 'catalogue' && <button className="ops-button-secondary" onClick={() => void openPdf(document.storage_path)}>{t('view_pdf')}</button>}</div>)}</div></div>}
   </section>;
 }
 

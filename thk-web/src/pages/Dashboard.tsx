@@ -288,11 +288,11 @@ export default function Dashboard() {
   const handleExportPrepList = async () => {
     const active = subscribers.filter(s => s.status === 'active');
     const { data: allSelections } = await supabase.from('weekly_menu_selections').select('*');
-    const headers = ['Name', 'Package', 'Area', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu'];
+    const headers = ['Name', 'Package', 'Area', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
     const rows = active.map(s => {
       const selections = allSelections?.filter(sel => sel.subscriber_id === s.id) || [];
       const getDish = (day: string) => selections.find(sel => sel.day_of_week === day)?.dish_name || 'CHEF CHOICE';
-      return [s.full_name, s.package_name, s.area || 'DOHA', getDish('Saturday'), getDish('Sunday'), getDish('Monday'), getDish('Tuesday'), getDish('Wednesday'), getDish('Thursday')];
+      return [s.full_name, s.package_name, s.area || 'DOHA', getDish('Saturday'), getDish('Sunday'), getDish('Monday'), getDish('Tuesday'), getDish('Wednesday'), getDish('Thursday'), s.friday_delivery_addon ? getDish('Friday') : '—'];
     });
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -303,7 +303,7 @@ export default function Dashboard() {
   };
 
   const stats = {
-    revenue: subscribers.filter(s => s.status === 'active').reduce((acc, s) => acc + (PACKAGES.find(p => p.id === s.package_id)?.price || 0), 0),
+    revenue: subscribers.filter(s => s.status === 'active').reduce((acc, s) => acc + (PACKAGES.find(p => p.id === s.package_id)?.price || 0) + (s.friday_delivery_addon ? 199 : 0), 0),
     activeMembers: subscribers.filter(s => s.status === 'active').length,
     pendingBookings: bookings.filter(b => b.status === 'pending').length
   };

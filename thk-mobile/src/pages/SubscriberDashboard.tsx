@@ -273,7 +273,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
     deadline.setUTCHours(20, 59, 59, 999);
     return Math.max(0, Math.ceil((deadline.getTime() - now.getTime()) / 86400000));
   })();
-  const days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+  const days = subscriber?.friday_delivery_addon ? ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] : ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
 
   const getWeekStart = (offset: number) => {
     const today = new Date();
@@ -379,6 +379,11 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
 
   const pickDish = async (day: string, meal: string, dish: MenuDish, customizations = {}) => {
     if (!canEditMenu || saving) return;
+    const otherSnackType = meal === 'snacks' ? 'snack_2' : meal === 'snacks_2' ? 'snack' : null;
+    if (otherSnackType && selections.some((selection) => selection.day_of_week === day && selection.meal_type === otherSnackType && selection.dish_id === dish.id)) {
+      setSaveError('Choose a different dish for each snack.');
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     const { error } = await supabase
@@ -387,7 +392,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
         subscriber_id: subscriber.id,
         week_start_date: weekStart,
         day_of_week: day,
-        meal_type: meal === 'snacks' ? 'snack' : meal,
+        meal_type: meal === 'snacks' ? 'snack' : meal === 'snacks_2' ? 'snack_2' : meal,
         dish_id: dish.id,
         dish_name: dish.name,
         dish_kcals: dish.kcals,
@@ -412,7 +417,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
       subscriber_id: subscriber.id,
       week_start_date: weekStart,
       day_of_week: day,
-      meal_type: meal === 'snacks' ? 'snack' : meal,
+      meal_type: meal === 'snacks' ? 'snack' : meal === 'snacks_2' ? 'snack_2' : meal,
       dish_name: 'SKIP DAY',
       dish_kcals: 0,
       menu_period: settings?.current_menu_period
@@ -424,6 +429,11 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
 
   const applyWeeklyPattern = async (meal: string, dish: MenuDish) => {
     if (!canEditMenu || saving) return;
+    const otherSnackType = meal === 'snacks' ? 'snack_2' : meal === 'snacks_2' ? 'snack' : null;
+    if (otherSnackType && selections.some((selection) => days.includes(selection.day_of_week) && selection.meal_type === otherSnackType && selection.dish_id === dish.id)) {
+      setSaveError('Choose a different dish for each snack.');
+      return;
+    }
     if (!confirm(`Apply "${dish.name}" to all days this week?`)) return;
     setSaving(true);
     setSaveError(null);
@@ -431,7 +441,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
       subscriber_id: subscriber.id,
       week_start_date: weekStart,
       day_of_week: day,
-      meal_type: meal === 'snacks' ? 'snack' : meal,
+      meal_type: meal === 'snacks' ? 'snack' : meal === 'snacks_2' ? 'snack_2' : meal,
       dish_id: dish.id,
       dish_name: dish.name,
       dish_kcals: dish.kcals,
@@ -482,7 +492,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
         <div className="space-y-6">
           {availableMeals.map(mealType => {
             const sel = selections.find(s => s.day_of_week === days[activeDayIndex] && s.meal_type === mealType);
-            const dishes = activeDay?.items[mealType as keyof typeof activeDay.items] || [];
+            const dishes = activeDay?.items[(mealType === 'snacks_2' ? 'snacks' : mealType) as keyof typeof activeDay.items] || [];
             const isSkipped = sel?.dish_name === 'SKIP DAY';
 
             if (dishes.length === 0) return null;

@@ -69,8 +69,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const [bmiReport, setBmiReport] = useState<File | null>(null);
 
   const [pkgId, setPkgId] = useState('');
+  const [fridayDelivery, setFridayDelivery] = useState(false);
   const packageMenuMeals = availablePackages.find((item) => item.id === pkgId)?.meal_periods || PACKAGE_MEALS[pkgId] || PACKAGE_MENU_MEALS;
-  const packageMenuDays = pkgId === 'daily_trial' ? [SERVICE_DAYS[0]] : SERVICE_DAYS;
+  const packageMenuDays = pkgId === 'daily_trial' ? [SERVICE_DAYS[0]] : fridayDelivery ? [...SERVICE_DAYS, 'Friday'] : SERVICE_DAYS;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [signupChannel, setSignupChannel] = useState<PhoneChannel>('email');
@@ -142,28 +143,31 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     const loadMenu = async () => {
       setMenuLoading(true);
       try {
-        const now = new Date().toISOString();
         const [{ data: settings }, { data: menu, error: menuError }] = await Promise.all([
           supabase.from('global_settings').select('active_season').maybeSingle(),
-          supabase.from('menu_availability').select('week_number,dish_id,day_of_week,meal_period,collection,is_kitchen_choice,available_from,dishes(id,name,kcals)').eq('is_active', true).lte('available_from', now).order('available_from', { ascending: false }),
+          supabase.from('menu_availability').select('week_number,dish_id,day_of_week,meal_period,collection,is_kitchen_choice,available_from,dishes(id,name,kcals)').eq('is_active', true).order('available_from', { ascending: false }),
         ]);
         if (menuError) throw menuError;
         if (cancelled) return;
         const collection = settings?.active_season || 'autumn';
-        const published = (menu || []).filter((row: any) => row.collection === collection);
-        const latestRelease = published[0]?.available_from;
-        const rows = latestRelease ? published.filter((row: any) => row.available_from === latestRelease) : [];
+        const serviceWeek = upcomingServiceWeekStart();
+        const published = (menu || []).filter((row: any) => row.collection === collection && new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(row.available_from)) === serviceWeek);
+        const rows = published;
         const options: Record<string, Array<{ id: string; name: string; kcals: number; kitchen_choice?: boolean }>> = {};
         const defaults: Record<string, InitialMenuChoice> = {};
         for (const day of packageMenuDays) for (const meal of packageMenuMeals) {
           const key = `${day}|${meal}`;
-          const matching = rows.filter((row: any) => row.day_of_week === day && row.meal_period === meal).flatMap((row: any) => {
+          const matching = rows.filter((row: any) => row.day_of_week === day && row.meal_period === (meal === 'snacks_2' ? 'snacks' : meal)).flatMap((row: any) => {
             const dish = Array.isArray(row.dishes) ? row.dishes[0] : row.dishes;
             return dish ? [{ id: String(dish.id), name: String(dish.name), kcals: Number(dish.kcals || 0), kitchen_choice: Boolean(row.is_kitchen_choice) }] : [];
           });
           options[key] = matching;
-          const chosen = matching.find((item) => item.kitchen_choice) || matching[0];
-          if (chosen) defaults[key] = { dish_id: chosen.id, dish_name: chosen.name, dish_kcals: chosen.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal, menu_period: collection };
+          const priorSnack = defaults[`${day}|snacks`];
+          const preferred = matching.find((item) => item.kitchen_choice) || matching[0];
+          const chosen = meal === 'snacks_2' && priorSnack
+            ? matching.find((item) => item.id !== priorSnack.dish_id) || null
+            : preferred;
+          if (chosen) defaults[key] = { dish_id: chosen.id, dish_name: chosen.name, dish_kcals: chosen.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal === 'snacks_2' ? 'snack_2' : meal, menu_period: collection };
         }
         setMenuPeriod(collection); setInitialMenuOptions(options); setInitialMenuSelections(defaults);
       } catch (menuError: any) {
@@ -172,7 +176,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     };
     void loadMenu();
     return () => { cancelled = true; };
-  }, [open, pkgId]);
+  }, [open, pkgId, fridayDelivery]);
 
   if (!open) return null;
 
@@ -192,9 +196,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     if (currentStep === 'menu') {
       if (menuLoading) { setError('Please wait while the weekly menu loads.'); return; }
       if (!Object.values(initialMenuOptions).some((choices) => choices.length)) { setError('The kitchen has not published a menu yet. Please check back after the weekly menu is released.'); return; }
-      const requiredKeys = packageMenuDays.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`).filter((key) => (initialMenuOptions[key] || []).length));
+      const requiredKeys = packageMenuDays.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`));
+      if (requiredKeys.some((key) => !(initialMenuOptions[key] || []).length)) return setError('The published menu is missing one or more meals for this package. Please ask the kitchen to complete the weekly menu.');
       if (!requiredKeys.length) { setError('No meals are available for this package in the published menu.'); return; }
       if (requiredKeys.some((key) => !initialMenuSelections[key])) { setError('Choose one meal for every day and meal period to continue.'); return; }
+      if (packageMenuMeals.includes('snacks_2') && packageMenuDays.some((day) => initialMenuSelections[`${day}|snacks`]?.dish_id === initialMenuSelections[`${day}|snacks_2`]?.dish_id)) { setError('Choose two different snacks for each day. The published menu needs at least two snack choices.'); return; }
     }
     if (currentStep === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) {
       setError('Enter your phone number and complete the building, street, area, and zone details.');
@@ -333,6 +339,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             latitude: address.latitude,
               longitude: address.longitude,
             },
+            friday_delivery_addon: fridayDelivery,
             initial_menu_selections: Object.values(initialMenuSelections).map((choice) => ({ ...choice, week_start_date: upcomingServiceWeekStart() })),
           },
       });
@@ -382,7 +389,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         {preselectedPackage && pkg && (
           <div className="mb-6 rounded-2xl border border-[#C5A059]/30 bg-[#C5A059]/10 p-4">
             <p className="text-[9px] font-black uppercase tracking-widest text-[#7b6332]">Selected plan</p>
-            <p className="mt-1 font-black text-[#0a3030]">{t(pkg.id)} · {pkg.price.toLocaleString()} {pkg.currency}</p>
+            <p className="mt-1 font-black text-[#0a3030]">{t(pkg.id)} · {(pkg.price + (fridayDelivery ? 199 : 0)).toLocaleString()} {pkg.currency}{fridayDelivery ? ` · ${t('friday_delivery_addon')}` : ''}</p>
           </div>
         )}
         {success ? (
@@ -479,7 +486,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   {availablePackages.map((p) => (
                     <button
                       key={p.id}
-                      onClick={() => setPkgId(p.id)}
+                      onClick={() => { setPkgId(p.id); if (p.id === 'daily_trial' || p.id === 'weekly_reset') setFridayDelivery(false); }}
                       className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${
                         pkgId === p.id ? 'border-[#0a3030] bg-[#0a3030]/5 shadow-md' : 'border-gray-100 bg-white'
                       }`}
@@ -492,6 +499,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                     </button>
                   ))}
                 </div>
+                {pkgId && !['daily_trial', 'weekly_reset'].includes(pkgId) && <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 ${fridayDelivery ? 'border-[#0a3030] bg-[#0a3030]/5' : 'border-gray-200 bg-white'}`}><input type="checkbox" className="mt-1 h-4 w-4 accent-[#0a3030]" checked={fridayDelivery} onChange={(event) => setFridayDelivery(event.target.checked)}/><span className="text-sm"><strong className="block text-[#0a3030]">{t('friday_delivery_addon')} · {t('friday_delivery_price')}</strong><span className="mt-1 block text-gray-500">{t('friday_delivery_addon_desc')}</span></span></label>}
               </div>
             )}
 
@@ -502,7 +510,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 {menuLoading ? <p className="py-6 text-sm text-gray-500">Loading menu…</p> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">The kitchen has not published a menu yet. Check back after the weekly menu is released.</p> : packageMenuDays.map((day) => {
                   const meals = packageMenuMeals.filter((meal) => (initialMenuOptions[`${day}|${meal}`] || []).length);
                   if (!meals.length) return null;
-                  return <section key={day} className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="mb-3 font-black uppercase text-[#0a3030]">{day}</h4>{meals.map((meal) => { const key = `${day}|${meal}`; const choices = initialMenuOptions[key]; return <label key={key} className="mb-3 block text-xs font-bold uppercase text-gray-500">{meal}<select value={initialMenuSelections[key]?.dish_id || ''} onChange={(event) => { const selected = choices.find((choice) => choice.id === event.target.value); if (selected) setInitialMenuSelections((previous) => ({ ...previous, [key]: { dish_id: selected.id, dish_name: selected.name, dish_kcals: selected.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal, menu_period: menuPeriod } })); }} className="input-field mt-1 py-3 normal-case">{choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.kcals} kcal</option>)}</select></label>; })}</section>;
+                  return <section key={day} className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="mb-3 font-black uppercase text-[#0a3030]">{day}</h4>{meals.map((meal) => { const key = `${day}|${meal}`; const choices = initialMenuOptions[key]; return <label key={key} className="mb-3 block text-xs font-bold uppercase text-gray-500">{meal}<select value={initialMenuSelections[key]?.dish_id || ''} onChange={(event) => { const selected = choices.find((choice) => choice.id === event.target.value); if (selected) setInitialMenuSelections((previous) => ({ ...previous, [key]: { dish_id: selected.id, dish_name: selected.name, dish_kcals: selected.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal === 'snacks_2' ? 'snack_2' : meal, menu_period: menuPeriod } })); }} className="input-field mt-1 py-3 normal-case">{choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.kcals} kcal</option>)}</select></label>; })}</section>;
                 })}
               </div>
             )}

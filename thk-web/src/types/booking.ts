@@ -71,6 +71,19 @@ export const PACKAGES: Package[] = [
     meals_key: '3_meals_1_snack',
   },
   {
+    id: '1600kcal',
+    name: '3 Meals + 2 Snacks',
+    kcals: 1600,
+    price: 2499,
+    currency: 'QR',
+    meals: '3_meals_2_snacks',
+    duration: '24_service_days',
+    description: '1600kcal_desc',
+    highlight: 'for_active_lifestyles',
+    image: 'https://images.pexels.com/photos/1640774/pexels-photo-1640774.jpeg?auto=compress&cs=tinysrgb&h=650&w=940',
+    meals_key: '3_meals_2_snacks',
+  },
+  {
     id: 'signature_custom',
     name: 'Bespoke Master',
     kcals: 2000,
@@ -94,7 +107,7 @@ export const PACKAGES: Package[] = [
     description: 'daily_trial_desc',
     highlight: 'quick_access',
     image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&q=80&w=1000',
-    meals_key: 'flexible_meals',
+    meals_key: '3_meals_1_snack',
   },
   {
     id: 'weekly_reset',
@@ -107,7 +120,7 @@ export const PACKAGES: Package[] = [
     description: 'weekly_reset_desc',
     highlight: 'short_term_focus',
     image: 'https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&q=80&w=1000',
-    meals_key: 'flexible_meals',
+    meals_key: '3_meals_1_snack',
   },
 ];
 

@@ -125,7 +125,7 @@ export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
                     <span className="whitespace-nowrap shrink-0 text-3xl sm:text-4xl font-serif italic text-primary tracking-tighter">{pkg.price.toLocaleString()} <span className="text-xs sm:text-sm not-italic font-sans">{pkg.currency}</span></span>
                     <div className="hidden sm:block h-8 w-px bg-primary/5" />
                     <span className="min-w-0 flex-1 text-[10px] font-black text-gold uppercase tracking-[0.2em] sm:tracking-[0.3em] break-words">
-                      {pkg.id === 'daily_trial' ? t('daily_trial') : pkg.id === 'weekly_reset' ? t('weekly_reset') : ['1100kcal', '1400kcal', '1500kcal'].includes(pkg.id) ? t('service_days_24') : pkg.duration || t('month')}
+                      {pkg.id === 'daily_trial' ? t('daily_trial') : pkg.id === 'weekly_reset' ? t('weekly_reset') : ['1100kcal', '1400kcal', '1500kcal', '1600kcal'].includes(pkg.id) ? t('service_days_24') : pkg.duration || t('month')}
                     </span>
                   </div>
 

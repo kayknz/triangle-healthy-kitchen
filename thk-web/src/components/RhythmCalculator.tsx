@@ -34,6 +34,7 @@ export default function RhythmCalculator() {
 
   const getRecommendedPlan = (calories: number) => {
     if (calories >= 1800) return 'signature_custom';
+    if (calories >= 1550) return '1600kcal';
     if (calories >= 1450) return '1500kcal';
     if (calories >= 1250) return '1400kcal';
     return '1100kcal';

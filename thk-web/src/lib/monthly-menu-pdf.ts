@@ -3,7 +3,7 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-export const MENU_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'] as const;
+export const MENU_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const;
 export const MENU_MEALS = ['breakfast', 'lunch', 'dinner', 'snacks'] as const;
 
 export interface ParsedMenuEntry {
@@ -54,7 +54,7 @@ function toLines(items: any[], pageHeight: number): TextLine[] {
 export async function parseMonthlyMenuPdf(file: File): Promise<ParsedMenuEntry[]> {
   const pdf = await getDocument({ data: await file.arrayBuffer() }).promise;
   if (pdf.numPages !== 1 && pdf.numPages !== 4) {
-    throw new Error('Use one six-day menu page (repeated for the month) or four pages (one page per service week).');
+    throw new Error('Use one seven-day menu page (repeated for the month) or four pages (one page per service week).');
   }
 
   const parsed: ParsedMenuEntry[] = [];

@@ -301,7 +301,7 @@ export default function RiderDashboard() {
                                        <div className="w-2 h-2 rounded-full bg-gold animate-glow" />
                                        <p className="text-gold text-[10px] font-black uppercase tracking-[0.4em]">Current Objective</p>
                                     </div>
-                                    <h3 className="text-4xl sm:text-5xl font-black italic uppercase tracking-tighter mb-4 leading-none">Next: {activeDeliveries[0].subscriber?.full_name || 'Customer'}</h3>
+                                    <h3 className="text-4xl sm:text-5xl font-black italic uppercase tracking-tighter mb-4 leading-none">Next: {activeDeliveries[0].subscriber?.full_name || 'Customer'} {activeDeliveries[0].subscriber?.is_demo && <span className="block text-base not-italic tracking-normal text-amber-300">DEMO · UNPAID</span>}</h3>
                                     <div className="flex items-center gap-4">
                                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-ivory/30">{activeDeliveries[0].subscriber?.area || 'DOHA'}</p>
                                        <div className="w-1 h-1 rounded-full bg-ivory/20" />
@@ -337,7 +337,7 @@ export default function RiderDashboard() {
                                       {(d.subscriber?.full_name || 'C')[0]}
                                    </div>
                                    <div>
-                                      <h4 className="text-2xl font-black text-primary uppercase italic tracking-tighter">{d.subscriber?.full_name || 'Customer'}</h4>
+                                      <h4 className="text-2xl font-black text-primary uppercase italic tracking-tighter">{d.subscriber?.full_name || 'Customer'} {d.subscriber?.is_demo && <span className="ms-2 align-middle text-xs not-italic tracking-normal text-amber-800">DEMO · UNPAID</span>}</h4>
                                       <div className="flex gap-4 mt-3">
                                          <span className="pill text-[9px] bg-primary/5 text-primary/40 border-none px-5">{d.subscriber?.area || 'DOHA'}</span>
                                          <span className="pill text-[9px] bg-gold/10 text-gold border-none px-5">{d.time_window || 'ANYTIME'}</span>
@@ -409,7 +409,7 @@ export default function RiderDashboard() {
                               <div className="flex items-center gap-6">
                                  <div className="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center"><CheckCircle className="w-6 h-6 text-teal" /></div>
                                  <div>
-                                    <h4 className="text-lg font-black text-primary uppercase italic">{d.subscriber?.full_name || 'Customer'}</h4>
+                                    <h4 className="text-lg font-black text-primary uppercase italic">{d.subscriber?.full_name || 'Customer'} {d.subscriber?.is_demo && <span className="ms-2 text-[10px] not-italic tracking-normal text-amber-800">DEMO · UNPAID</span>}</h4>
                                     <p className="text-[9px] font-black text-muted mt-1 uppercase">{d.delivery_date} · COMPLETED</p>
                                  </div>
                               </div>

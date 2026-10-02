@@ -11,7 +11,7 @@ export const DELIVERY_WINDOWS = {
 } as const;
 
 export const DAYS_OF_WEEK = [
-  'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+  'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday',
 ] as const;
 
 export interface Ingredient {
@@ -128,6 +128,9 @@ export const PACKAGE_MEALS: Record<string, string[]> = {
   '1100kcal': ['lunch', 'dinner', 'snacks'],
   '1400kcal': ['breakfast', 'lunch', 'dinner'],
   '1500kcal': ['breakfast', 'lunch', 'dinner', 'snacks'],
+  '1600kcal': ['breakfast', 'lunch', 'dinner', 'snacks', 'snacks_2'],
+  daily_trial: ['breakfast', 'lunch', 'dinner', 'snacks'],
+  weekly_reset: ['breakfast', 'lunch', 'dinner', 'snacks'],
   '2000kcal': ['breakfast', 'lunch', 'dinner', 'snacks'],
 };
 
@@ -135,7 +138,8 @@ export const MEAL_LABELS: Record<string, string> = {
   breakfast: 'Breakfast',
   lunch: 'Lunch',
   dinner: 'Dinner',
-  snacks: 'Snacks',
+  snacks: 'Snack 1',
+  snacks_2: 'Snack 2',
 };
 
 export interface MenuSelection {
@@ -187,6 +191,7 @@ export interface Subscriber {
   last_payment_id?: string | null;
   current_period_end: string | null;
   is_owner?: boolean;
+  friday_delivery_addon?: boolean;
   is_paused?: boolean;
   paused_until?: string | null;
   allergies?: string[];

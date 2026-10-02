@@ -130,14 +130,16 @@ Deno.serve(async (req: Request) => {
     if (!availablePackage || !availablePackage.active) {
       return jsonResponse({ error: "This package is unavailable." }, 400);
     }
+    const fridayDeliveryRequested = body?.profile?.friday_delivery_addon === true;
     const requestedSelections = body?.profile?.initial_menu_selections;
-    if (!Array.isArray(requestedSelections) || requestedSelections.length === 0 || requestedSelections.length > 24) {
+    if (!Array.isArray(requestedSelections) || requestedSelections.length === 0 || requestedSelections.length > 35) {
       return jsonResponse({ error: "Choose meals from the published menu before requesting payment." }, 400);
     }
     const allowedPeriods: string[] = Array.isArray(availablePackage.meal_periods) ? availablePackage.meal_periods : ['breakfast','lunch','dinner','snacks'];
     const durationLabel = String(availablePackage.duration || '').toLowerCase();
+    const isMonthlyPackage = durationLabel.includes('4 week') || durationLabel.includes('24 service');
     const requiredServiceDays = durationLabel.includes('1 day') ? 1 : durationLabel.includes('1 week') || durationLabel.includes('6 day') || durationLabel.includes('4 week') || durationLabel.includes('24 service') ? 6 : 0;
-    if (!requiredServiceDays || allowedPeriods.length * requiredServiceDays > 24) {
+    if (!requiredServiceDays || (fridayDeliveryRequested && !isMonthlyPackage) || allowedPeriods.length * (requiredServiceDays + (fridayDeliveryRequested ? 1 : 0)) > 35) {
       return jsonResponse({ error: "This package needs a valid service duration and meal limit before checkout." }, 400);
     }
     const todayInQatar = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -146,24 +148,27 @@ Deno.serve(async (req: Request) => {
     const expectedWeek = serviceStart.toISOString().slice(0, 10);
     const { data: menuRows, error: menuError } = await adminClient.from('menu_availability')
       .select('dish_id,day_of_week,meal_period,collection,available_from')
-      .eq('is_active', true).lte('available_from', new Date().toISOString())
+      .eq('is_active', true)
       .order('available_from', { ascending: false }).limit(1000);
     if (menuError) throw new Error(`Published menu lookup failed: ${menuError.message}`);
     const activeSeason = (await adminClient.from('global_settings').select('active_season').maybeSingle()).data?.active_season;
-    const activeMenuRows = (menuRows || []).filter((row: any) => row.collection === (activeSeason || 'autumn'));
-    const latestRelease = activeMenuRows[0]?.available_from;
-    const releasedChoices = new Set(activeMenuRows.filter((row: any) => row.available_from === latestRelease)
+    const activeMenuRows = (menuRows || []).filter((row: any) => row.collection === (activeSeason || 'autumn')
+      && new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(row.available_from)) === expectedWeek);
+    const releasedChoices = new Set(activeMenuRows
       .map((row: any) => `${row.day_of_week}|${row.meal_period}|${row.dish_id}`));
     const selectedSlots = new Set<string>();
     const selectedDays = new Set<string>();
+    const snackChoices = new Map<string, string>();
     let selectedWeek = '';
     for (const choice of requestedSelections) {
       const day = typeof choice?.day_of_week === 'string' ? choice.day_of_week : '';
-      const meal = choice?.meal_type === 'snack' ? 'snacks' : choice?.meal_type;
+      const mealType = choice?.meal_type;
+      const meal = mealType === 'snack' || mealType === 'snack_2' ? 'snacks' : mealType;
       const week = typeof choice?.week_start_date === 'string' ? choice.week_start_date : '';
-      if (!['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday'].includes(day)
-        || !['breakfast','lunch','dinner','snack','snacks'].includes(choice?.meal_type)
-        || !allowedPeriods.includes(meal) || typeof choice?.dish_id !== 'string' || !choice.dish_id
+      const validMenuDays = fridayDeliveryRequested ? ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday'] : ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday'];
+      if (!validMenuDays.includes(day)
+        || !['breakfast','lunch','dinner','snack','snacks','snack_2'].includes(mealType)
+        || !(allowedPeriods.includes(meal) || (mealType === 'snack_2' && allowedPeriods.includes('snacks_2'))) || typeof choice?.dish_id !== 'string' || !choice.dish_id
         || week !== expectedWeek || (selectedWeek && selectedWeek !== week)) {
         return jsonResponse({ error: "A selected meal does not match this package or the published weekly menu." }, 400);
       }
@@ -171,12 +176,19 @@ Deno.serve(async (req: Request) => {
       if (!releasedChoices.has(`${day}|${meal}|${choice.dish_id}`)) {
         return jsonResponse({ error: "One of your selected dishes is not in the currently published menu." }, 400);
       }
-      const key = `${week}|${day}|${meal}`;
+      const key = `${week}|${day}|${mealType}`;
       if (selectedSlots.has(key)) return jsonResponse({ error: "Choose only one dish for each meal period." }, 400);
       selectedSlots.add(key);
+      if (mealType === 'snack' || mealType === 'snacks' || mealType === 'snack_2') {
+        const snackKey = `${week}|${day}`;
+        const priorSnack = snackChoices.get(snackKey);
+        if (priorSnack === choice.dish_id) return jsonResponse({ error: 'Choose two different dishes for the two snack periods.' }, 400);
+        snackChoices.set(snackKey, choice.dish_id);
+      }
       selectedDays.add(`${week}|${day}`);
     }
-    if (selectedDays.size !== requiredServiceDays || selectedSlots.size !== requiredServiceDays * allowedPeriods.length) {
+    const requiredMenuDays = requiredServiceDays + (fridayDeliveryRequested ? 1 : 0);
+    if (selectedDays.size !== requiredMenuDays || selectedSlots.size !== requiredMenuDays * allowedPeriods.length) {
       return jsonResponse({ error: "Choose every meal included in the selected plan for its service days." }, 400);
     }
 
@@ -216,14 +228,14 @@ Deno.serve(async (req: Request) => {
       return Number.isFinite(number) ? number : null;
     };
     const initialMenuSelections = Array.isArray(profile.initial_menu_selections)
-      ? profile.initial_menu_selections.slice(0, 24).flatMap((choice: any) => {
+      ? profile.initial_menu_selections.slice(0, 35).flatMap((choice: any) => {
           if (!choice || typeof choice !== 'object') return [];
           const day = safeText(choice.day_of_week, 20);
           const meal = safeText(choice.meal_type, 20);
           const dishId = safeText(choice.dish_id, 80);
           const dishName = safeText(choice.dish_name, 160);
           const weekStart = safeText(choice.week_start_date, 10);
-          if (!['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday'].includes(day) || !['breakfast','lunch','dinner','snack'].includes(meal) || !dishId || !dishName || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) return [];
+          if (!(fridayDeliveryRequested ? ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday'] : ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday']).includes(day) || !['breakfast','lunch','dinner','snack','snack_2'].includes(meal) || !dishId || !dishName || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) return [];
           return [{ day_of_week: day, meal_type: meal, dish_id: dishId, dish_name: dishName, dish_kcals: safeNumber(choice.dish_kcals), menu_period: safeText(choice.menu_period, 30) || 'autumn', week_start_date: weekStart }];
         })
       : [];
@@ -305,7 +317,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const amount = Number(pkg.price);
+    const amount = Number(pkg.price) + (fridayDeliveryRequested ? 199 : 0);
 
     if (!Number.isFinite(amount) || amount < 0) {
       throw new Error(
@@ -357,6 +369,7 @@ Deno.serve(async (req: Request) => {
       initial_menu_selections: initialMenuSelections,
       profile: {
         full_name: safeText(profile.full_name, 120),
+        friday_delivery_addon: fridayDeliveryRequested,
         phone: safeText(profile.phone, 40),
         age: safeNumber(profile.age),
         gender: ['male', 'female'].includes(profile.gender) ? profile.gender : null,
