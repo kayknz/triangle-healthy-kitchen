@@ -1,9 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Truck, MapPin, Phone, CheckCircle2, Loader2, LogOut,
-  Navigation, Camera, Package, Clock, AlertCircle, ShieldAlert,
-  MessageSquare, Power, EyeOff
-} from 'lucide-react';
+import { Truck, Phone, CheckCircle2, Loader2, LogOut, Navigation, Camera, Package, Clock, AlertCircle, ShieldAlert, MessageSquare, Power, EyeOff } from 'lucide-react';
 import { safeHaptics } from '@/lib/haptics';
 import { Camera as NativeCamera, CameraResultType } from '@capacitor/camera';
 import { decode } from 'base64-arraybuffer';

@@ -1,18 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { lazy, Suspense, useState, useCallback, useEffect } from 'react';
+import type { PluginListenerHandle } from '@capacitor/core';
+import type { URLOpenListenerEvent } from '@capacitor/app';
 import { Calendar, Users, Gift, User as UserIcon, ExternalLink } from 'lucide-react';
 import Home from '@/pages/Home';
 import Navbar from '@/components/Navbar';
-import BookingFlow from '@/components/BookingFlow';
-import ProviderAuth from '@/components/ProviderAuth';
-import RiderDashboard from '@/components/RiderDashboard';
-import SubscriptionFlow from '@/components/SubscriptionFlow';
-import SubscriberAuth from '@/components/SubscriberAuth';
-import SubscriberDashboard from '@/pages/SubscriberDashboard';
-import CommunityPage from '@/pages/CommunityPage';
-import RewardsPage from '@/pages/RewardsPage';
-import LegalPage from '@/components/LegalPage';
-import OnboardingFlow from '@/components/OnboardingFlow';
-import MyRhythm from '@/components/MyRhythm';
 import SecuringProtocol from '@/components/SecuringProtocol';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
@@ -21,6 +12,18 @@ import { PushNotifications } from '@capacitor/push-notifications';
 import { supabase } from '@/lib/supabase';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { LanguageProvider, useLanguage } from '@/lib/LanguageContext';
+
+const BookingFlow = lazy(() => import('@/components/BookingFlow'));
+const ProviderAuth = lazy(() => import('@/components/ProviderAuth'));
+const RiderDashboard = lazy(() => import('@/components/RiderDashboard'));
+const SubscriptionFlow = lazy(() => import('@/components/SubscriptionFlow'));
+const SubscriberAuth = lazy(() => import('@/components/SubscriberAuth'));
+const SubscriberDashboard = lazy(() => import('@/pages/SubscriberDashboard'));
+const CommunityPage = lazy(() => import('@/pages/CommunityPage'));
+const RewardsPage = lazy(() => import('@/pages/RewardsPage'));
+const LegalPage = lazy(() => import('@/components/LegalPage'));
+const OnboardingFlow = lazy(() => import('@/components/OnboardingFlow'));
+const MyRhythm = lazy(() => import('@/components/MyRhythm'));
 
 type Route = 'home' | 'provider-auth' | 'operations-web' | 'rider-dashboard' | 'subscriber-auth' | 'subscriber-dashboard' | 'today' | 'community' | 'rewards' | 'privacy' | 'terms';
 
@@ -47,7 +50,7 @@ function AppContent() {
       }
 
       const timeout = setTimeout(() => {
-        if (onboardingComplete === null) setOnboardingComplete(false);
+        setOnboardingComplete(false);
       }, 3000);
 
       try {
@@ -57,12 +60,13 @@ function AppContent() {
           .eq('user_id', user.id)
           .maybeSingle();
 
-        clearTimeout(timeout);
         if (error) throw error;
         setOnboardingComplete(data?.onboarding_completed ?? false);
       } catch (e) {
         console.error('Onboarding check failed:', e);
         setOnboardingComplete(false);
+      } finally {
+        clearTimeout(timeout);
       }
     };
     if (!authLoading) checkOnboarding();
@@ -73,7 +77,9 @@ function AppContent() {
       if (!authLoading && onboardingComplete !== null) {
         try {
           await SplashScreen.hide();
-        } catch (e) {}
+        } catch {
+          // The plugin may be unavailable during a web preview.
+        }
       }
     };
     initApp();
@@ -99,8 +105,14 @@ function AppContent() {
       App.exitApp();
     };
 
-    const handleDeepLink = (event: any) => {
-      const url = new URL(event.url);
+    const handleDeepLink = (event: URLOpenListenerEvent) => {
+      let url: URL;
+      try {
+        url = new URL(event.url);
+      } catch (error) {
+        console.warn('Ignoring invalid app link:', error);
+        return;
+      }
       const path = url.pathname + url.hash;
       if (path.includes('dashboard') || path.includes('provider')) {
         setRoute(getSignedInRoute(userRole));
@@ -111,16 +123,28 @@ function AppContent() {
       }
     };
 
-    let backListener: any;
-    import('@capacitor/app').then(({ App }) => {
-      App.addListener('appUrlOpen', handleDeepLink);
-      backListener = App.addListener('backButton', handleBackButton);
+    if (!Capacitor.isNativePlatform()) return;
+
+    let disposed = false;
+    let deepLinkListener: PluginListenerHandle | undefined;
+    let backListener: PluginListenerHandle | undefined;
+    void import('@capacitor/app').then(async ({ App: NativeApp }) => {
+      const urlHandle = await NativeApp.addListener('appUrlOpen', handleDeepLink);
+      const backHandle = await NativeApp.addListener('backButton', handleBackButton);
+      if (disposed) {
+        await Promise.all([urlHandle.remove(), backHandle.remove()]);
+        return;
+      }
+      deepLinkListener = urlHandle;
+      backListener = backHandle;
+    }).catch((error: unknown) => {
+      console.warn('Native app listeners are unavailable:', error);
     });
 
     return () => {
-      import('@capacitor/app').then(({ App }) => {
-        App.removeAllListeners();
-      });
+      disposed = true;
+      void deepLinkListener?.remove();
+      void backListener?.remove();
     };
   }, [userRole, bookingOpen, subscribeOpen, route]);
 
@@ -163,6 +187,16 @@ function AppContent() {
 
   useEffect(() => {
     if (!session || !user || Capacitor.getPlatform() === 'web') return;
+    // Android's Capacitor push plugin calls FirebaseMessaging directly. When
+    // this build has no google-services.json, registering throws on native
+    // and can terminate the app; keep the feature opt-in until Firebase is set up.
+    if (
+      Capacitor.getPlatform() === 'android' &&
+      import.meta.env.VITE_FIREBASE_ANDROID_CONFIGURED !== 'true'
+    ) return;
+    let disposed = false;
+    let registrationListener: PluginListenerHandle | undefined;
+    let registrationErrorListener: PluginListenerHandle | undefined;
     const setupPush = async () => {
       try {
         let permStatus = await PushNotifications.checkPermissions();
@@ -170,22 +204,31 @@ function AppContent() {
           permStatus = await PushNotifications.requestPermissions();
         }
         if (permStatus.receive !== 'granted') return;
-        await PushNotifications.register();
-        PushNotifications.addListener('registration', async (token) => {
+        const tokenListener = await PushNotifications.addListener('registration', async (token) => {
           await supabase
             .from('subscribers')
             .update({ push_token: token.value })
             .eq('user_id', user.id);
         });
+        const errorListener = await PushNotifications.addListener('registrationError', (error) => {
+          console.error('Push registration failed:', error);
+        });
+        if (disposed) {
+          await Promise.all([tokenListener.remove(), errorListener.remove()]);
+          return;
+        }
+        registrationListener = tokenListener;
+        registrationErrorListener = errorListener;
+        await PushNotifications.register();
       } catch (err) {
         console.warn('Push registration skipped or failed:', err);
       }
     };
     setupPush();
     return () => {
-      try {
-        PushNotifications.removeAllListeners();
-      } catch (e) {}
+      disposed = true;
+      void registrationListener?.remove();
+      void registrationErrorListener?.remove();
     };
   }, [session, user]);
 
@@ -218,7 +261,7 @@ function AppContent() {
 
   // Onboarding ONLY for subscribers
   if (session && hasPersonal && !onboardingComplete && (userRole === 'subscriber' || userRole === 'customer')) {
-    return <OnboardingFlow onComplete={() => setOnboardingComplete(true)} />;
+    return <Suspense fallback={<SecuringProtocol message="Loading your account" subtitle="Preparing your personalized setup..." />}><OnboardingFlow onComplete={() => setOnboardingComplete(true)} /></Suspense>;
   }
 
   const BottomNav = () => (
@@ -263,10 +306,10 @@ function AppContent() {
   );
 
   return (
-    <>
+    <Suspense fallback={<SecuringProtocol message="Loading Triangle" subtitle="Preparing your next step..." />}>
       {/* Modals always accessible */}
-      <BookingFlow open={bookingOpen} onClose={() => setBookingOpen(false)} preselectedPackage={preselectedPackage} />
-      <SubscriptionFlow open={subscribeOpen} onClose={() => setSubscribeOpen(false)} preselectedPackage={preselectedPackage} />
+      {bookingOpen && <BookingFlow open={bookingOpen} onClose={() => setBookingOpen(false)} preselectedPackage={preselectedPackage} />}
+      {subscribeOpen && <SubscriptionFlow open={subscribeOpen} onClose={() => setSubscribeOpen(false)} preselectedPackage={preselectedPackage} />}
       <SubscriberAuth
         isOpen={route === 'subscriber-auth'}
         onClose={() => { setRoute('home'); window.location.hash = ''; }}
@@ -338,7 +381,7 @@ function AppContent() {
 
       {route === 'privacy' && <LegalPage type="privacy" onBack={() => setRoute('home')} />}
       {route === 'terms' && <LegalPage type="terms" onBack={() => setRoute('home')} />}
-    </>
+    </Suspense>
   );
 }
 

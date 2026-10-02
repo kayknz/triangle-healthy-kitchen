@@ -1,50 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { RefreshCw, CheckCircle2, Circle, Timer, XCircle, Trophy, Users, ChevronRight, Activity, Loader2, Wind, Sparkles, Flame } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { RefreshCw, CheckCircle2, Circle, Timer, Activity, Sparkles, Flame } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/lib/LanguageContext';
-import { getQatarDate, addDays, getQatarDayOfWeek } from '@/lib/date-utils';
-import { syncHealthData, healthSyncStore } from '@/lib/health';
+import { getQatarDate } from '@/lib/date-utils';
+import { syncHealthData } from '@/lib/health';
 import { safeHaptics } from '@/lib/haptics';
 import SecuringProtocol from './SecuringProtocol';
-import { AnimatePresence, motion } from 'framer-motion';
 
 interface DayStatus {
   day: string;
-  status: 'completed' | 'in-progress' | 'recovery' | 'missed';
+  status: 'recorded' | 'today' | 'no-data';
   date: string;
 }
 
 interface Metrics {
   steps: number;
   goal: number;
-  distance: number;
   streak: number;
   points: number;
-  groupCount: number;
 }
 
 export default function MyRhythm() {
   const { user } = useAuth();
   const { t, isRtl } = useLanguage();
-  const [syncStatus, setSyncStatus] = useState(healthSyncStore.getStatus());
   const [syncing, setSyncing] = useState(false);
   const [metrics, setMetrics] = useState<Metrics>({
     steps: 0,
     goal: 10000,
-    distance: 0,
     streak: 0,
-    points: 0,
-    groupCount: 0
+    points: 0
   });
   const [weeklyStatus, setWeeklyStatus] = useState<DayStatus[]>([]);
 
-  useEffect(() => {
-    const unsubscribe = healthSyncStore.subscribe(setSyncStatus);
-    return () => { unsubscribe(); };
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
     try {
       const today = getQatarDate();
@@ -52,76 +41,77 @@ export default function MyRhythm() {
       // First fetch subscriber details to get subscriber_id
       const { data: sub } = await supabase
         .from('subscribers')
-        .select('*')
+        .select('id,current_streak,points_balance')
         .eq('user_id', user.id)
         .maybeSingle();
 
       const subscriberId = sub?.id;
-      let activityData: any = null;
+      let activityData: { total_value: number } | null = null;
       let goalVal = 10000;
+      let weeklyActivity: Array<{ local_date: string; total_value: number }> = [];
 
       if (subscriberId) {
-        try {
-          const [{ data: activity }, { data: goalData }] = await Promise.all([
+        const weekStartDate = new Date(`${today}T00:00:00+03:00`);
+        weekStartDate.setDate(weekStartDate.getDate() - 6);
+        const weekStart = getQatarDate(weekStartDate);
+        const [activityResult, goalResult, weeklyResult] = await Promise.all([
             supabase
               .from('daily_activity_summaries')
-              .select('*')
+              .select('total_value')
               .eq('subscriber_id', subscriberId)
               .eq('local_date', today)
               .maybeSingle(),
             supabase
               .from('user_daily_goals')
-              .select('*')
+              .select('target_value')
               .eq('subscriber_id', subscriberId)
               .eq('target_date', today)
-              .maybeSingle()
+              .maybeSingle(),
+            supabase
+              .from('daily_activity_summaries')
+              .select('local_date,total_value')
+              .eq('subscriber_id', subscriberId)
+              .gte('local_date', weekStart)
+              .lte('local_date', today),
           ]);
-          activityData = activity;
-          if (goalData?.target_value) goalVal = goalData.target_value;
-        } catch (e) {}
+        if (activityResult.error) throw activityResult.error;
+        if (goalResult.error) throw goalResult.error;
+        if (weeklyResult.error) throw weeklyResult.error;
+        activityData = activityResult.data;
+        if (goalResult.data?.target_value) goalVal = goalResult.data.target_value;
+        weeklyActivity = weeklyResult.data || [];
       }
 
       const currentStreak = sub?.current_streak || 0;
       setMetrics({
         steps: activityData?.total_value || 0,
         goal: goalVal,
-        distance: 0,
         streak: currentStreak,
-        points: sub?.points_balance || 0,
-        groupCount: 12
+        points: sub?.points_balance || 0
       });
 
-      // Generate Weekly Status
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const now = new Date();
-      const status: DayStatus[] = [];
-
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        const dayName = days[d.getDay()];
-        const isoDate = getQatarDate(d);
-
-        let s: 'completed' | 'in-progress' | 'recovery' | 'missed' = 'completed';
-        if (i === 0) s = 'in-progress';
-        else if (i === 5) s = 'recovery';
-        else if (i === 3) s = 'missed';
-
-        status.push({
-          day: dayName,
-          status: s,
-          date: isoDate
-        });
-      }
+      const activityByDate = new Map(weeklyActivity.map((item) => [item.local_date, item.total_value]));
+      const todayDate = new Date(`${today}T00:00:00+03:00`);
+      const status: DayStatus[] = Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(todayDate);
+        date.setDate(date.getDate() - (6 - index));
+        const isoDate = getQatarDate(date);
+        const hasActivity = activityByDate.has(isoDate);
+        return {
+          day: new Intl.DateTimeFormat(isRtl ? 'ar-QA' : 'en-US', { weekday: 'short', timeZone: 'Asia/Qatar' }).format(date),
+          status: isoDate === today ? 'today' : hasActivity ? 'recorded' : 'no-data',
+          date: isoDate,
+        };
+      });
       setWeeklyStatus(status);
     } catch (e) {
       console.error('Failed to load rhythm metrics:', e);
     }
-  };
+  }, [user, isRtl]);
 
   useEffect(() => {
-    fetchData();
-  }, [user]);
+    void fetchData();
+  }, [fetchData]);
 
   const handleSync = async () => {
     if (!user) return;
@@ -229,10 +219,9 @@ export default function MyRhythm() {
           {weeklyStatus.map((item, idx) => (
             <div key={idx} className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-gray-50 border border-gray-100">
               <span className="text-[10px] font-black uppercase text-gray-400">{item.day}</span>
-              {item.status === 'completed' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
-              {item.status === 'in-progress' && <Timer className="w-5 h-5 text-[#C5A059] animate-spin" />}
-              {item.status === 'recovery' && <Wind className="w-5 h-5 text-sky-500" />}
-              {item.status === 'missed' && <Circle className="w-5 h-5 text-gray-300" />}
+              {item.status === 'recorded' && <CheckCircle2 className="w-5 h-5 text-emerald-500" aria-label={isRtl ? 'تم تسجيل النشاط' : 'Activity recorded'} />}
+              {item.status === 'today' && <Timer className="w-5 h-5 text-[#C5A059]" aria-label={isRtl ? 'اليوم' : 'Today'} />}
+              {item.status === 'no-data' && <Circle className="w-5 h-5 text-gray-300" aria-label={isRtl ? 'لا توجد بيانات' : 'No activity data'} />}
             </div>
           ))}
         </div>

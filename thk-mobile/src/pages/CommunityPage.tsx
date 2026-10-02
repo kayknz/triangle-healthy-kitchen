@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
-import {
-  Users, Flame, Heart, Award, Shield, Sparkles, MapPin,
-  ChevronRight, MessageSquare, Loader2, LogOut, Trophy,
-  Share2, TrendingUp, AlertCircle
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Flame, Sparkles, MapPin, ChevronRight, MessageSquare, Loader2, LogOut, Trophy, TrendingUp } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { type RegionalCommunity, type CommunityPost, type Subscriber } from '@/types/subscription';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronRight, Check, Star } from 'lucide-react';
+import { ChevronRight, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useLanguage } from '@/lib/LanguageContext';

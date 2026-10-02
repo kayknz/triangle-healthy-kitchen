@@ -1,14 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Calendar, Phone, Mail, Target, Dumbbell, Sparkles,
-  CheckCircle2, XCircle, Loader2, LogOut, ChevronRight, X,
-  Search, Filter, ChefHat, Bell, TrendingUp, Users, Utensils,
-  Truck, Activity, Heart, Weight, Footprints, Flame, Droplet,
-  MapPin, Clock, ChevronLeft, ShieldAlert, MessageSquare,
-  Moon, Sun, Coffee, Star, Download, UserCircle, Home as HomeIcon,
-  Check, Plus, Pause, Play, Shield, AlertTriangle, FileText, Settings, Award
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, CheckCircle2, Loader2, LogOut, X, ChefHat, TrendingUp, Users, Truck, Download, Shield, FileText } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { safeHaptics } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';

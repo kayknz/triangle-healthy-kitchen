@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Award, Gift, Zap, History, ChevronRight, Star, ShieldCheck, ArrowUpRight, Loader2, Sparkles, ShoppingBag, CheckCircle2, Info, Clock, Calendar, ArrowRight, Activity } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Zap, History, Star, ShieldCheck, ArrowUpRight, Loader2, Sparkles, ShoppingBag, CheckCircle2, Info, Clock, Calendar, ArrowRight, Activity } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useLanguage } from '@/lib/LanguageContext';

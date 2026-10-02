@@ -1,6 +1,6 @@
 // Triangle Healthy Kitchen nutrition and portion calculation helpers.
 
-import { MEAL_CATEGORIES, MEAL_SELECTION_PACKAGES } from '@/types/subscription';
+
 
 export interface BmrInputs {
   weightKg: number;

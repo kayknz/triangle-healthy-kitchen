@@ -1,18 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Plus, LogOut, Utensils, Truck, Activity, X, Loader2, Heart,
-  Moon, Sun, Coffee, Brain, Zap, Map as MapIcon, Share2, Award,
-  ShieldAlert, Phone, Clock, Trash2, Check,
-  Package, MapPin, CheckCircle, CheckCircle2, Circle, Timer, XCircle, Camera, MessageCircle, Shield, Sparkles
-} from 'lucide-react';
+import { Utensils, Truck, X, Loader2, Zap, Map as MapIcon, ShieldAlert, Phone, Trash2, Package, MapPin, CheckCircle, Camera, MessageCircle, Shield, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { PACKAGES } from '@/types/booking';
-import {
-  DELIVERY_WINDOWS, PACKAGE_MEALS,
-  type Subscriber, type ProgressEntry, type MenuSelection, type GlobalSettings, type MenuDish, type Ingredient
-} from '@/types/subscription';
+
+import { PACKAGE_MEALS, type Subscriber, type MenuSelection, type GlobalSettings, type MenuDish } from '@/types/subscription';
 import HealthTab from '@/components/HealthTab';
 import { useLanguage } from '@/lib/LanguageContext';
 import { BUSINESS_RULES } from '@/config/business';

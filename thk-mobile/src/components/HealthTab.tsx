@@ -7,9 +7,8 @@ import {
 import SecuringProtocol from './SecuringProtocol';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/lib/supabase';
-import { getQatarStartOfDay, getUTCISO } from '@/lib/date-utils';
+import { getQatarDate, getQatarStartOfDay, getUTCISO } from '@/lib/date-utils';
 import {
-  HEALTH_METRICS,
   type Subscriber, type HealthEntry,
 } from '@/types/subscription';
 import { Health } from '@capgo/capacitor-health';
@@ -80,13 +79,18 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
     if (form.water_ml) payload.water_ml = parseInt(form.water_ml);
     if (form.notes) payload.notes = form.notes;
 
-    await supabase.from('health_data').insert({
+    const { error } = await supabase.from('health_data').insert({
       subscriber_id: subscriber.id,
       source: 'manual',
       data_type: 'body',
       payload,
       received_at: new Date().toISOString(),
     });
+    if (error) {
+      setSaving(false);
+      alert(error.message);
+      return;
+    }
 
     setForm({ weight_kg: '', steps: '', calories_burned: '', calories_consumed: '', sleep_hours: '', water_ml: '', notes: '' });
     setShowForm(false);
@@ -158,13 +162,17 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
   };
 
   const deleteEntry = async (id: string) => {
-    await supabase.from('health_data').delete().eq('id', id);
-    load();
+    const { error } = await supabase.from('health_data').delete().eq('id', id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    await load();
   };
 
   const saveGoals = async () => {
     setSaving(true);
-    await supabase.from('health_data').insert({
+    const { error } = await supabase.from('health_data').insert({
       subscriber_id: subscriber.id,
       source: 'manual',
       data_type: 'goals',
@@ -172,8 +180,12 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
       received_at: new Date().toISOString(),
     });
     setSaving(false);
+    if (error) {
+      alert(error.message);
+      return;
+    }
     setShowGoals(false);
-    load();
+    await load();
   };
 
   // Extract data series for a metric
@@ -190,12 +202,11 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
   const weightSeries = getSeries('weight_kg');
   const stepsSeries = getSeries('steps');
   const burnSeries = getSeries('calories_burned');
-  const waterSeries = getSeries('water_ml');
 
   // Today's stats
-  const today = new Date().toDateString();
+  const today = getQatarDate();
   const todayEntry = entries.find(
-    (e) => e.data_type === 'body' && new Date(e.received_at).toDateString() === today,
+    (e) => e.data_type === 'body' && getQatarDate(new Date(e.received_at)) === today,
   );
 
   const latestWeight = weightSeries.length > 0 ? weightSeries[weightSeries.length - 1].value : null;
@@ -207,12 +218,21 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
   const weekEntries = entries.filter(
     (e) => e.data_type === 'body' && new Date(e.received_at).getTime() > weekAgo,
   );
-  const avgSteps = weekEntries.length > 0
-    ? Math.round(weekEntries.reduce((s, e) => s + (e.payload.steps || 0), 0) / weekEntries.filter((e) => e.payload.steps).length || 1)
+  const stepEntries = weekEntries.filter((entry) => typeof entry.payload.steps === 'number');
+  const burnEntries = weekEntries.filter((entry) => typeof entry.payload.calories_burned === 'number');
+  const avgSteps = stepEntries.length > 0
+    ? Math.round(stepEntries.reduce((sum, entry) => sum + (entry.payload.steps || 0), 0) / stepEntries.length)
     : 0;
-  const avgBurn = weekEntries.length > 0
-    ? Math.round(weekEntries.reduce((s, e) => s + (e.payload.calories_burned || 0), 0) / weekEntries.filter((e) => e.payload.calories_burned).length || 1)
+  const avgBurn = burnEntries.length > 0
+    ? Math.round(burnEntries.reduce((sum, entry) => sum + (entry.payload.calories_burned || 0), 0) / burnEntries.length)
     : 0;
+  const goalHitDays = new Set(weekEntries
+    .filter((entry) =>
+      (entry.payload.steps != null && entry.payload.steps >= goals.steps) ||
+      (entry.payload.calories_burned != null && entry.payload.calories_burned >= goals.calories_burned),
+    )
+    .map((entry) => getQatarDate(new Date(entry.received_at))),
+  ).size;
 
   if (loading) {
     return (
@@ -418,12 +438,7 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
             <StatBlock label="Steps/day" value={avgSteps > 0 ? avgSteps.toLocaleString() : '—'} icon={<Footprints className="w-3.5 h-3.5 text-[#5BA889]" />} />
             <StatBlock label="Burned/day" value={avgBurn > 0 ? `${avgBurn} kcal` : '—'} icon={<Flame className="w-3.5 h-3.5 text-[#E07856]" />} />
             <StatBlock label="Entries" value={`${weekEntries.length}`} icon={<Activity className="w-3.5 h-3.5 text-[#D4A843]" />} />
-            <StatBlock label="Goal hit" value={
-              weekEntries.filter((e) =>
-                (e.payload.steps && e.payload.steps >= goals.steps) ||
-                (e.payload.calories_burned && e.payload.calories_burned >= goals.calories_burned)
-              ).length + ' days'
-            } icon={<Target className="w-3.5 h-3.5 text-[#5BA889]" />} />
+            <StatBlock label="Goal hit" value={`${goalHitDays} days`} icon={<Target className="w-3.5 h-3.5 text-[#5BA889]" />} />
           </div>
         </div>
       ) : null}

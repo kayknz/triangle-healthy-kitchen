@@ -1,10 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  ArrowLeft, ArrowRight, Check, Loader2, X,
-  Calendar, User, Phone, Mail, Target, Sparkles, AlertCircle,
-  Clock, Navigation, CheckCircle, Star
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, ArrowRight, Check, Loader2, User, Target, AlertCircle, Navigation, CheckCircle } from 'lucide-react';
+
 import { safeHaptics } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
 import { TIME_SLOTS, FITNESS_GOALS, type BookingData } from '@/types/booking';
