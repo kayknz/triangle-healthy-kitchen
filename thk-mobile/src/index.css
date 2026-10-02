@@ -68,6 +68,12 @@ html {
   background: #FDFCF7;
 }
 
+/* Keep section headings visible below the fixed mobile navigation bar. */
+section[id],
+footer[id] {
+  scroll-margin-top: calc(5rem + env(safe-area-inset-top));
+}
+
 body,
 #root {
   min-height: 100vh;

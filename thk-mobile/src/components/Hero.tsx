@@ -23,7 +23,7 @@ export default function Hero({ onBookClick, onSubscribeClick }: HeroProps) {
 
   const handlePackagesClick = async () => {
     await safeHaptics.impact();
-    window.location.hash = '#packages';
+    window.location.hash = '#pricing';
   };
 
   return (

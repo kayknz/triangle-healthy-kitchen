@@ -1,6 +1,7 @@
 import React from 'react';
 import Navbar from '@/components/Navbar';
 import Hero from '@/components/Hero';
+import About from '@/components/About';
 import Packages from '@/components/Packages';
 import Menu from '@/components/Menu';
 import Footer from '@/components/Footer';
@@ -22,6 +23,7 @@ export default function Home({ onBookClick, onSubscribeClick }: HomeProps) {
 
       {/* Pillar 1: What is Triangle? */}
       <Hero onBookClick={onBookClick} onSubscribeClick={onSubscribeClick} />
+      <About />
 
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-6 text-center">

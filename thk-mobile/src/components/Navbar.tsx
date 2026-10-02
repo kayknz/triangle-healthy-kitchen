@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, type MouseEvent } from 'react';
 import { Menu, X, UserCircle, Languages, Star, Calendar, Users, Gift, ChefHat } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { safeHaptics } from '@/lib/haptics';
@@ -38,7 +38,7 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
 
   const baseLinks = [
     { label: t('nav_about') || 'About', href: '#about' },
-    { label: t('nav_packages') || 'Plans', href: '#packages' },
+    { label: t('nav_packages') || 'Plans', href: '#pricing' },
     { label: t('nav_menu') || 'Menu', href: '#menu' },
     { label: t('nav_contact') || 'Contact', href: '#contact' },
   ];
@@ -57,6 +57,22 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
   const handleBookClick = async () => {
     await safeHaptics.impact();
     onBookClick();
+  };
+
+  const handleSectionLinkClick = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+    const sectionId = href.slice(1);
+    if (!['about', 'pricing', 'menu', 'contact'].includes(sectionId)) return;
+
+    event.preventDefault();
+    void safeHaptics.selection();
+    setOpen(false);
+    if (window.location.hash !== href) window.location.hash = href;
+
+    // Wait for the mobile drawer to close and the hash route handler to settle
+    // before scrolling. Native WebViews can otherwise lose the anchor scroll.
+    window.setTimeout(() => {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, open ? 350 : 0);
   };
 
   return (
@@ -92,7 +108,7 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
             <a
               key={l.label}
               href={l.href}
-              onClick={async () => await safeHaptics.impact()}
+              onClick={(event) => handleSectionLinkClick(event, l.href)}
               className="text-[#123F38]/70 font-black text-[10px] uppercase tracking-widest hover:text-[#123F38] transition-colors whitespace-nowrap"
             >
               {l.label}
@@ -193,10 +209,7 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
                 <a
                   key={l.label}
                   href={l.href}
-                  onClick={async () => {
-                    await safeHaptics.selection();
-                    setOpen(false);
-                  }}
+                  onClick={(event) => handleSectionLinkClick(event, l.href)}
                   className="text-xs font-black tracking-[0.3em] uppercase text-[#123F38]/70 hover:text-[#123F38] transition-colors"
                 >
                   {l.label}
