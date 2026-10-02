@@ -73,7 +73,7 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
           <div className="w-9 h-9 sm:w-11 sm:h-11 overflow-hidden group-hover:scale-105 transition-transform duration-500 flex-shrink-0">
             <img src="/logo.png" alt="Triangle logo" className="w-full h-full object-contain" />
           </div>
-          <div className="flex flex-col leading-none text-left">
+          <div className={`flex flex-col leading-none ${isRtl ? 'text-right' : 'text-left'}`}>
             <p
               className="font-black text-xs sm:text-sm tracking-[0.2em] text-[#123F38] whitespace-nowrap uppercase italic"
               style={{ fontFamily: "'DM Serif Display', serif" }}
@@ -175,7 +175,7 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden absolute top-full left-0 right-0 bg-[#F5F3EB] border-b border-[#123F38]/10 shadow-2xl overflow-hidden"
+            className="lg:hidden absolute top-full left-0 right-0 bg-[#F5F3EB] border-b border-[#123F38]/10 shadow-2xl max-h-[calc(100dvh-6rem-env(safe-area-inset-top))] overflow-y-auto overscroll-contain safe-bottom"
           >
             <div className="px-6 py-10 space-y-6 flex flex-col items-center text-center">
               {isOwner && (

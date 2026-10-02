@@ -27,7 +27,7 @@ export default function Hero({ onBookClick, onSubscribeClick }: HeroProps) {
   };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background pt-20">
+    <section className="mobile-home-hero relative min-h-screen flex items-center justify-center overflow-hidden bg-background pt-20">
       {/* Background Layer — Deep Blur Cinematic */}
       <div className="absolute inset-0 z-0">
         <div
@@ -61,7 +61,7 @@ export default function Hero({ onBookClick, onSubscribeClick }: HeroProps) {
             {t('hero_title_3')}
           </h1>
 
-          <p className="text-muted text-base sm:text-lg leading-relaxed mb-12 max-w-md mx-auto font-medium italic border-l-4 border-sage/20 pl-6">
+          <p className={`text-muted text-base sm:text-lg leading-relaxed mb-10 sm:mb-12 max-w-md mx-auto font-medium italic ${isRtl ? 'border-r-4 border-sage/20 pr-6' : 'border-l-4 border-sage/20 pl-6'}`}>
             {t('hero_subtitle')}
           </p>
 

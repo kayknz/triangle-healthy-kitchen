@@ -62,7 +62,26 @@
 }
 
 html {
+  min-height: 100%;
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  background: #FDFCF7;
+}
+
+body,
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  overflow-x: clip;
+}
+
+.mobile-home-hero {
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  padding-top: calc(5rem + env(safe-area-inset-top));
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
 }
 
 @keyframes reveal {
