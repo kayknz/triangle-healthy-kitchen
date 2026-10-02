@@ -45,10 +45,10 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled ? 'h-[calc(5rem+env(safe-area-inset-top))] bg-white shadow-2xl border-b border-primary/10' : 'h-[calc(7rem+env(safe-area-inset-top))] bg-transparent'
+        scrolled ? 'h-20 bg-white shadow-2xl border-b border-primary/10' : 'h-28 bg-transparent'
       }`}
     >
-      <div className="mx-auto flex h-full max-w-[1500px] items-center justify-between px-4 sm:px-10">
+      <div className="mx-auto flex h-full max-w-[1500px] items-center justify-between px-6 sm:px-10">
         {/* Logo Section */}
         <Link to="/" className="flex items-center gap-4 group flex-shrink-0">
           <div className="w-10 h-10 sm:w-12 sm:h-12 relative overflow-hidden group-hover:scale-105 transition-transform duration-700 flex-shrink-0">
@@ -56,7 +56,7 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
           </div>
           <div className={`flex flex-col leading-none ${isRtl ? 'text-right' : 'text-left'}`}>
             <p className="font-serif italic text-lg sm:text-2xl tracking-tight text-primary">Triangle</p>
-            <p className="font-sans font-black text-[7px] tracking-[0.2em] sm:tracking-[0.4em] text-gold uppercase mt-0.5 sm:mt-1">Healthy Kitchen</p>
+            <p className="font-sans font-black text-[5px] sm:text-[7px] tracking-[0.3em] sm:tracking-[0.4em] text-gold uppercase mt-0.5 sm:mt-1">Healthy Kitchen</p>
           </div>
         </Link>
 
@@ -155,8 +155,7 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
             <motion.div
               initial={{ x: isRtl ? -400 : 400 }} animate={{ x: 0 }} exit={{ x: isRtl ? -400 : 400 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className={`fixed top-0 ${isRtl ? 'left-0' : 'right-0'} h-[100dvh] w-[85vw] max-w-sm bg-background p-10 sm:p-12 flex flex-col shadow-[-30px_0_100px_rgba(0,0,0,0.5)] border-l border-primary/20 !opacity-100 z-[200]`}
-              style={{ paddingTop: 'calc(2.5rem + env(safe-area-inset-top))', paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom))' }}
+              className={`fixed top-0 ${isRtl ? 'left-0' : 'right-0'} h-full w-[85vw] max-w-sm bg-background z-[200] p-10 sm:p-12 flex flex-col shadow-[-30px_0_100px_rgba(0,0,0,0.5)] border-l border-primary/20 !opacity-100`}
             >
               <div className="flex justify-between items-center mb-12 relative z-10">
                  <div className="badge border-gold/20 bg-gold/5 px-4 py-2">
