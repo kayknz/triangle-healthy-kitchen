@@ -32,7 +32,7 @@ const getSignedInRoute = (role: string | null | undefined, hasPersonal = false):
 
 function AppContent() {
   const { session, loading: authLoading, user, userRole, hasPersonal } = useAuth();
-  const { t } = useLanguage();
+  const { t, isRtl } = useLanguage();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
@@ -294,10 +294,10 @@ function AppContent() {
         <main className="min-h-[70vh] bg-[#F5F3EB] px-6 py-16 flex items-center justify-center">
           <section className="w-full max-w-lg rounded-[2rem] border border-[#0a3030]/10 bg-white p-8 text-center shadow-xl">
             <ExternalLink className="mx-auto mb-5 h-9 w-9 text-[#C5A059]" />
-            <h1 className="mb-3 text-xl font-black uppercase italic text-[#0a3030]">Operations are managed on THK Web</h1>
-            <p className="mb-7 text-sm leading-6 text-gray-500">CEO, admin, kitchen, and transport tools are available in the web operations portal. Drivers continue using this app.</p>
+            <h1 className="mb-3 text-xl font-black uppercase italic text-[#0a3030]">{isRtl ? 'تتم إدارة العمليات عبر موقع تراينغل' : 'Operations are managed on THK Web'}</h1>
+            <p className="mb-7 text-sm leading-6 text-gray-500">{isRtl ? 'تتوفر أدوات الإدارة التنفيذية والإدارة والمطبخ والنقل عبر بوابة الويب. ويواصل السائقون استخدام هذا التطبيق.' : 'CEO, admin, kitchen, and transport tools are available in the web operations portal. Drivers continue using this app.'}</p>
             <button onClick={() => void Browser.open({ url: `${OPERATIONS_WEB_URL}/login` })} className="rounded-2xl bg-[#0a3030] px-7 py-4 text-xs font-black uppercase tracking-widest text-white">
-              Open operations portal
+              {isRtl ? 'فتح بوابة العمليات' : 'Open operations portal'}
             </button>
           </section>
         </main>

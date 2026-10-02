@@ -20,7 +20,7 @@ interface HealthTabProps {
 }
 
 export default function HealthTab({ subscriber }: HealthTabProps) {
-  const { t } = useLanguage();
+  const { t, isRtl } = useLanguage();
   const nativePlatform = Capacitor.getPlatform();
   const isIOS = nativePlatform === 'ios';
   const isAndroid = nativePlatform === 'android';
@@ -257,8 +257,8 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-2">
         <div>
-          <h2 className="text-[#0a3030] font-black text-2xl tracking-tight">Your Vitals</h2>
-          <p className="text-gray-400 text-sm font-medium mt-1">Deep metrics tracking for Doha Excellents.</p>
+          <h2 className="text-[#0a3030] font-black text-2xl tracking-tight">{isRtl ? 'مؤشراتك الصحية' : 'Your Vitals'}</h2>
+          <p className="text-gray-400 text-sm font-medium mt-1">{isRtl ? 'تابع مؤشراتك الصحية وتقدمك اليومي.' : 'Deep metrics tracking for Doha Excellents.'}</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -317,23 +317,23 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
         <div className="bg-[#0d3838] rounded-2xl p-5 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <Target className="w-4 h-4 text-[#D4A843]" />
-            <h3 className="text-white font-semibold text-sm">Set Your Goals</h3>
+            <h3 className="text-white font-semibold text-sm">{isRtl ? 'حدد أهدافك' : 'Set Your Goals'}</h3>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <label className="text-white/60 text-xs uppercase tracking-wider mb-2 block">Target Weight (kg)</label>
+              <label className="text-white/60 text-xs uppercase tracking-wider mb-2 block">{isRtl ? 'الوزن المستهدف (كجم)' : 'Target Weight (kg)'}</label>
               <input type="number" step="0.1" value={goals.weight_kg || ''} onChange={(e) => setGoals({ ...goals, weight_kg: parseFloat(e.target.value) || 0 })} placeholder="70" className="input-field" />
             </div>
             <div>
-              <label className="text-white/60 text-xs uppercase tracking-wider mb-2 block">Daily Steps</label>
+              <label className="text-white/60 text-xs uppercase tracking-wider mb-2 block">{isRtl ? 'الخطوات اليومية' : 'Daily Steps'}</label>
               <input type="number" value={goals.steps || ''} onChange={(e) => setGoals({ ...goals, steps: parseInt(e.target.value) || 0 })} placeholder="10000" className="input-field" />
             </div>
             <div>
-              <label className="text-white/60 text-xs uppercase tracking-wider mb-2 block">Daily Burn (kcal)</label>
+              <label className="text-white/60 text-xs uppercase tracking-wider mb-2 block">{isRtl ? 'السعرات المحروقة يومياً' : 'Daily Burn (kcal)'}</label>
               <input type="number" value={goals.calories_burned || ''} onChange={(e) => setGoals({ ...goals, calories_burned: parseInt(e.target.value) || 0 })} placeholder="500" className="input-field" />
             </div>
             <div>
-              <label className="text-white/60 text-xs uppercase tracking-wider mb-2 block">Water (ml)</label>
+              <label className="text-white/60 text-xs uppercase tracking-wider mb-2 block">{isRtl ? 'الماء (مل)' : 'Water (ml)'}</label>
               <input type="number" value={goals.water_ml || ''} onChange={(e) => setGoals({ ...goals, water_ml: parseInt(e.target.value) || 0 })} placeholder="2500" className="input-field" />
             </div>
           </div>
@@ -342,7 +342,7 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
             disabled={saving}
             className="w-full bg-[#D4A843] hover:bg-[#c09535] text-[#0a3030] font-bold py-2.5 rounded-full text-sm transition-all disabled:opacity-60 flex items-center justify-center gap-2"
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> Save Goals</>}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {isRtl ? 'حفظ الأهداف' : 'Save Goals'}</>}
           </button>
         </div>
       )}
@@ -431,7 +431,7 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
       {/* Recent Entries */}
       {entries.filter((e) => e.data_type === 'body').length > 0 ? (
         <div className="space-y-3">
-          <h3 className="text-white/60 text-xs uppercase tracking-wider">Recent Entries</h3>
+          <h3 className="text-white/60 text-xs uppercase tracking-wider">{isRtl ? 'الإدخالات الأخيرة' : 'Recent Entries'}</h3>
           {entries.filter((e) => e.data_type === 'body').slice(0, 15).map((e) => (
             <div key={e.id} className="bg-[#0d3838] rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
@@ -460,7 +460,7 @@ export default function HealthTab({ subscriber }: HealthTabProps) {
       ) : (
         <div className="bg-[#0d3838] rounded-2xl p-8 text-center">
           <Heart className="w-10 h-10 text-white/20 mx-auto mb-3" />
-          <p className="text-white/50 text-sm mb-2">No health entries yet</p>
+          <p className="text-white/50 text-sm mb-2">{isRtl ? 'لا توجد بيانات صحية حتى الآن' : 'No health entries yet'}</p>
           <p className="text-white/30 text-xs mb-4">
             Start logging your weight, steps, calories, sleep, and water intake to track your progress over time.
           </p>

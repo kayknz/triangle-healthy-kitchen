@@ -10,7 +10,7 @@ interface PlansPageProps {
 }
 
 export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
-  const { t } = useLanguage();
+  const { t, isRtl } = useLanguage();
   const [packages, setPackages] = useState<Array<{ id: string; name: string; description: string | null; price: number; currency: string; kcals: number; duration: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -58,17 +58,17 @@ export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
             <span>{t('premium_experience')}</span>
           </div>
           <h1 className="text-5xl md:text-7xl font-black text-primary leading-[1] tracking-tighter uppercase italic mb-8">
-            Curated<br />
-            <span className="text-sage">Nutrition.</span>
+            {isRtl ? 'مختارة' : 'Curated'}<br />
+            <span className="text-sage">{isRtl ? 'التغذية.' : 'Nutrition.'}</span>
           </h1>
           <p className="text-muted text-lg md:text-xl font-medium italic leading-relaxed">
             {t('packages_subtitle')}
           </p>
         </header>
 
-        {loading && <p className="mb-20 text-center text-muted" role="status">Loading meal plans…</p>}
-        {!loading && loadError && <div className="mb-20 text-center text-red-700" role="alert"><p>Meal plans are temporarily unavailable. Please try again shortly.</p><button type="button" className="mt-3 underline" onClick={() => { setLoading(true); setLoadError(false); setRetryCount((count) => count + 1); }}>Try again</button></div>}
-        {!loading && !loadError && packages.length === 0 && <p className="mb-20 text-center text-muted">No meal plans are available right now.</p>}
+        {loading && <p className="mb-20 text-center text-muted" role="status">{isRtl ? 'جارٍ تحميل الخطط…' : 'Loading meal plans…'}</p>}
+        {!loading && loadError && <div className="mb-20 text-center text-red-700" role="alert"><p>{isRtl ? 'خطط الوجبات غير متاحة مؤقتاً. يرجى المحاولة لاحقاً.' : 'Meal plans are temporarily unavailable. Please try again shortly.'}</p><button type="button" className="mt-3 underline" onClick={() => { setLoading(true); setLoadError(false); setRetryCount((count) => count + 1); }}>{isRtl ? 'حاول مرة أخرى' : 'Try again'}</button></div>}
+        {!loading && !loadError && packages.length === 0 && <p className="mb-20 text-center text-muted">{isRtl ? 'لا توجد خطط وجبات متاحة حالياً.' : 'No meal plans are available right now.'}</p>}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-32">
           {packages.map((pkg) => {
             const details = PACKAGES.find((item) => item.id === pkg.id);

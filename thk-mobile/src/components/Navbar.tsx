@@ -123,7 +123,7 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
           <button
             onClick={toggleLanguage}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#123F38]/5 hover:bg-[#123F38]/10 text-[#123F38] font-black transition-all text-[10px] uppercase tracking-wider border border-[#123F38]/5"
-            title="Switch Language"
+            title={isRtl ? 'تغيير اللغة' : 'Switch Language'}
           >
             <Languages className="w-3 h-3 text-[#C5A059]" />
             {language === 'en' ? 'ع' : 'EN'}
@@ -136,7 +136,7 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
               className="hidden md:flex items-center gap-1.5 bg-[#C5A059] text-white px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-wider hover:bg-[#a88344] transition-all shadow-sm whitespace-nowrap"
             >
               <ChefHat className="w-3.5 h-3.5 text-white" />
-              <span>Kitchen Ops</span>
+              <span>{isRtl ? 'عمليات المطبخ' : 'Kitchen Ops'}</span>
             </a>
           )}
 

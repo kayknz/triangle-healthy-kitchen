@@ -627,7 +627,7 @@ function AboutMealModal({ dish, isRtl, onClose }: { dish: MenuDish, isRtl: boole
             <section className="p-8 rounded-[2rem] bg-[#1A2E2E] text-white">
                <h3 className="text-[10px] font-black uppercase tracking-[0.5em] text-[#C5A059] mb-8 text-center">{isRtl ? 'القيم الغذائية' : 'Nutritional Breakdown'}</h3>
                <div className="grid grid-cols-4 gap-4 text-center">
-                  <div><p className="text-2xl font-serif mb-1">{dish.kcals}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">Kcal</p></div>
+                  <div><p className="text-2xl font-serif mb-1">{dish.kcals}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">{isRtl ? 'سعرة' : 'Kcal'}</p></div>
                   <div><p className="text-2xl font-serif mb-1">{dish.macros?.protein || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">{isRtl ? 'بروتين' : 'Protein'}</p></div>
                   <div><p className="text-2xl font-serif mb-1">{dish.macros?.carbs || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">{isRtl ? 'كربوهيدرات' : 'Carbs'}</p></div>
                   <div><p className="text-2xl font-serif mb-1">{dish.macros?.fats || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">{isRtl ? 'دهون' : 'Fats'}</p></div>
@@ -759,7 +759,7 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
                     <div>
                        <Shield className="w-16 h-16 text-white mb-8 animate-reveal" />
-                       <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-2">Package Secured.</h3>
+                       <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-2">{isRtl ? 'تم تجهيز الطلب.' : 'Package Secured.'}</h3>
                        <p className="text-white/80 text-[10px] font-black uppercase tracking-widest">
                          Mission Synchronized at {new Date(activeDelivery.delivered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                        </p>

@@ -393,7 +393,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       <div className="p-6 sm:p-10" dir={isRtl ? 'rtl' : 'ltr'}>
         {preselectedPackage && pkg && (
           <div className="mb-6 rounded-2xl border border-[#C5A059]/30 bg-[#C5A059]/10 p-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-[#7b6332]">Selected plan</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-[#7b6332]">{isRtl ? 'الخطة المختارة' : 'Selected plan'}</p>
             <p className="mt-1 font-black text-[#0a3030]">{t(pkg.id)} · {(pkg.price + (fridayDelivery ? 199 : 0)).toLocaleString()} {pkg.currency}{fridayDelivery ? ` · ${t('friday_delivery_addon')}` : ''}</p>
           </div>
         )}
@@ -441,11 +441,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {/* Step 0: Body Assessment */}
             {STEPS[step]?.id === 'assessment' && (
               <div className="space-y-4 animate-in">
-                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Health & Goal Assessment</h3>
-                <div className="grid grid-cols-2 gap-4"><label className="text-[10px] font-black uppercase text-gray-400">Gender<select value={assessment.gender} onChange={(event) => setAssessment({ ...assessment, gender: event.target.value as 'male' | 'female' })} className="input-field mt-2 py-3 text-sm font-semibold normal-case"><option value="male">Male</option><option value="female">Female</option></select></label><label className="text-[10px] font-black uppercase text-gray-400">Age<input type="number" min={13} max={110} value={assessment.age} onChange={(event) => setAssessment({ ...assessment, age: Number(event.target.value) })} className="input-field mt-2 py-3 font-bold" /></label></div>
+                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'تقييم الصحة والأهداف' : 'Health & Goal Assessment'}</h3>
+                <div className="grid grid-cols-2 gap-4"><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الجنس' : 'Gender'}<select value={assessment.gender} onChange={(event) => setAssessment({ ...assessment, gender: event.target.value as 'male' | 'female' })} className="input-field mt-2 py-3 text-sm font-semibold normal-case"><option value="male">{isRtl ? 'ذكر' : 'Male'}</option><option value="female">{isRtl ? 'أنثى' : 'Female'}</option></select></label><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'العمر' : 'Age'}<input type="number" min={13} max={110} value={assessment.age} onChange={(event) => setAssessment({ ...assessment, age: Number(event.target.value) })} className="input-field mt-2 py-3 font-bold" /></label></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">Current Weight (kg)</label>
+                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الوزن الحالي (كجم)' : 'Current Weight (kg)'}</label>
                     <input
                       type="number"
                       min={40}
@@ -456,7 +456,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">Standing Height (cm)</label>
+                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الطول (سم)' : 'Standing Height (cm)'}</label>
                     <input
                       type="number"
                       min={140}
@@ -468,25 +468,25 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">Target Goal</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الهدف' : 'Target Goal'}</label>
                   <select
                     value={assessment.fitness_goal}
                     onChange={(e) => setAssessment({ ...assessment, fitness_goal: e.target.value })}
                     className="input-field py-3 font-bold bg-white"
                   >
-                    <option value="weight_loss">Weight Loss (Calorie Deficit)</option>
-                    <option value="maintain">Maintenance & Wellness</option>
-                    <option value="gain">Muscle Gain (Calorie Surplus)</option>
+                    <option value="weight_loss">{isRtl ? 'إنقاص الوزن (عجز السعرات)' : 'Weight Loss (Calorie Deficit)'}</option>
+                    <option value="maintain">{isRtl ? 'المحافظة على الوزن والعافية' : 'Maintenance & Wellness'}</option>
+                    <option value="gain">{isRtl ? 'زيادة العضلات (فائض السعرات)' : 'Muscle Gain (Calorie Surplus)'}</option>
                   </select>
                 </div>
-                <label className="block rounded-2xl border border-primary/10 bg-white p-4"><span className="block text-[10px] font-black uppercase tracking-widest text-primary">BMI report <span className="font-medium normal-case text-gray-400">(optional)</span></span><span className="mt-1 block text-xs text-gray-500">Attach a recent clinic or body-composition report for nutrition review.</span><input type="file" accept="application/pdf,image/jpeg,image/png" className="mt-3 block w-full text-xs" onChange={(event) => { const file = event.target.files?.[0] || null; if (file && (!['application/pdf','image/jpeg','image/png'].includes(file.type) || file.size > 10 * 1024 * 1024)) { setError('Choose a PDF, JPG, or PNG report up to 10 MB.'); event.currentTarget.value = ''; setBmiReport(null); return; } setError(null); setBmiReport(file); }} />{bmiReport && <span className="mt-2 block text-xs font-semibold text-emerald-800">Selected: {bmiReport.name}</span>}</label>
+                <label className="block rounded-2xl border border-primary/10 bg-white p-4"><span className="block text-[10px] font-black uppercase tracking-widest text-primary">{isRtl ? 'تقرير مؤشر كتلة الجسم' : 'BMI report'} <span className="font-medium normal-case text-gray-400">{isRtl ? '(اختياري)' : '(optional)'}</span></span><span className="mt-1 block text-xs text-gray-500">{isRtl ? 'أرفق تقريراً حديثاً من العيادة أو تقرير تكوين الجسم لمراجعته غذائياً.' : 'Attach a recent clinic or body-composition report for nutrition review.'}</span><input type="file" accept="application/pdf,image/jpeg,image/png" className="mt-3 block w-full text-xs" onChange={(event) => { const file = event.target.files?.[0] || null; if (file && (!['application/pdf','image/jpeg','image/png'].includes(file.type) || file.size > 10 * 1024 * 1024)) { setError(isRtl ? 'اختر تقريراً بصيغة PDF أو JPG أو PNG بحجم يصل إلى ١٠ ميغابايت.' : 'Choose a PDF, JPG, or PNG report up to 10 MB.'); event.currentTarget.value = ''; setBmiReport(null); return; } setError(null); setBmiReport(file); }} />{bmiReport && <span className="mt-2 block text-xs font-semibold text-emerald-800">{isRtl ? 'تم الاختيار:' : 'Selected:'} {bmiReport.name}</span>}</label>
               </div>
             )}
 
             {/* Step 1: Pick Plan */}
             {STEPS[step]?.id === 'plan' && (
               <div className="space-y-4 animate-in">
-                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Select Plan Protocol</h3>
+                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'اختر خطة الوجبات' : 'Select Plan Protocol'}</h3>
                 <div className="grid grid-cols-1 gap-3">
                   {availablePackages.map((p) => (
                     <button
@@ -510,9 +510,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
             {STEPS[step]?.id === 'menu' && (
               <div className="space-y-4 animate-in">
-                <div><h3 className="text-[#0a3030] font-black text-lg uppercase italic">Choose your meals</h3><p className="mt-1 text-sm text-gray-500">Select meals from this week’s published kitchen menu. Kitchen’s choice is preselected where available.</p></div>
-                <section className="rounded-2xl border border-red-200 bg-white p-4"><h4 className="font-black uppercase text-[#0a3030]">Allergies and kitchen notes</h4><p className="mt-1 text-xs text-gray-500">Shared with the kitchen for food safety and preparation.</p><div className="mt-3 flex flex-wrap gap-2">{CHECKOUT_ALLERGENS.map((item) => <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${foodAllergies.includes(item) ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 text-gray-700'}`}><input type="checkbox" checked={foodAllergies.includes(item)} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item] : current.filter((value) => value !== item))}/>{item}</label>)}</div><label className="mt-4 block text-xs font-bold text-gray-700">Ingredients to avoid or general kitchen notes<textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder="For example: no onions, mild spice" className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
-                {menuLoading ? <p className="py-6 text-sm text-gray-500">Loading menu…</p> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">The kitchen has not published a menu yet. Check back after the weekly menu is released.</p> : packageMenuDays.map((day) => {
+                <div><h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'اختر وجباتك' : 'Choose your meals'}</h3><p className="mt-1 text-sm text-gray-500">{isRtl ? 'اختر وجباتك من قائمة المطبخ المنشورة لهذا الأسبوع. يتم تحديد اختيار المطبخ مسبقاً عند توفره.' : 'Select meals from this week’s published kitchen menu. Kitchen’s choice is preselected where available.'}</p></div>
+                <section className="rounded-2xl border border-red-200 bg-white p-4"><h4 className="font-black uppercase text-[#0a3030]">{isRtl ? 'الحساسية وملاحظات المطبخ' : 'Allergies and kitchen notes'}</h4><p className="mt-1 text-xs text-gray-500">{isRtl ? 'تُشارك مع المطبخ لضمان سلامة الطعام والتحضير المناسب.' : 'Shared with the kitchen for food safety and preparation.'}</p><div className="mt-3 flex flex-wrap gap-2">{CHECKOUT_ALLERGENS.map((item) => <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${foodAllergies.includes(item) ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 text-gray-700'}`}><input type="checkbox" checked={foodAllergies.includes(item)} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item] : current.filter((value) => value !== item))}/>{item}</label>)}</div><label className="mt-4 block text-xs font-bold text-gray-700">{isRtl ? 'مكونات يجب تجنبها أو ملاحظات عامة للمطبخ' : 'Ingredients to avoid or general kitchen notes'}<textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder={isRtl ? 'مثال: بدون بصل، توابل خفيفة' : 'For example: no onions, mild spice'} className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
+                {menuLoading ? <p className="py-6 text-sm text-gray-500">{isRtl ? 'جارٍ تحميل القائمة…' : 'Loading menu…'}</p> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{isRtl ? 'لم ينشر المطبخ قائمة الطعام بعد. يرجى العودة بعد نشر قائمة الأسبوع.' : 'The kitchen has not published a menu yet. Check back after the weekly menu is released.'}</p> : packageMenuDays.map((day) => {
                   const meals = packageMenuMeals.filter((meal) => (initialMenuOptions[`${day}|${meal}`] || []).length);
                   if (!meals.length) return null;
                   return <section key={day} className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="mb-3 font-black uppercase text-[#0a3030]">{day}</h4>{meals.map((meal) => { const key = `${day}|${meal}`; const choices = initialMenuOptions[key]; return <label key={key} className="mb-3 block text-xs font-bold uppercase text-gray-500">{meal}<select value={initialMenuSelections[key]?.dish_id || ''} onChange={(event) => { const selected = choices.find((choice) => choice.id === event.target.value); if (selected) setInitialMenuSelections((previous) => ({ ...previous, [key]: { dish_id: selected.id, dish_name: selected.name, dish_kcals: selected.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal === 'snacks_2' ? 'snack_2' : meal, menu_period: menuPeriod } })); }} className="input-field mt-1 py-3 normal-case">{choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.kcals} kcal</option>)}</select></label>; })}</section>;
@@ -524,7 +524,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {STEPS[step]?.id === 'address' && (
               <div className="space-y-4 animate-in">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Where should we deliver?</h3>
+                  <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'أين تريد استلام التوصيل؟' : 'Where should we deliver?'}</h3>
                   <button
                     onClick={locateUserAddress}
                     disabled={locating}
@@ -534,13 +534,13 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                     Use current location (optional)
                   </button>
                 </div>
-                <p className="text-xs leading-relaxed text-gray-500">Choose where you want the food delivered, then enter that destination below. Your phone’s current location is only used if you tap the optional GPS button.</p>
+                <p className="text-xs leading-relaxed text-gray-500">{isRtl ? 'اختر مكان استلام الطعام وأدخل العنوان أدناه. لن يُستخدم موقع هاتفك الحالي إلا عند الضغط على زر تحديد الموقع الاختياري.' : 'Choose where you want the food delivered, then enter that destination below. Your phone’s current location is only used if you tap the optional GPS button.'}</p>
                 {locationMessage && <p role="status" className="text-xs font-semibold text-[#0a3030]">{locationMessage}</p>}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="group" aria-label="Delivery destination">
                   {(['home', 'office', 'gym', 'other'] as const).map((place) => <button type="button" key={place} aria-pressed={deliveryPlace === place} onClick={() => setDeliveryPlace(place)} className={`rounded-xl border px-3 py-3 text-xs font-black uppercase tracking-wider ${deliveryPlace === place ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-200 bg-white text-gray-600'}`}>{place === 'office' ? 'Work' : place}</button>)}
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">Google Maps Location Link (Optional)</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رابط الموقع من خرائط Google (اختياري)' : 'Google Maps Location Link (Optional)'}</label>
                   <input
                     type="text"
                     value={googleMapsInput}
@@ -568,7 +568,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">Building Number</label>
+                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رقم المبنى' : 'Building Number'}</label>
                     <input
                       type="text"
                       value={address.building_number}
@@ -579,7 +579,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">Street Name</label>
+                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'اسم الشارع' : 'Street Name'}</label>
                     <input
                       type="text"
                       value={address.street}
@@ -591,7 +591,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">Area Name</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'اسم المنطقة' : 'Area Name'}</label>
                   <input
                     type="text"
                     value={address.area}
@@ -603,16 +603,16 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">Zone Number</label>
+                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رقم المنطقة' : 'Zone Number'}</label>
                     <input type="text" value={address.zone} onChange={(e) => setAddress({ ...address, zone: e.target.value })} placeholder="e.g. 66" className="input-field py-3 font-bold" required />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">Delivery Phone</label>
+                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'هاتف التوصيل' : 'Delivery Phone'}</label>
                     <input type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+974 3312 3456" className="input-field py-3 font-bold" required />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">Landmark or delivery instructions (optional)</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'علامة مميزة أو تعليمات التوصيل (اختياري)' : 'Landmark or delivery instructions (optional)'}</label>
                   <textarea value={address.delivery_notes} onChange={(e) => setAddress({ ...address, delivery_notes: e.target.value })} placeholder="For example: office reception, gym entrance, or villa gate" className="input-field min-h-24 py-3 font-medium" />
                 </div>
               </div>
@@ -621,9 +621,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {/* Step 3: Identity / Signup (if not logged in) */}
             {STEPS[step]?.id === 'identity' && (
               <div className="space-y-4 animate-in">
-                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Account Registration</h3>
+                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'إنشاء الحساب' : 'Account Registration'}</h3>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">Full Name</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الاسم الكامل' : 'Full Name'}</label>
                   <input
                     type="text"
                     value={name}
@@ -634,7 +634,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   />
                 </div>
                 <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">Email for payment receipts</label>
+                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'البريد الإلكتروني لإيصالات الدفع' : 'Email for payment receipts'}</label>
                     <input
                       type="email"
                       value={email}
@@ -649,7 +649,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 {signupChannel === 'whatsapp' && !signupOtpStep && <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رقم واتساب' : 'WhatsApp number'}</label><div className="mt-1 grid grid-cols-2 gap-2"><select aria-label={isRtl ? 'رمز الدولة' : 'Country calling code'} value={signupCountry} onChange={(e) => setSignupCountry(e.target.value as CountryCode)} className="input-field min-w-0 py-3 text-xs">{signupCountries.map((option) => <option key={option.country} value={option.country}>{option.name} ({option.dialCode})</option>)}</select><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={isRtl ? 'رقم الهاتف' : 'Mobile number'} className="input-field min-w-0 py-3 font-bold" required /></div></div>}
                 {signupOtpStep && <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رمز التحقق' : 'Verification code'} · {signupChannel === 'email' ? email : toE164Phone(phone, signupCountry)}</label><input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={signupOtpCode} onChange={(e) => setSignupOtpCode(e.target.value.replace(/\s/g, ''))} placeholder="123456" className="input-field mt-1 py-3 text-center font-bold tracking-[0.3em]" required /></div>}
                 {!signupOtpStep && <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">Password</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'كلمة المرور' : 'Password'}</label>
                   <input
                     type="password"
                     value={password}
@@ -666,13 +666,13 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {/* Step 4: Payment Selection */}
             {STEPS[step]?.id === 'payment' && (
               <div className="space-y-4 animate-in">
-                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">Choose payment method</h3>
-                <div><label className="text-[10px] font-black uppercase text-gray-400">Email for payment receipts</label><input type="email" value={billingEmail || email} onChange={(e) => setBillingEmail(e.target.value)} placeholder="email@example.com" className="input-field mt-1 py-3 font-bold" required /></div>
+                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'اختر طريقة الدفع' : 'Choose payment method'}</h3>
+                <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'البريد الإلكتروني لإيصالات الدفع' : 'Email for payment receipts'}</label><input type="email" value={billingEmail || email} onChange={(e) => setBillingEmail(e.target.value)} placeholder="email@example.com" className="input-field mt-1 py-3 font-bold" required /></div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <button type="button" onClick={() => setPaymentMethod('tap')} className={`rounded-2xl border p-5 text-left flex items-start gap-3 ${paymentMethod === 'tap' ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-100 bg-white text-gray-600'}`}><CreditCard className="w-5 h-5 text-[#C5A059] shrink-0"/><span><strong className="block">Pay online with Tap</strong><small className="mt-1 block opacity-80">Card and wallet checkout; plan activates after confirmation.</small></span></button>
-                  <button type="button" onClick={() => setPaymentMethod('cash')} className={`rounded-2xl border p-5 text-left flex items-start gap-3 ${paymentMethod === 'cash' ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-100 bg-white text-gray-600'}`}><Banknote className="w-5 h-5 text-[#C5A059] shrink-0"/><span><strong className="block">Cash collection</strong><small className="mt-1 block opacity-80">We’ll arrange collection before activating your plan.</small></span></button>
+                  <button type="button" onClick={() => setPaymentMethod('tap')} className={`rounded-2xl border p-5 text-left flex items-start gap-3 ${paymentMethod === 'tap' ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-100 bg-white text-gray-600'}`}><CreditCard className="w-5 h-5 text-[#C5A059] shrink-0"/><span><strong className="block">{isRtl ? 'الدفع الإلكتروني عبر Tap' : 'Pay online with Tap'}</strong><small className="mt-1 block opacity-80">{isRtl ? 'ادفع بالبطاقة أو المحفظة. تُفعّل الخطة بعد تأكيد الدفع.' : 'Card and wallet checkout; plan activates after confirmation.'}</small></span></button>
+                  <button type="button" onClick={() => setPaymentMethod('cash')} className={`rounded-2xl border p-5 text-left flex items-start gap-3 ${paymentMethod === 'cash' ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-100 bg-white text-gray-600'}`}><Banknote className="w-5 h-5 text-[#C5A059] shrink-0"/><span><strong className="block">{isRtl ? 'الدفع النقدي' : 'Cash collection'}</strong><small className="mt-1 block opacity-80">{isRtl ? 'سنتواصل لترتيب التحصيل قبل تفعيل خطتك.' : 'We’ll arrange collection before activating your plan.'}</small></span></button>
                 </div>
-                {paymentMethod === 'cash' && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Your plan stays pending until cash collection is verified by Admin or CEO.</p>}
+                {paymentMethod === 'cash' && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{isRtl ? 'ستبقى خطتك معلّقة حتى يؤكد المسؤول أو الرئيس التنفيذي استلام المبلغ النقدي.' : 'Your plan stays pending until cash collection is verified by Admin or CEO.'}</p>}
                 <label className="flex items-start gap-3 rounded-2xl bg-white p-4 text-sm text-gray-600">
                   <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="mt-1 accent-[#0a3030]" />
                   <span>I agree to the meal plan terms and authorize {paymentMethod === 'cash' ? 'cash collection before activation' : 'the selected Tap payment'}.</span>
