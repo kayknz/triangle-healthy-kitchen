@@ -143,16 +143,21 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     const loadMenu = async () => {
       setMenuLoading(true);
       try {
-        const [{ data: settings }, { data: menu, error: menuError }] = await Promise.all([
-          supabase.from('global_settings').select('active_season').maybeSingle(),
-          supabase.from('menu_availability').select('week_number,dish_id,day_of_week,meal_period,collection,is_kitchen_choice,available_from,dishes(id,name,kcals)').eq('is_active', true).order('available_from', { ascending: false }),
-        ]);
+        const serviceWeek = upcomingServiceWeekStart();
+        const { data: preparedMenu, error: fallbackError } = await supabase.rpc('ensure_service_week_menu', { p_week_start: serviceWeek });
+        if (fallbackError) throw fallbackError;
+        const collection = preparedMenu?.collection;
+        if (!collection) throw new Error('No published menu is available for this service week yet.');
+        const weekStart = new Date(`${serviceWeek}T00:00:00+03:00`).toISOString();
+        const endDate = new Date(`${serviceWeek}T12:00:00Z`);
+        endDate.setUTCDate(endDate.getUTCDate() + 1);
+        const weekEnd = new Date(`${endDate.toISOString().slice(0, 10)}T00:00:00+03:00`).toISOString();
+        const { data: menu, error: menuError } = await supabase.from('menu_availability')
+          .select('week_number,dish_id,day_of_week,meal_period,collection,is_kitchen_choice,available_from,dishes(id,name,kcals)')
+          .eq('collection', collection).eq('is_active', true).gte('available_from', weekStart).lt('available_from', weekEnd).order('available_from', { ascending: false });
         if (menuError) throw menuError;
         if (cancelled) return;
-        const collection = settings?.active_season || 'autumn';
-        const serviceWeek = upcomingServiceWeekStart();
-        const published = (menu || []).filter((row: any) => row.collection === collection && new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(row.available_from)) === serviceWeek);
-        const rows = published;
+        const rows = menu || [];
         const options: Record<string, Array<{ id: string; name: string; kcals: number; kitchen_choice?: boolean }>> = {};
         const defaults: Record<string, InitialMenuChoice> = {};
         for (const day of packageMenuDays) for (const meal of packageMenuMeals) {

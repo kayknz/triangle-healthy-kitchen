@@ -71,8 +71,6 @@ export interface DailyMenu {
 
 export interface GlobalSettings {
   id?: string;
-  active_season: string;
-  ramadan_mode: boolean;
   current_menu_period?: string;
   selection_deadline?: string;
 }

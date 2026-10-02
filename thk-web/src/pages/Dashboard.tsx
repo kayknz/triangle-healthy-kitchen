@@ -15,8 +15,6 @@ import { Subscriber } from '../types/subscription';
 
 interface GlobalSettings {
   id?: string;
-  active_season: 'autumn' | 'summer' | 'ramadan';
-  ramadan_mode: boolean;
   current_menu_period?: string;
   selection_deadline?: string;
 }
@@ -368,28 +366,18 @@ export default function Dashboard() {
                     <StatCard label="Incoming Audits" value={stats.pendingBookings.toString()} icon={Calendar} theme="white" />
                   </div>
 
-                  {/* Menu Command Hub */}
+                  {/* Menu command hub */}
                   <div className="glass-card p-10 bg-white shadow-3xl">
                      <div className="flex items-center gap-4 mb-10">
                         <div className="w-12 h-12 rounded-2xl bg-gold/10 flex items-center justify-center">
                            <ChefHat className="w-6 h-6 text-gold" />
                         </div>
-                        <h3 className="text-xl font-serif italic text-primary uppercase">Menu Strategy</h3>
+                        <h3 className="text-xl font-serif italic text-primary uppercase">Menu Release</h3>
                      </div>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                         <div className="space-y-4">
-                           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/40">Active Collection</p>
-                           <div className="flex gap-3">
-                              {['summer', 'autumn', 'ramadan'].map(s => (
-                                <button
-                                  key={s}
-                                  onClick={() => saveSettings({ active_season: s as any, ramadan_mode: s === 'ramadan' })}
-                                  className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border-2 transition-all ${settings?.active_season === s ? 'border-primary bg-primary text-white shadow-xl' : 'border-primary/5 bg-white'}`}
-                                >
-                                  {s}
-                                </button>
-                              ))}
-                           </div>
+                           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/40">Customer menu</p>
+                           <p className="text-sm font-semibold text-primary">The latest published weekly menu is used automatically. If a week is missing, the previous archived menu fills it.</p>
                         </div>
                         <div className="space-y-4">
                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/40">Selection Deadline</p>

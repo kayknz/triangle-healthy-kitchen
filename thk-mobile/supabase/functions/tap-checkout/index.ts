@@ -146,15 +146,21 @@ Deno.serve(async (req: Request) => {
     const serviceStart = new Date(`${todayInQatar}T12:00:00Z`);
     serviceStart.setUTCDate(serviceStart.getUTCDate() + ((6 - serviceStart.getUTCDay() + 7) % 7 || 7));
     const expectedWeek = serviceStart.toISOString().slice(0, 10);
+    const { data: preparedMenu, error: fallbackError } = await adminClient.rpc('ensure_service_week_menu', { p_week_start: expectedWeek });
+    if (fallbackError) throw new Error(`Previous menu fallback failed: ${fallbackError.message}`);
+    const menuCollection = preparedMenu?.collection;
+    if (!menuCollection || !preparedMenu?.ready) throw new Error('No published menu is available for the selected service week.');
+    const releaseStart = new Date(`${expectedWeek}T00:00:00+03:00`).toISOString();
+    const nextWeekDate = new Date(`${expectedWeek}T12:00:00Z`);
+    nextWeekDate.setUTCDate(nextWeekDate.getUTCDate() + 1);
+    const releaseEnd = new Date(`${nextWeekDate.toISOString().slice(0, 10)}T00:00:00+03:00`).toISOString();
     const { data: menuRows, error: menuError } = await adminClient.from('menu_availability')
       .select('dish_id,day_of_week,meal_period,collection,available_from')
-      .eq('is_active', true)
+      .eq('is_active', true).eq('collection', menuCollection)
+      .gte('available_from', releaseStart).lt('available_from', releaseEnd)
       .order('available_from', { ascending: false }).limit(1000);
     if (menuError) throw new Error(`Published menu lookup failed: ${menuError.message}`);
-    const activeSeason = (await adminClient.from('global_settings').select('active_season').maybeSingle()).data?.active_season;
-    const activeMenuRows = (menuRows || []).filter((row: any) => row.collection === (activeSeason || 'autumn')
-      && new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(row.available_from)) === expectedWeek);
-    const releasedChoices = new Set(activeMenuRows
+    const releasedChoices = new Set((menuRows || [])
       .map((row: any) => `${row.day_of_week}|${row.meal_period}|${row.dish_id}`));
     const selectedSlots = new Set<string>();
     const selectedDays = new Set<string>();

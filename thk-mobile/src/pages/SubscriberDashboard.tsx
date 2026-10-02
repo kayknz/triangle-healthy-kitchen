@@ -211,7 +211,7 @@ export default function SubscriberDashboard() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
           >
-            {tab === 'menu' && <MenuSelection subscriber={subscriber} settings={settings} onUpdate={loadDashboardData} />}
+            {tab === 'menu' && <MenuSelection subscriber={subscriber} onUpdate={loadDashboardData} />}
             {tab === 'delivery' && <DeliverySettings subscriber={subscriber} activeDelivery={activeDelivery} riderLocation={riderLocation} onUpdate={loadDashboardData} />}
             {tab === 'health' && <HealthTab subscriber={subscriber} />}
             {tab === 'settings' && <PlanSettings subscriber={subscriber} onUpdate={loadDashboardData} updating={updating} setUpdating={setUpdating} />}
@@ -249,13 +249,14 @@ function AllergyPreferences({ subscriber, onUpdate }: { subscriber: Subscriber; 
   return <section className="rounded-2xl border border-red-200 bg-white p-4"><div className="mb-3 flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-red-600"/><div><h3 className="text-sm font-black uppercase text-primary">Allergies & food safety</h3><p className="text-[10px] text-primary/60">Kitchen safety notes for your meals.</p></div></div><div className="flex flex-wrap gap-2">{allergens.map((allergen) => { const selected=allergies.includes(allergen); return <button type="button" key={allergen} aria-pressed={selected} onClick={() => setAllergies((previous) => selected ? previous.filter((item) => item !== allergen) : [...previous, allergen])} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-primary/15 text-primary/70'}`}>{t(allergen.toLowerCase()) || allergen}</button>; })}</div><button type="button" onClick={save} disabled={saving} className="btn-primary mt-3 px-4 py-2 text-[10px]">{saving ? 'Saving…' : 'Save food-safety notes'}</button></section>;
 }
 
-function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscriber, settings: GlobalSettings | null, onUpdate: () => void }) {
+function MenuSelection({ subscriber, onUpdate }: { subscriber: Subscriber, onUpdate: () => void }) {
   const weekOffset = 0;
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [menuWeek, setMenuWeek] = useState<number>(1);
   const [selections, setSelections] = useState<MenuSelection[]>([]);
   const [availableMenu, setAvailableMenu] = useState<any[]>([]);
   const [menuHasItems, setMenuHasItems] = useState(false);
+  const [menuPeriod, setMenuPeriod] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -293,22 +294,25 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
   const loadMenu = useCallback(async () => {
     setLoading(true);
     try {
-      // Each published menu week is keyed by its Qatar Saturday release date.
-      // Show only the menu released for this ordering cycle, never older weeks.
       const qatarMidnight = (date: string) => new Date(`${date}T00:00:00+03:00`).toISOString();
-      const releaseStart = getWeekStart(0);
-      const releaseEnd = getQatarDate(addDays(new Date(`${releaseStart}T12:00:00Z`), 7));
+      const releaseStart = qatarMidnight(weekStart);
+      const releaseEnd = qatarMidnight(getQatarDate(addDays(new Date(`${weekStart}T12:00:00Z`), 1)));
+      const { data: preparedMenu, error: fallbackError } = await supabase.rpc('ensure_service_week_menu', { p_week_start: weekStart });
+      if (fallbackError) throw fallbackError;
+      const collection = preparedMenu?.collection;
+      if (!collection) throw new Error('No published menu is available for this service week yet.');
+      setMenuPeriod(collection);
       const { data: menuData, error: menuError } = await supabase
         .from('menu_availability')
         .select('*, dishes(*)')
-        .eq('collection', settings?.active_season || 'autumn')
+        .eq('collection', collection)
         .eq('is_active', true)
-        .lte('available_from', new Date().toISOString())
+        .gte('available_from', releaseStart)
+        .lt('available_from', releaseEnd)
         .order('available_from', { ascending: false });
       setMenuWeek(1);
       if (menuError) throw menuError;
-      const latestRelease = menuData?.[0]?.available_from;
-      const releasedMenu = latestRelease ? (menuData || []).filter((row: any) => row.available_from === latestRelease) : [];
+      const releasedMenu = menuData || [];
       setMenuHasItems(Boolean(releasedMenu.length));
 
       // Ingredients are linked through meal_ingredient_config, not directly
@@ -371,7 +375,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
     } finally {
       setLoading(false);
     }
-  }, [subscriber.id, weekStart, weekOffset, settings?.active_season]);
+  }, [subscriber.id, weekStart, weekOffset]);
 
   useEffect(() => { loadMenu(); }, [loadMenu]);
 
@@ -397,7 +401,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
         dish_name: dish.name,
         dish_kcals: dish.kcals,
         customizations,
-        menu_period: settings?.current_menu_period
+        menu_period: menuPeriod
       }, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
 
     if (!error) {
@@ -420,7 +424,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
       meal_type: meal === 'snacks' ? 'snack' : meal === 'snacks_2' ? 'snack_2' : meal,
       dish_name: 'SKIP DAY',
       dish_kcals: 0,
-      menu_period: settings?.current_menu_period
+      menu_period: menuPeriod
     }));
     const { error } = await supabase.from('weekly_menu_selections').upsert(skipSelections, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
     if (error) setSaveError(error.message); else { await loadMenu(); onUpdate(); }
@@ -445,7 +449,7 @@ function MenuSelection({ subscriber, settings, onUpdate }: { subscriber: Subscri
       dish_id: dish.id,
       dish_name: dish.name,
       dish_kcals: dish.kcals,
-      menu_period: settings?.current_menu_period
+      menu_period: menuPeriod
     }));
     const { error } = await supabase.from('weekly_menu_selections').upsert(newSelections, { onConflict: 'subscriber_id,week_start_date,day_of_week,meal_type' });
     if (error) setSaveError(error.message); else { await loadMenu(); onUpdate(); }
