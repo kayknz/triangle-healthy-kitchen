@@ -55,15 +55,15 @@ export default function About() {
 
             <h2 className="text-4xl sm:text-7xl font-black text-primary leading-[0.95] mb-10 tracking-tighter uppercase italic">
               Verified Doha<br />
-              <span className="text-sage underline decoration-gold/10 underline-offset-[12px]">Lifestyle & Nutritional Ecosystem</span>
+              <span className="text-sage underline decoration-gold/10 underline-offset-[12px]">{isRtl ? 'الصحة والتغذية' : 'Lifestyle & Nutritional Ecosystem'}</span>
             </h2>
 
             <p className={`text-muted text-base sm:text-2xl leading-relaxed mb-10 font-medium italic border-sage/20 ${isRtl ? 'border-r-4 pr-6' : 'border-l-4 pl-6'}`}>
-              Triangle is more than a meal plan. It is a clinical-grade nutritional ecosystem designed to fuel the Doha lifestyle through verified bio-data and chef-crafted precision.
+              {isRtl ? 'تراينغل أكثر من مجرد خطة وجبات؛ إنها منظومة تغذية متكاملة تدعم نمط الحياة في الدوحة ببيانات موثوقة ووجبات يعدّها الطهاة بعناية.' : 'Triangle is more than a meal plan. It is a clinical-grade nutritional ecosystem designed to fuel the Doha lifestyle through verified bio-data and chef-crafted precision.'}
             </p>
 
             <p className="text-muted text-sm sm:text-lg leading-relaxed mb-16 font-medium opacity-80">
-              Since 2017, we have merged traditional heritage flavors with modern bio-science to create a continuous supply of performance nutrition for our community.
+              {isRtl ? 'منذ عام ٢٠١٧، نمزج نكهات المطبخ التراثي بالمعرفة الغذائية الحديثة لنقدم لمجتمعنا وجبات تدعم الأداء والصحة.' : 'Since 2017, we have merged traditional heritage flavors with modern bio-science to create a continuous supply of performance nutrition for our community.'}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

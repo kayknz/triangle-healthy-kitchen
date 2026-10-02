@@ -277,7 +277,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                       </div>
                       <div className="flex-1">
                         <h4 className={`text-base font-black uppercase tracking-widest ${data.package_id === 'undecided' ? 'text-white' : 'text-[#0a3030]'}`}>{t('undecided')}</h4>
-                        <p className={`text-[10px] font-medium leading-relaxed mt-1 ${data.package_id === 'undecided' ? 'text-white/60' : 'text-gray-400'}`}>Discuss your needs with Sabic (Specialist Dietitian) to find your ideal protocol.</p>
+                        <p className={`text-[10px] font-medium leading-relaxed mt-1 ${data.package_id === 'undecided' ? 'text-white/60' : 'text-gray-400'}`}>{isRtl ? 'ناقش احتياجاتك مع أخصائي التغذية سابيك لاختيار الخطة المناسبة لك.' : 'Discuss your needs with Sabic (Specialist Dietitian) to find your ideal protocol.'}</p>
                       </div>
                     </div>
                   </button>

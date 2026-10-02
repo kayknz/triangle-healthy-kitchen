@@ -202,8 +202,8 @@ export default function MyRhythm() {
                   <Flame className="w-4 h-4 text-gold fill-gold" />
                 </div>
                 <div>
-                  <p className="text-lg font-black italic text-gold leading-none">{metrics.streak} Days</p>
-                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mt-1">Active Streak</p>
+                  <p className="text-lg font-black italic text-gold leading-none">{metrics.streak} {isRtl ? 'يوماً' : 'Days'}</p>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mt-1">{isRtl ? 'الاستمرارية النشطة' : 'Active Streak'}</p>
                 </div>
               </div>
 
@@ -212,8 +212,8 @@ export default function MyRhythm() {
                   <Sparkles className="w-4 h-4 text-teal" />
                 </div>
                 <div>
-                  <p className="text-lg font-black italic text-white leading-none">{metrics.points} Pts</p>
-                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mt-1">Reward Points</p>
+                  <p className="text-lg font-black italic text-white leading-none">{metrics.points} {isRtl ? 'نقطة' : 'Pts'}</p>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-white/40 mt-1">{isRtl ? 'نقاط المكافآت' : 'Reward Points'}</p>
                 </div>
               </div>
             </div>

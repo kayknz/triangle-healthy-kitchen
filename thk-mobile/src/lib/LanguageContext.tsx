@@ -1160,6 +1160,7 @@ const translations: Record<Language, Record<string, string>> = {
     'revoke approval': 'إلغاء الاعتماد',
     'search bookings by name or email...': 'البحث عن الحجوزات بالاسم أو البريد...',
     'search subscribers by name, area, email...': 'البحث عن المشتركين بالاسم أو المنطقة...',
+    fish: 'سمك', dairy: 'ألبان', eggs: 'بيض', gluten: 'غلوتين', seafood: 'مأكولات بحرية', sesame: 'سمسم', nuts: 'مكسرات',
   }
 };
 
