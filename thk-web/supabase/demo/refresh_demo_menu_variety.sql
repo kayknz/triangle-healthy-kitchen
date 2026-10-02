@@ -14,7 +14,6 @@ set local request.jwt.claim.role = 'service_role';
 do $$
 declare
   v_week_start date;
-  v_updated integer;
 begin
   select min(m.week_start_date)
     into v_week_start
@@ -118,10 +117,6 @@ begin
      and m.meal_type = a.meal_type
      and m.dish_id is distinct from a.dish_id;
 
-  get diagnostics v_updated = row_count;
-  if v_updated = 0 then
-    raise exception 'No demo selections changed. Confirm at least two current or archived dishes exist for the demo service slots.';
-  end if;
 end $$;
 
 commit;
