@@ -1,20 +1,22 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth, type UserRole } from './lib/auth';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
-import MenuPage from './pages/MenuPage';
-import PlansPage from './pages/PlansPage';
-import LoginPage from './pages/LoginPage';
-import OperationsWorkspace from './pages/OperationsWorkspace';
-import RiderDashboard from './pages/RiderDashboard';
-import SubscriberDashboard from './pages/SubscriberDashboard';
-import CommunityPage from './pages/CommunityPage';
-import RewardsPage from './pages/RewardsPage';
-import SubscriptionFlow from './components/SubscriptionFlow';
-import BookingFlow from './components/BookingFlow';
+// Keep the public landing page lightweight on mobile. Authenticated workspaces,
+// PDF/menu tooling, and checkout flows should only download when the user opens them.
+const MenuPage = lazy(() => import('./pages/MenuPage'));
+const PlansPage = lazy(() => import('./pages/PlansPage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const OperationsWorkspace = lazy(() => import('./pages/OperationsWorkspace'));
+const RiderDashboard = lazy(() => import('./pages/RiderDashboard'));
+const SubscriberDashboard = lazy(() => import('./pages/SubscriberDashboard'));
+const CommunityPage = lazy(() => import('./pages/CommunityPage'));
+const RewardsPage = lazy(() => import('./pages/RewardsPage'));
+const SubscriptionFlow = lazy(() => import('./components/SubscriptionFlow'));
+const BookingFlow = lazy(() => import('./components/BookingFlow'));
 import AccessSelector from './components/AccessSelector';
 import ScrollToTop from './components/ScrollToTop';
 import OnboardingFlow from './components/OnboardingFlow';
@@ -65,6 +67,8 @@ function AppContent() {
   const [showBookFlow, setShowBookFlow] = useState(false);
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
 
+  const routeFallback = <div className="min-h-[50vh] flex items-center justify-center" role="status" aria-label="Loading page"><div className="w-8 h-8 border-4 border-teal border-t-gold rounded-full animate-spin" /></div>;
+
   const openSubFlow = (pkgId?: string) => {
     setSelectedPkg(pkgId || null);
     setShowSubFlow(true);
@@ -87,7 +91,7 @@ function AppContent() {
       <Navbar onBookClick={() => openBookFlow()} onSubscribeClick={() => openSubFlow()} />
 
       <main className="flex-1">
-        <Routes>
+        <Suspense fallback={routeFallback}><Routes>
           <Route
             path="/"
             element={
@@ -145,21 +149,21 @@ function AppContent() {
             }
           />
           <Route path="/my-plan" element={<Navigate to="/account" replace />} />
-        </Routes>
+        </Routes></Suspense>
       </main>
 
       <Footer />
 
-      <SubscriptionFlow
+      {showSubFlow && <Suspense fallback={routeFallback}><SubscriptionFlow
         open={showSubFlow}
         onClose={() => setShowSubFlow(false)}
         preselectedPackage={selectedPkg}
-      />
-      <BookingFlow
+      /></Suspense>}
+      {showBookFlow && <Suspense fallback={routeFallback}><BookingFlow
         open={showBookFlow}
         onClose={() => setShowBookFlow(false)}
         preselectedPackage={selectedPkg}
-      />
+      /></Suspense>}
       {process.env.NODE_ENV === 'production' && <Analytics />}
     </div>
   );
