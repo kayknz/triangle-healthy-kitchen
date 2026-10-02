@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
 import type { PhoneChannel } from './phone-number';
@@ -150,6 +150,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ...access, dual };
   };
 
+  const refreshAuth = useCallback(async () => {
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) {
+      setUser(currentUser);
+      await applyAuthAccess(currentUser);
+    }
+  }, []);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -163,8 +171,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       applyAuthAccess(session?.user ?? null).finally(() => setLoading(false));
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    // Staff may approve a cash payment in another session while the customer
+    // remains signed in. Recheck server-side subscription access on return.
+    const refreshOnReturn = () => {
+      if (document.visibilityState === 'visible') void refreshAuth();
+    };
+    window.addEventListener('focus', refreshOnReturn);
+    document.addEventListener('visibilitychange', refreshOnReturn);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('focus', refreshOnReturn);
+      document.removeEventListener('visibilitychange', refreshOnReturn);
+    };
+  }, [refreshAuth]);
 
   const signIn = async (email: string, password: string, role?: UserRole): Promise<{ error: string | null; role?: UserRole; dual?: boolean }> => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -256,14 +276,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       redirectTo: `${window.location.origin}/login?password-recovery=1`,
     });
     return { error: error?.message ?? null };
-  };
-
-  const refreshAuth = async () => {
-    const { data: { user: u } } = await supabase.auth.getUser();
-    if (u) {
-      setUser(u);
-      await applyAuthAccess(u);
-    }
   };
 
   return (
