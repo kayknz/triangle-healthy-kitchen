@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { getQatarDate, addDays } from '@/lib/date-utils';
 import { getGoogleMapsLink } from '@/lib/location-utils';
+import { useLanguage } from '@/lib/LanguageContext';
 
 interface Delivery {
   id: string;
@@ -34,6 +35,7 @@ interface RiderDashboardProps {
 
 export default function RiderDashboard({ onExit }: RiderDashboardProps) {
   const { signOut, user, isApprovedRider, refreshAuth } = useAuth();
+  const { isRtl } = useLanguage();
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -258,9 +260,9 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
           <div className="w-20 h-20 rounded-full bg-amber-400/10 border-2 border-amber-400/30 flex items-center justify-center mx-auto mb-6">
             <ShieldAlert className="w-10 h-10 text-amber-400" />
           </div>
-          <h1 className="text-white font-bold text-2xl mb-3">Account Pending</h1>
+          <h1 className="text-white font-bold text-2xl mb-3">{isRtl ? 'الحساب بانتظار الموافقة' : 'Account Pending'}</h1>
           <p className="text-white/60 text-sm leading-relaxed mb-8">
-            Your rider account has been created successfully. For security, an admin must approve your access before you can view delivery routes.
+            {isRtl ? 'تم إنشاء حساب السائق. لأسباب أمنية، يجب أن يوافق المسؤول على حسابك قبل عرض مسارات التوصيل.' : 'Your rider account has been created successfully. For security, an admin must approve your access before you can view delivery routes.'}
           </p>
           <div className="space-y-3">
             <button
@@ -269,7 +271,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
               className="w-full bg-[#D4A843] hover:bg-[#c09535] text-[#0a3030] font-bold py-3 rounded-full transition-all flex items-center justify-center gap-2"
             >
               {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              Check Approval Status
+              {isRtl ? 'تحقق من حالة الموافقة' : 'Check Approval Status'}
             </button>
             <button
               onClick={handleSignOut}
@@ -292,17 +294,17 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
               <Truck className="w-7 h-7 text-emerald-400" />
             </div>
             <div>
-              <p className="text-white font-black text-xs uppercase tracking-[0.2em] mb-1.5">Rider Portal</p>
+              <p className="text-white font-black text-xs uppercase tracking-[0.2em] mb-1.5">{isRtl ? 'بوابة السائق' : 'Rider Portal'}</p>
               <div className="flex bg-[#071f1f] rounded-xl p-1 border border-white/5 shadow-lg">
                 {['today', 'tomorrow'].map((d) => (
                   <button
-                    key={d}
+                    key={isRtl ? (d === 'today' ? 'اليوم' : 'غداً') : d}
                     onClick={() => setSelectedDate(d as any)}
                     className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all tracking-widest ${
                       selectedDate === d ? 'bg-[#D4A843] text-[#0a3030] shadow-md scale-105' : 'text-white/30 hover:text-white'
                     }`}
                   >
-                    {d}
+                    {isRtl ? (d === 'today' ? 'اليوم' : 'غداً') : d}
                   </button>
                 ))}
               </div>
@@ -323,7 +325,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
               ) : (
                 <Power className={`w-3 h-3 ${isOnline ? 'animate-pulse' : ''}`} />
               )}
-              {isOnline ? 'Online' : 'Offline'}
+              {isOnline ? (isRtl ? 'متصل' : 'Online') : (isRtl ? 'غير متصل' : 'Offline')}
             </button>
             <button
               onClick={async () => {
@@ -331,7 +333,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
                 fetchRoutes();
               }}
               className="p-2.5 text-white/30 hover:text-[#D4A843] transition-colors rounded-full hover:bg-white/5"
-              title="Refresh Routes"
+              title={isRtl ? 'تحديث المسارات' : "Refresh Routes"}
             >
               <Loader2 className={`w-5 h-5 ${loading ? 'animate-spin text-[#D4A843]' : ''}`} />
             </button>
@@ -353,10 +355,10 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-white font-bold text-xl flex items-center gap-2">
             <Navigation className="w-5 h-5 text-[#D4A843]" />
-            Your Route {selectedDate === 'today' ? 'Today' : 'Tomorrow'}
+            {isRtl ? `مسارك ${selectedDate === 'today' ? 'اليوم' : 'غداً'}` : `Your Route ${selectedDate === 'today' ? 'Today' : 'Tomorrow'}`}
           </h2>
           <span className="bg-white/5 text-white/40 text-xs px-3 py-1 rounded-full border border-white/10">
-            {deliveries.filter(d => d.status === 'pending').length} stops remaining
+            {deliveries.filter(d => d.status === 'pending').length} {isRtl ? 'محطات متبقية' : 'stops remaining'}
           </span>
         </div>
 
@@ -373,9 +375,9 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
               <div className="w-24 h-24 rounded-full bg-red-500/10 border-2 border-red-500/20 flex items-center justify-center mx-auto mb-8 shadow-inner group-hover:scale-110 transition-transform duration-500">
                 <EyeOff className="w-10 h-10 text-red-400 opacity-50" />
               </div>
-              <h3 className="text-white font-black text-2xl mb-3">You are Offline</h3>
+              <h3 className="text-white font-black text-2xl mb-3">{isRtl ? 'أنت غير متصل' : 'You are Offline'}</h3>
               <p className="text-white/40 text-sm max-w-[240px] mx-auto leading-relaxed mb-10">
-                Go online to view your routes and start confirming deliveries.
+                {isRtl ? 'اتصل بالإنترنت لعرض مساراتك وتأكيد عمليات التوصيل.' : 'Go online to view your routes and start confirming deliveries.'}
               </p>
               <button
                 onClick={toggleOnlineStatus}
@@ -388,12 +390,12 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
         ) : loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="w-8 h-8 text-[#D4A843] animate-spin" />
-            <p className="text-white/40 text-sm">Loading your route...</p>
+            <p className="text-white/40 text-sm">{isRtl ? 'جارٍ تحميل مسارك…' : 'Loading your route...'}</p>
           </div>
         ) : deliveries.length === 0 ? (
           <div className="text-center py-20 bg-[#0a2828] rounded-3xl border border-dashed border-white/10">
             <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-4 opacity-20" />
-            <p className="text-white/40">No pending deliveries assigned for {selectedDate}.</p>
+            <p className="text-white/40">{isRtl ? `لا توجد توصيلات معلقة لك ${selectedDate === 'today' ? 'اليوم' : 'غداً'}.` : `No pending deliveries assigned for ${selectedDate}.`}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -408,7 +410,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
                       <div>
                         <h3 className="text-white font-bold text-lg">{d.client_name}</h3>
                         <p className="text-white/40 text-xs flex items-center gap-1 capitalize">
-                          <Clock className="w-3 h-3" /> All meals · One daily delivery
+                          <Clock className="w-3 h-3" /> {isRtl ? 'جميع الوجبات · توصيل واحد يومياً' : 'All meals · One daily delivery'}
                         </p>
                       </div>
                     </div>
@@ -423,14 +425,14 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
                   <div className="space-y-3 mb-6">
                     <div className="flex items-start gap-4 bg-white/[0.02] p-4 rounded-2xl border border-white/5">
                       <div className="w-12 h-12 rounded-xl bg-[#D4A843]/10 flex flex-col items-center justify-center text-[#D4A843] border border-[#D4A843]/20 flex-shrink-0">
-                        <span className="text-[10px] uppercase font-bold leading-none mb-1">Zone</span>
+                        <span className="text-[10px] uppercase font-bold leading-none mb-1">{isRtl ? 'المنطقة' : 'Zone'}</span>
                         <span className="text-xl font-black leading-none">{d.zone}</span>
                       </div>
                       <div>
                         <p className="text-white font-bold text-lg leading-tight mb-1">{d.area}</p>
                         <p className="text-white/50 text-xs flex items-center gap-2">
-                          <span className="bg-white/5 px-2 py-0.5 rounded border border-white/10">Bldg {d.building}</span>
-                          <span className="bg-white/5 px-2 py-0.5 rounded border border-white/10">Street {d.street}</span>
+                          <span className="bg-white/5 px-2 py-0.5 rounded border border-white/10">{isRtl ? `مبنى ${d.building}` : `Bldg ${d.building}`}</span>
+                          <span className="bg-white/5 px-2 py-0.5 rounded border border-white/10">{isRtl ? `شارع ${d.street}` : `Street ${d.street}`}</span>
                         </p>
                       </div>
                     </div>
@@ -448,7 +450,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
                     <button
                       onClick={() => whatsappCustomer(d)}
                       className="w-14 h-14 flex items-center justify-center bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-2xl transition-all border border-emerald-500/20 active:scale-90"
-                      title="WhatsApp Customer"
+                      title={isRtl ? 'مراسلة العميل عبر WhatsApp' : "WhatsApp Customer"}
                     >
                       <MessageSquare className="w-6 h-6" />
                     </button>
@@ -475,7 +477,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
                       ) : (
                         <>
                           <Camera className="w-5 h-5" />
-                          Confirm Delivery
+                          {isRtl ? 'تأكيد التوصيل' : 'Confirm Delivery'}
                         </>
                       )}
                     </button>
@@ -489,7 +491,7 @@ export default function RiderDashboard({ onExit }: RiderDashboardProps) {
 
       <footer className="max-w-5xl mx-auto px-6 py-10 text-center opacity-20">
         <Package className="w-6 h-6 mx-auto mb-2" />
-        <p className="text-[10px] uppercase tracking-widest text-white">Triangle Logistics Qatar</p>
+        <p className="text-[10px] uppercase tracking-widest text-white">{isRtl ? 'تراينغل للخدمات اللوجستية - قطر' : 'Triangle Logistics Qatar'}</p>
       </footer>
     </div>
   );

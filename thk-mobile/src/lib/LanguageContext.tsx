@@ -34,6 +34,8 @@ const translations: Record<Language, Record<string, string>> = {
     error_name: 'Enter your name.',
     error_phone: 'Enter a valid phone number.',
     error_slot: 'Choose an available consultation time.',
+    operational_email: 'Email',
+    safety_confirmed: 'Saved successfully.',
     footer_contact: 'Contact',
     footer_privacy: 'Privacy policy',
     footer_quick_links: 'Quick links',
@@ -1019,6 +1021,8 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Footer
     footer_quick_links: 'روابط سريعة',
+    operational_email: 'البريد الإلكتروني',
+    safety_confirmed: 'تم الحفظ بنجاح.',
     footer_contact: 'اتصل بنا',
     footer_whatsapp: 'واتساب',
     footer_privacy: 'الخصوصية',

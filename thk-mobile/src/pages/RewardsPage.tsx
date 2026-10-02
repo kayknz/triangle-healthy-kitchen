@@ -113,8 +113,8 @@ const RewardsPage: React.FC = () => {
   if (loading) {
     return (
       <SecuringProtocol
-        message="Securing Protocol"
-        subtitle="Verifying authenticated reward ledger status..."
+        message={isRtl ? 'جارٍ تأمين الحساب' : 'Securing Protocol'}
+        subtitle={isRtl ? 'جارٍ التحقق من سجل المكافآت.' : 'Verifying authenticated reward ledger status...'}
       />
     );
   }
@@ -125,15 +125,17 @@ const RewardsPage: React.FC = () => {
   const progressToNext = nextTier ? ((currentPoints - currentTier.minPoints) / (nextTier.minPoints - currentTier.minPoints)) * 100 : 100;
 
   const cycleEndDate = new Date();
-  cycleEndDate.setDate(cycleEndDate.getDate() + 28);
-  const daysRemaining = 28; // Mocked for UI
+  cycleEndDate.setDate(cycleEndDate.getDate() + 24);
+  const daysRemaining = 24;
+  const tierName = (name: string) => isRtl ? ({ Reset: 'البداية', Balance: 'التوازن', Perform: 'الأداء', Elite: 'النخبة' } as Record<string, string>)[name] || name : name;
+  const tierPhilosophy = (name: string) => isRtl ? ({ Reset: 'الثبات يبدأ بالبساطة.', Balance: 'النمو المستدام يأتي مع الاستمرارية.', Perform: 'تحقيق أفضل توازن للجسم والعقل.' } as Record<string, string>)[name] || '' : currentTier.philosophy;
 
   return (
     <div className={`flex flex-col gap-16 pb-32 animate-reveal bg-[#F5F3EB] min-h-screen ${isRtl ? 'text-right' : 'text-left'}`}>
       {redeeming && (
         <SecuringProtocol
-          message="Securing Asset Redemption"
-          subtitle="Authenticating digital asset transaction on the platform ledger..."
+          message={isRtl ? 'جارٍ تأمين استبدال المكافأة' : 'Securing Asset Redemption'}
+          subtitle={isRtl ? 'جارٍ التحقق من عملية المكافأة في سجل المنصة…' : 'Authenticating digital asset transaction on the platform ledger...'}
         />
       )}
       {/* Header & Balance */}
@@ -146,24 +148,24 @@ const RewardsPage: React.FC = () => {
               </div>
               <div className="badge border-[#0a3030]/10 bg-[#0a3030]/5 text-[#0a3030]/60 px-4 py-2">
                 <Clock className="w-3.5 h-3.5" />
-                <span className="text-[11px] font-black uppercase tracking-[0.2em] ml-2">Cycle: 28D Remaining</span>
+                <span className="text-[11px] font-black uppercase tracking-[0.2em] ml-2">{isRtl ? `متبقي ${daysRemaining} يوماً من الدورة` : `Cycle: ${daysRemaining}D Remaining`}</span>
               </div>
            </div>
            <h1 className="text-6xl md:text-8xl font-serif text-[#0a3030] leading-[0.9] tracking-tighter italic mb-6" style={{ fontFamily: "'DM Serif Display', serif" }}>
-             Rewards.
+             {isRtl ? 'المكافآت' : 'Rewards.'}
            </h1>
            <p className="text-[#0a3030]/60 text-lg font-medium italic leading-relaxed max-w-lg">
-             Your commitment to nutritional excellence translates into tangible luxury. Track your progress, redeem your status.
+             {isRtl ? 'حوّل التزامك بالتغذية الصحية إلى مكافآت. تابع تقدمك واستبدل نقاطك.' : 'Your commitment to nutritional excellence translates into tangible luxury. Track your progress, redeem your status.'}
            </p>
         </div>
         <div className="flex flex-col items-end">
           <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-[#0a3030]/5 border border-[#0a3030]/5 flex items-center gap-8 min-w-[300px]">
              <div className="flex-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#0a3030]/40 block mb-1">Monthly Balance</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#0a3030]/40 block mb-1">{isRtl ? 'رصيد الشهر' : 'Monthly Balance'}</span>
                 <span className="text-5xl font-serif text-[#C5A059] leading-none block" style={{ fontFamily: "'DM Serif Display', serif" }}>
                   {currentPoints.toLocaleString()}
                 </span>
-                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#0a3030]/20 mt-2 block italic">Verified Assets</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#0a3030]/20 mt-2 block italic">{isRtl ? 'نقاط مؤكدة' : 'Verified Assets'}</span>
              </div>
              <div className="w-20 h-20 bg-[#0a3030] rounded-[2rem] flex items-center justify-center shadow-xl rotate-3 group-hover:rotate-0 transition-transform">
                 <Zap className="w-8 h-8 text-[#C5A059] fill-[#C5A059] animate-pulse" />
@@ -173,8 +175,8 @@ const RewardsPage: React.FC = () => {
       </div>
 
         <section className="grid gap-4 px-4 sm:grid-cols-2 sm:px-0" aria-label="Activity goals">
-          <div className="rounded-3xl border border-primary/10 bg-white p-6 shadow-sm"><div className="flex items-center gap-3"><Activity className="h-5 w-5 text-gold"/><h2 className="font-bold text-primary">Today’s activity goal</h2></div><p className="mt-4 text-3xl font-black text-primary">{dailyProgress.steps.toLocaleString()} <span className="text-sm font-semibold text-primary/50">/ {dailyProgress.goal.toLocaleString()} steps</span></p><div className="mt-3 h-2 overflow-hidden rounded-full bg-primary/10"><div className="h-full rounded-full bg-gold" style={{ width: `${Math.min((dailyProgress.steps / dailyProgress.goal) * 100, 100)}%` }}/></div></div>
-          <div className="rounded-3xl border border-primary/10 bg-primary p-6 text-white shadow-sm"><p className="text-xs font-bold uppercase tracking-wider text-gold">Your reward balance</p><p className="mt-3 text-3xl font-black">{(subscriber?.points_balance || 0).toLocaleString()} points</p><p className="mt-2 text-sm text-white/65">Your activity goals, milestones, and rewards are together here.</p></div>
+          <div className="rounded-3xl border border-primary/10 bg-white p-6 shadow-sm"><div className="flex items-center gap-3"><Activity className="h-5 w-5 text-gold"/><h2 className="font-bold text-primary">{isRtl ? 'هدف نشاط اليوم' : 'Today’s activity goal'}</h2></div><p className="mt-4 text-3xl font-black text-primary">{dailyProgress.steps.toLocaleString()} <span className="text-sm font-semibold text-primary/50">/ {dailyProgress.goal.toLocaleString()} {isRtl ? 'خطوة' : 'steps'}</span></p><div className="mt-3 h-2 overflow-hidden rounded-full bg-primary/10"><div className="h-full rounded-full bg-gold" style={{ width: `${Math.min((dailyProgress.steps / dailyProgress.goal) * 100, 100)}%` }}/></div></div>
+          <div className="rounded-3xl border border-primary/10 bg-primary p-6 text-white shadow-sm"><p className="text-xs font-bold uppercase tracking-wider text-gold">{isRtl ? 'رصيد مكافآتك' : 'Your reward balance'}</p><p className="mt-3 text-3xl font-black">{(subscriber?.points_balance || 0).toLocaleString()} {isRtl ? 'نقطة' : 'points'}</p><p className="mt-2 text-sm text-white/65">{isRtl ? 'تجد أهداف نشاطك وإنجازاتك ومكافآتك هنا.' : 'Your activity goals, milestones, and rewards are together here.'}</p></div>
         </section>
 
       {/* Tier Status Hero */}
@@ -184,14 +186,14 @@ const RewardsPage: React.FC = () => {
              <div>
                 <div className="flex items-center gap-3 mb-8">
                    <ShieldCheck className="w-5 h-5 text-[#C5A059]" />
-                   <span className="text-[11px] font-black uppercase tracking-[0.5em] text-[#C5A059]">Active Tier Protocol</span>
+                   <span className="text-[11px] font-black uppercase tracking-[0.5em] text-[#C5A059]">{isRtl ? 'مستوى المكافآت الحالي' : 'Active Tier Protocol'}</span>
                 </div>
-                <h2 className="text-5xl md:text-7xl font-serif italic mb-8" style={{ fontFamily: "'DM Serif Display', serif" }}>{currentTier.name}</h2>
+                <h2 className="text-5xl md:text-7xl font-serif italic mb-8" style={{ fontFamily: "'DM Serif Display', serif" }}>{tierName(currentTier.name)}</h2>
 
                 <div className="space-y-8">
                    <div className="flex justify-between text-[11px] font-black uppercase tracking-[0.3em] text-[#C5A059]">
-                     <span>{nextTier ? `Path to ${nextTier.name}` : 'Apex Achieved'}</span>
-                     <span>{currentPoints.toLocaleString()} / {nextTier ? nextTier.minPoints.toLocaleString() : 'MAX'} PTS</span>
+                     <span>{nextTier ? (isRtl ? `الخطوة التالية: ${tierName(nextTier.name)}` : `Path to ${nextTier.name}`) : (isRtl ? 'وصلت إلى أعلى مستوى' : 'Apex Achieved')}</span>
+                     <span>{currentPoints.toLocaleString()} / {nextTier ? nextTier.minPoints.toLocaleString() : 'MAX'} {isRtl ? 'نقطة' : 'PTS'}</span>
                    </div>
                    <div className="w-full bg-white/5 h-6 rounded-full overflow-hidden p-1.5 border border-white/10">
                      <motion.div
@@ -203,7 +205,7 @@ const RewardsPage: React.FC = () => {
                    <div className="flex items-center gap-4 text-white/40">
                       <div className="w-2 h-2 rounded-full bg-[#C5A059] animate-ping" />
                       <p className="text-xs italic font-medium">
-                        {nextTier ? `${(nextTier.minPoints - currentPoints).toLocaleString()} points to unlock your next reward tier.` : "You have reached the Perform tier. Maximum benefits unlocked."}
+                        {nextTier ? (isRtl ? `اجمع ${(nextTier.minPoints - currentPoints).toLocaleString()} نقطة لفتح مستوى المكافآت التالي.` : `${(nextTier.minPoints - currentPoints).toLocaleString()} points to unlock your next reward tier.`) : (isRtl ? 'وصلت إلى مستوى الأداء وفتحت جميع المزايا.' : 'You have reached the Perform tier. Maximum benefits unlocked.')}
                       </p>
                    </div>
                 </div>
@@ -211,15 +213,15 @@ const RewardsPage: React.FC = () => {
 
              <div className="bg-white/5 backdrop-blur-xl rounded-[3rem] p-10 border border-white/10 space-y-8">
                 <div>
-                   <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#C5A059] mb-4">Tier Philosophy</h3>
-                   <p className="text-2xl font-serif italic text-white/90" style={{ fontFamily: "'DM Serif Display', serif" }}>"{currentTier.philosophy}"</p>
+                   <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#C5A059] mb-4">{isRtl ? 'كيف تعمل المستويات' : 'Tier Philosophy'}</h3>
+                   <p className="text-2xl font-serif italic text-white/90" style={{ fontFamily: "'DM Serif Display', serif" }}>"{tierPhilosophy(currentTier.name)}"</p>
                 </div>
                 <div className="pt-8 border-t border-white/5">
                    <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40 mb-4 flex items-center gap-2">
-                      <Info className="w-3 h-3" /> Fair Reward Logic
+                      <Info className="w-3 h-3" /> {isRtl ? 'آلية عادلة للمكافآت' : 'Fair Reward Logic'}
                    </h4>
                    <p className="text-xs text-white/60 leading-relaxed italic">
-                      Tiers are calculated dynamically every 28-day cycle. Your status reflects your consistent engagement with the Triangle Rhythm, ensuring rewards are earned through genuine nourishment, not just consumption.
+                      {isRtl ? 'يُحتسب المستوى في كل دورة من ٢٨ يوماً. ويعكس مستواك التزامك المستمر، لتُكتسب المكافآت من عادات صحية حقيقية.' : 'Tiers are calculated dynamically every 28-day cycle. Your status reflects your consistent engagement with the Triangle Rhythm, ensuring rewards are earned through genuine nourishment, not just consumption.'}
                    </p>
                 </div>
              </div>
@@ -235,8 +237,8 @@ const RewardsPage: React.FC = () => {
       <div className="px-6 md:px-12 space-y-12">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-[#0a3030]/10 pb-10">
           <div>
-            <h3 className="text-[11px] font-black uppercase tracking-[0.5em] text-[#0a3030]/40 mb-3 italic">Curated Excellence</h3>
-            <h2 className="text-5xl font-serif text-[#0a3030] italic" style={{ fontFamily: "'DM Serif Display', serif" }}>Redemption Catalog.</h2>
+            <h3 className="text-[11px] font-black uppercase tracking-[0.5em] text-[#0a3030]/40 mb-3 italic">{isRtl ? 'مكافآت مختارة' : 'Curated Excellence'}</h3>
+            <h2 className="text-5xl font-serif text-[#0a3030] italic" style={{ fontFamily: "'DM Serif Display', serif" }}>{isRtl ? 'كتالوج المكافآت' : 'Redemption Catalog.'}</h2>
           </div>
           <div className="flex gap-4 bg-white/80 backdrop-blur-xl p-2 rounded-[2rem] border border-[#0a3030]/5 shadow-xl">
             {TIERS.map(tier => (
@@ -249,7 +251,7 @@ const RewardsPage: React.FC = () => {
                     : 'text-[#0a3030]/40 hover:text-[#0a3030] hover:bg-[#0a3030]/5'
                 }`}
               >
-                {tier.name}
+                {tierName(tier.name)}
               </button>
             ))}
           </div>
@@ -275,12 +277,12 @@ const RewardsPage: React.FC = () => {
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
                   />
                   <div className="absolute top-8 left-8 bg-white/95 backdrop-blur-md px-6 py-3 rounded-[1.5rem] shadow-2xl border border-white/20">
-                    <span className="text-[11px] font-black text-[#0a3030] uppercase tracking-[0.2em]">{item.points_cost.toLocaleString()} <span className="text-[#C5A059]">PTS</span></span>
+                    <span className="text-[11px] font-black text-[#0a3030] uppercase tracking-[0.2em]">{item.points_cost.toLocaleString()} <span className="text-[#C5A059]">{isRtl ? 'نقطة' : 'PTS'}</span></span>
                   </div>
                   {isLocked && (
                     <div className="absolute inset-0 bg-[#0a3030]/60 backdrop-blur-sm flex items-center justify-center">
                        <div className="bg-white/10 border border-white/20 px-6 py-3 rounded-full backdrop-blur-xl">
-                          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Unlock at {item.tier} Tier</span>
+                          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white">{isRtl ? `تُفتح عند مستوى ${tierName(item.tier)}` : `Unlock at ${item.tier} Tier`}</span>
                        </div>
                     </div>
                   )}
@@ -289,11 +291,11 @@ const RewardsPage: React.FC = () => {
                 <div className="p-10">
                   <div className="mb-10">
                     <div className="flex justify-between items-start mb-4">
-                       <h4 className="font-serif text-3xl text-[#0a3030] italic leading-tight" style={{ fontFamily: "'DM Serif Display', serif" }}>{item.name}</h4>
+                       <h4 className="font-serif text-3xl text-[#0a3030] italic leading-tight" style={{ fontFamily: "'DM Serif Display', serif" }}>{isRtl ? (item.name_ar || item.name) : item.name}</h4>
                        <Star className={`w-5 h-5 ${isLocked ? 'text-[#0a3030]/10' : 'text-[#C5A059] fill-[#C5A059]'}`} />
                     </div>
-                    <p className="text-[11px] font-black text-[#C5A059] uppercase tracking-[0.3em] mb-4">{item.tier || 'Elite'} Protocol</p>
-                    <p className="text-sm text-[#0a3030]/50 italic leading-relaxed line-clamp-3">{item.description || 'Access Elite benefits curated for your wellness journey.'}</p>
+                    <p className="text-[11px] font-black text-[#C5A059] uppercase tracking-[0.3em] mb-4">{isRtl ? `مستوى ${tierName(item.tier || 'Elite')}` : `${item.tier || 'Elite'} Protocol`}</p>
+                    <p className="text-sm text-[#0a3030]/50 italic leading-relaxed line-clamp-3">{isRtl ? (item.description_ar || item.description || 'استفد من المزايا المختارة لرحلتك الصحية.') : (item.description || 'Access Elite benefits curated for your wellness journey.')}</p>
                   </div>
                   <button
                     disabled={isLocked || !canAfford || redeeming}
@@ -305,7 +307,7 @@ const RewardsPage: React.FC = () => {
                     }`}
                   >
                     {redeeming ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingBag className="w-4 h-4" />}
-                    {isLocked ? 'Locked' : canAfford ? 'Redeem Asset' : 'Insufficient Points'}
+                    {isLocked ? (isRtl ? 'مقفلة' : 'Locked') : canAfford ? (isRtl ? 'استبدال المكافأة' : 'Redeem Asset') : (isRtl ? 'النقاط غير كافية' : 'Insufficient Points')}
                   </button>
                 </div>
               </motion.div>
@@ -318,8 +320,8 @@ const RewardsPage: React.FC = () => {
       <div className="px-6 md:px-12 space-y-12">
         <div className="flex justify-between items-end border-b border-[#0a3030]/10 pb-10">
           <div>
-            <h3 className="text-[11px] font-black uppercase tracking-[0.5em] text-[#0a3030]/40 mb-3 italic">Immutable History</h3>
-            <h2 className="text-5xl font-serif text-[#0a3030] italic" style={{ fontFamily: "'DM Serif Display', serif" }}>Asset Ledger.</h2>
+            <h3 className="text-[11px] font-black uppercase tracking-[0.5em] text-[#0a3030]/40 mb-3 italic">{isRtl ? 'سجل النقاط' : 'Immutable History'}</h3>
+            <h2 className="text-5xl font-serif text-[#0a3030] italic" style={{ fontFamily: "'DM Serif Display', serif" }}>{isRtl ? 'سجل المكافآت' : 'Asset Ledger.'}</h2>
           </div>
           <div className="w-16 h-16 bg-[#0a3030]/5 rounded-[1.5rem] flex items-center justify-center text-[#0a3030]/20">
              <History className="w-8 h-8" />
@@ -342,7 +344,7 @@ const RewardsPage: React.FC = () => {
                   <div className="flex items-center gap-3">
                      <Calendar className="w-3 h-3 text-[#0a3030]/20" />
                      <p className="text-[10px] text-[#0a3030]/40 uppercase tracking-[0.2em] font-bold">
-                       {new Date(entry.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                       {new Date(entry.created_at).toLocaleDateString(isRtl ? 'ar-QA' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                      </p>
                   </div>
                 </div>
@@ -351,20 +353,20 @@ const RewardsPage: React.FC = () => {
                  <div className={`font-serif text-4xl italic ${entry.points_delta > 0 ? 'text-[#0a3030]' : 'text-[#C5A059]'}`} style={{ fontFamily: "'DM Serif Display', serif" }}>
                    {entry.points_delta > 0 ? '+' : ''}{entry.points_delta.toLocaleString()}
                  </div>
-                 <span className="text-[9px] font-black uppercase tracking-widest text-[#0a3030]/20">Protocol Points</span>
+                 <span className="text-[9px] font-black uppercase tracking-widest text-[#0a3030]/20">{isRtl ? 'نقاط المكافآت' : 'Protocol Points'}</span>
               </div>
             </div>
           )) : (
             <div className="py-32 text-center">
                <History className="w-12 h-12 text-[#0a3030]/5 mx-auto mb-6" />
                <p className="italic text-[#0a3030]/30 font-black uppercase tracking-[0.4em] text-[11px]">
-                  No ledger activity detected.
+                  {isRtl ? 'لا توجد حركة نقاط حتى الآن.' : 'No ledger activity detected.'}
                </p>
             </div>
           )}
           <div className="p-10 bg-[#0a3030] text-center group cursor-pointer overflow-hidden relative">
             <button className="text-[11px] font-black text-white uppercase tracking-[0.5em] flex items-center justify-center gap-4 w-full relative z-10">
-              Synchronize Full History <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" />
+              {isRtl ? 'تحديث السجل بالكامل' : 'Synchronize Full History'} <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" />
             </button>
             <div className="absolute inset-0 bg-[#C5A059] translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
           </div>
@@ -375,8 +377,8 @@ const RewardsPage: React.FC = () => {
       <EditorialPanel
         isOpen={!!successReward}
         onClose={() => setSuccessReward(null)}
-        title="Redemption Confirmed"
-        badge="Asset Secured"
+        title={isRtl ? 'تم تأكيد استبدال المكافأة' : 'Redemption Confirmed'}
+        badge={isRtl ? 'تم تأمين المكافأة' : 'Asset Secured'}
       >
         <div className="p-12 text-center space-y-10">
            <div className="relative w-32 h-32 mx-auto">
@@ -388,22 +390,22 @@ const RewardsPage: React.FC = () => {
 
            <div className="space-y-4">
               <h3 className="text-4xl font-serif italic text-[#0a3030]" style={{ fontFamily: "'DM Serif Display', serif" }}>
-                {successReward?.name}
+                {isRtl ? (successReward?.name_ar || successReward?.name) : successReward?.name}
               </h3>
               <p className="text-[#0a3030]/60 italic max-w-sm mx-auto">
-                Your reward has been successfully processed and added to your profile assets.
+                {isRtl ? 'تم تنفيذ استبدال مكافأتك وإضافتها إلى ملفك.' : 'Your reward has been successfully processed and added to your profile assets.'}
               </p>
            </div>
 
            <div className="bg-[#FDFCF7] border border-[#0a3030]/5 rounded-[2rem] p-8 flex justify-between items-center max-w-sm mx-auto">
               <div className="text-left">
-                 <span className="text-[10px] font-black uppercase tracking-widest text-[#0a3030]/40 block mb-1">Asset Value</span>
-                 <span className="text-2xl font-serif text-[#C5A059] italic" style={{ fontFamily: "'DM Serif Display', serif" }}>{successReward?.points_cost.toLocaleString()} PTS</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest text-[#0a3030]/40 block mb-1">{isRtl ? 'قيمة المكافأة' : 'Asset Value'}</span>
+                 <span className="text-2xl font-serif text-[#C5A059] italic" style={{ fontFamily: "'DM Serif Display', serif" }}>{successReward?.points_cost.toLocaleString()} {isRtl ? 'نقطة' : 'PTS'}</span>
               </div>
               <div className="h-10 w-[1px] bg-[#0a3030]/10" />
               <div className="text-right">
-                 <span className="text-[10px] font-black uppercase tracking-widest text-[#0a3030]/40 block mb-1">Status</span>
-                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Verified</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest text-[#0a3030]/40 block mb-1">{isRtl ? 'الحالة' : 'Status'}</span>
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">{isRtl ? 'تم التأكيد' : 'Verified'}</span>
               </div>
            </div>
 
@@ -411,7 +413,7 @@ const RewardsPage: React.FC = () => {
              onClick={() => setSuccessReward(null)}
              className="w-full bg-[#0a3030] text-white py-6 rounded-[2rem] text-[11px] font-black uppercase tracking-[0.5em] shadow-2xl hover:bg-[#0a3030]/90 transition-all"
            >
-             Continue Journey
+             {isRtl ? 'متابعة الرحلة' : 'Continue Journey'}
            </button>
         </div>
       </EditorialPanel>

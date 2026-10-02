@@ -113,7 +113,7 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
                     className="group flex items-center gap-2 text-[9px] font-black text-gold hover:text-primary transition-all whitespace-nowrap"
                   >
                     <RefreshCcw className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-1000" />
-                    <span>{accessMode === 'work' ? 'PERSONAL' : 'OPS'}</span>
+                    <span>{accessMode === 'work' ? (isRtl ? 'شخصي' : 'PERSONAL') : (isRtl ? 'العمليات' : 'OPS')}</span>
                   </button>
                 )}
                 <Link
@@ -121,14 +121,14 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
                   className="btn-primary !py-3 !px-6 text-[9px] shadow-lg whitespace-nowrap flex items-center gap-2 min-w-fit"
                 >
                   <UserCircle className="w-3.5 h-3.5" />
-                  <span className="tracking-[0.1em]">{isOperationsStaff ? (userRole === 'owner' ? 'COMMAND' : 'OPERATIONS') : userRole === 'rider' ? 'RIDER OPS' : 'MY PLAN'}</span>
+                  <span className="tracking-[0.1em]">{isOperationsStaff ? (userRole === 'owner' ? (isRtl ? 'مركز القيادة' : 'COMMAND') : (isRtl ? 'العمليات' : 'OPERATIONS')) : userRole === 'rider' ? (isRtl ? 'عمليات السائق' : 'RIDER OPS') : t('subscription_control')}</span>
                 </Link>
                 <button
                   onClick={handleSignOut}
                   className="text-[9px] font-black text-red-500/60 hover:text-red-600 transition-colors tracking-widest flex items-center gap-2 whitespace-nowrap"
                 >
                   <LogOut className="w-3 h-3" />
-                  <span>EXIT</span>
+                  <span>{t('sign_out')}</span>
                 </button>
               </div>
             )}

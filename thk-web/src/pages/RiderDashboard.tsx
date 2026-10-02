@@ -181,9 +181,9 @@ export default function RiderDashboard() {
       <div className="min-h-screen bg-background flex items-center justify-center p-6 text-center">
          <div className="glass-card p-12 max-w-md border-gold/20 shadow-4xl bg-white">
             <ShieldAlert className="w-16 h-16 text-gold mx-auto mb-8 animate-pulse" />
-            <h2 className="text-3xl font-black text-primary uppercase italic mb-6">Credential Review</h2>
-            <p className="text-muted italic">Your identity is being verified by Kitchen Ops.</p>
-            <button onClick={() => signOut()} className="mt-10 btn-primary w-full py-5 uppercase tracking-widest">Sign Out</button>
+            <h2 className="text-3xl font-black text-primary uppercase italic mb-6">{isRtl ? 'مراجعة الحساب' : 'Credential Review'}</h2>
+            <p className="text-muted italic">{isRtl ? 'يتحقق فريق المطبخ من حسابك.' : 'Your identity is being verified by Kitchen Ops.'}</p>
+            <button onClick={() => signOut()} className="mt-10 btn-primary w-full py-5 uppercase tracking-widest">{isRtl ? 'تسجيل الخروج' : 'Sign Out'}</button>
          </div>
       </div>
     );
@@ -199,11 +199,11 @@ export default function RiderDashboard() {
           <div>
             <div className="badge mb-8 bg-gold/10 border-gold/20 py-2 px-5 text-gold">
               <Activity className="w-3.5 h-3.5 fill-gold animate-glow" />
-              <span className="font-black tracking-[0.4em] text-[10px] uppercase">LIVE LOGISTICS — FLEET ID: {user?.id?.slice(0,6).toUpperCase() || 'OFFLINE'}</span>
+              <span className="font-black tracking-[0.4em] text-[10px] uppercase">{isRtl ? 'الخدمات اللوجستية المباشرة — رقم السائق:' : 'LIVE LOGISTICS — FLEET ID:'} {user?.id?.slice(0,6).toUpperCase() || (isRtl ? 'غير متصل' : 'OFFLINE')}</span>
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-black text-primary leading-[0.9] tracking-tighter uppercase italic drop-shadow-lg">
-              Route<br />
-              <span className="text-[#C5A059]">Intelligence.</span>
+              {isRtl ? 'المسار' : 'Route'}<br />
+              <span className="text-[#C5A059]">{isRtl ? 'الذكي.' : 'Intelligence.'}</span>
             </h1>
           </div>
 
@@ -217,7 +217,7 @@ export default function RiderDashboard() {
              >
                 <div className="flex items-center gap-4 justify-center whitespace-nowrap min-w-[200px]">
                    <div className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-white animate-pulse' : 'bg-muted'}`} />
-                   <span>{presenceSaving ? 'SYNCING...' : isOnline ? 'SIGNAL ACTIVE' : 'SIGNAL OFFLINE'}</span>
+                   <span>{presenceSaving ? (isRtl ? 'جارٍ المزامنة…' : 'SYNCING...') : isOnline ? (isRtl ? 'متصل' : 'SIGNAL ACTIVE') : (isRtl ? 'غير متصل' : 'SIGNAL OFFLINE')}</span>
                 </div>
              </button>
              <div className="flex flex-row bg-white/60 backdrop-blur-xl rounded-[2.5rem] p-2 border border-primary/10 shadow-4xl w-full lg:w-auto justify-center">
@@ -255,7 +255,7 @@ export default function RiderDashboard() {
                                  <div className="w-24 h-24 rounded-full bg-primary/5 flex items-center justify-center mx-auto mb-8 animate-pulse">
                                     <MapIcon className="w-10 h-10 text-primary/20 group-hover:scale-110 transition-transform duration-1000" />
                                  </div>
-                                 <p className="text-[11px] font-black uppercase tracking-[0.6em] text-primary/40">Doha Projection: Online</p>
+                                 <p className="text-[11px] font-black uppercase tracking-[0.6em] text-primary/40">{isRtl ? 'موقع الدوحة: متصل' : 'Doha Projection: Online'}</p>
                               </div>
                            </div>
 
@@ -283,7 +283,7 @@ export default function RiderDashboard() {
                            <div className="absolute bottom-10 left-10 right-10 z-10 flex items-center justify-between">
                               <div className="flex items-center gap-4 bg-primary px-8 py-4 rounded-2xl shadow-4xl border border-white/10">
                                  <Navigation className="w-4 h-4 text-gold animate-pulse" />
-                                 <span className="font-black text-[10px] tracking-[0.4em] text-white uppercase">Signal Synchronized</span>
+                                 <span className="font-black text-[10px] tracking-[0.4em] text-white uppercase">{isRtl ? 'تمت مزامنة الموقع' : 'Signal Synchronized'}</span>
                               </div>
                               <div className="glass-panel px-8 py-4 !rounded-2xl border-primary/10 flex items-center gap-3">
                                  <Activity className="w-4 h-4 text-emerald-500" />
@@ -299,9 +299,9 @@ export default function RiderDashboard() {
                                  <div>
                                     <div className="flex items-center gap-3 mb-6">
                                        <div className="w-2 h-2 rounded-full bg-gold animate-glow" />
-                                       <p className="text-gold text-[10px] font-black uppercase tracking-[0.4em]">Current Objective</p>
+                                       <p className="text-gold text-[10px] font-black uppercase tracking-[0.4em]">{isRtl ? 'التوصيل الحالي' : 'Current Objective'}</p>
                                     </div>
-                                    <h3 className="text-4xl sm:text-5xl font-black italic uppercase tracking-tighter mb-4 leading-none">Next: {activeDeliveries[0].subscriber?.full_name || 'Customer'} {activeDeliveries[0].subscriber?.is_demo && <span className="block text-base not-italic tracking-normal text-amber-300">DEMO · UNPAID</span>}</h3>
+                                    <h3 className="text-4xl sm:text-5xl font-black italic uppercase tracking-tighter mb-4 leading-none">{isRtl ? 'التالي:' : 'Next:'} {activeDeliveries[0].subscriber?.full_name || (isRtl ? 'عميل' : 'Customer')} {activeDeliveries[0].subscriber?.is_demo && <span className="block text-base not-italic tracking-normal text-amber-300">{isRtl ? 'تجريبي · غير مدفوع' : 'DEMO · UNPAID'}</span>}</h3>
                                     <div className="flex items-center gap-4">
                                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-ivory/30">{activeDeliveries[0].subscriber?.area || 'DOHA'}</p>
                                        <div className="w-1 h-1 rounded-full bg-ivory/20" />
@@ -320,14 +320,14 @@ export default function RiderDashboard() {
                         )}
 
                         <div className="flex items-center justify-between px-2">
-                           <h3 className="text-xs font-black uppercase tracking-[0.5em] text-primary/70">Assigned Manifest</h3>
+                           <h3 className="text-xs font-black uppercase tracking-[0.5em] text-primary/70">{isRtl ? 'التوصيلات المسندة' : 'Assigned Manifest'}</h3>
                            <div className="h-px flex-1 mx-8 bg-primary/10" />
                         </div>
 
                         {activeDeliveries.length === 0 ? (
                            <div className="glass-card p-24 text-center opacity-30 border-dashed border-primary/10 bg-transparent">
                               <Package className="w-16 h-16 mx-auto mb-10 text-primary" />
-                              <p className="font-black uppercase tracking-[0.5em] text-[10px] text-primary">Route Manifest Clear</p>
+                              <p className="font-black uppercase tracking-[0.5em] text-[10px] text-primary">{isRtl ? 'المسار خالٍ من التوصيلات' : 'Route Manifest Clear'}</p>
                            </div>
                         ) : (
                            activeDeliveries.map((d) => (
@@ -337,7 +337,7 @@ export default function RiderDashboard() {
                                       {(d.subscriber?.full_name || 'C')[0]}
                                    </div>
                                    <div>
-                                      <h4 className="text-2xl font-black text-primary uppercase italic tracking-tighter">{d.subscriber?.full_name || 'Customer'} {d.subscriber?.is_demo && <span className="ms-2 align-middle text-xs not-italic tracking-normal text-amber-800">DEMO · UNPAID</span>}</h4>
+                                      <h4 className="text-2xl font-black text-primary uppercase italic tracking-tighter">{d.subscriber?.full_name || (isRtl ? 'عميل' : 'Customer')} {d.subscriber?.is_demo && <span className="ms-2 align-middle text-xs not-italic tracking-normal text-amber-800">{isRtl ? 'تجريبي · غير مدفوع' : 'DEMO · UNPAID'}</span>}</h4>
                                       <div className="flex gap-4 mt-3">
                                          <span className="pill text-[9px] bg-primary/5 text-primary/40 border-none px-5">{d.subscriber?.area || 'DOHA'}</span>
                                          <span className="pill text-[9px] bg-gold/10 text-gold border-none px-5">{d.time_window || 'ANYTIME'}</span>
@@ -374,7 +374,7 @@ export default function RiderDashboard() {
                      <div className="space-y-10">
                         <div className="glass-card p-12 bg-primary text-ivory relative overflow-hidden border-none shadow-4xl">
                            <div className="absolute inset-0 bg-food-atmosphere opacity-5 grayscale pointer-events-none" />
-                           <p className="text-gold text-[10px] font-black uppercase tracking-[0.5em] mb-10 relative z-10">Fleet Status Protocol</p>
+                           <p className="text-gold text-[10px] font-black uppercase tracking-[0.5em] mb-10 relative z-10">{isRtl ? 'حالة الأسطول' : 'Fleet Status Protocol'}</p>
                            <div className="space-y-10 relative z-10">
                               <div className="flex items-center gap-6">
                                  <div className={`w-3.5 h-3.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-glow shadow-[0_0_20px_emerald]' : 'bg-red-500'}`} />
@@ -382,11 +382,11 @@ export default function RiderDashboard() {
                               </div>
                               <div className="pt-10 border-t border-white/20 grid grid-cols-2 gap-8">
                                  <div>
-                                    <p className="text-white/80 text-[10px] font-black uppercase tracking-widest mb-3">Pending</p>
+                                    <p className="text-white/80 text-[10px] font-black uppercase tracking-widest mb-3">{isRtl ? 'قيد الانتظار' : 'Pending'}</p>
                                     <p className="text-5xl font-black italic tracking-tighter text-white">{activeDeliveries.length}</p>
                                  </div>
                                  <div>
-                                    <p className="text-white/80 text-[10px] font-black uppercase tracking-widest mb-3">Efficiency</p>
+                                    <p className="text-white/80 text-[10px] font-black uppercase tracking-widest mb-3">{isRtl ? 'الكفاءة' : 'Efficiency'}</p>
                                     <p className="text-5xl font-black italic tracking-tighter text-gold">{(deliveries.length > 0 ? (historyDeliveries.length / deliveries.length) * 100 : 0).toFixed(0)}%</p>
                                  </div>
                               </div>
@@ -401,7 +401,7 @@ export default function RiderDashboard() {
                      {historyDeliveries.length === 0 ? (
                         <div className="glass-card p-20 text-center opacity-40 bg-white shadow-xl">
                            <History className="w-12 h-12 mx-auto mb-6" />
-                           <p className="font-black uppercase tracking-widest text-[10px]">No historical data found</p>
+                           <p className="font-black uppercase tracking-widest text-[10px]">{isRtl ? 'لا توجد بيانات سابقة.' : 'No historical data found'}</p>
                         </div>
                      ) : (
                         historyDeliveries.map(d => (
@@ -409,7 +409,7 @@ export default function RiderDashboard() {
                               <div className="flex items-center gap-6">
                                  <div className="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center"><CheckCircle className="w-6 h-6 text-teal" /></div>
                                  <div>
-                                    <h4 className="text-lg font-black text-primary uppercase italic">{d.subscriber?.full_name || 'Customer'} {d.subscriber?.is_demo && <span className="ms-2 text-[10px] not-italic tracking-normal text-amber-800">DEMO · UNPAID</span>}</h4>
+                                    <h4 className="text-lg font-black text-primary uppercase italic">{d.subscriber?.full_name || (isRtl ? 'عميل' : 'Customer')} {d.subscriber?.is_demo && <span className="ms-2 text-[10px] not-italic tracking-normal text-amber-800">{isRtl ? 'تجريبي · غير مدفوع' : 'DEMO · UNPAID'}</span>}</h4>
                                     <p className="text-[9px] font-black text-muted mt-1 uppercase">{d.delivery_date} · COMPLETED</p>
                                  </div>
                               </div>
@@ -439,17 +439,17 @@ export default function RiderDashboard() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setConfirmingId(null)} className="absolute inset-0 bg-primary/60 backdrop-blur-xl" />
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-white w-full max-w-lg rounded-[3rem] p-12 text-center shadow-4xl border border-primary/5">
               <div className="w-20 h-20 rounded-[2rem] bg-teal flex items-center justify-center mx-auto mb-8 shadow-2xl"><Camera className="w-10 h-10 text-gold" /></div>
-              <h3 className="text-3xl font-black italic uppercase tracking-tighter text-primary mb-4">Confirm Delivery</h3>
-              <p className="text-muted italic mb-10 text-xs">Capture evidence to synchronize with command.</p>
+              <h3 className="text-3xl font-black italic uppercase tracking-tighter text-primary mb-4">{isRtl ? 'تأكيد التوصيل' : 'Confirm Delivery'}</h3>
+              <p className="text-muted italic mb-10 text-xs">{isRtl ? 'التقط صورة إثبات لإكمال تسجيل التوصيل.' : 'Capture evidence to synchronize with command.'}</p>
               <div className="grid grid-cols-2 gap-6 mb-10">
                 <label className="flex flex-col items-center justify-center p-8 rounded-3xl border-2 border-dashed border-primary/10 hover:border-gold/50 cursor-pointer transition-all bg-primary/5 group">
                    <Camera className="w-8 h-8 text-primary/40 group-hover:text-gold mb-3" />
-                   <span className="text-[10px] font-black uppercase text-primary/60">Photo POD</span>
+                   <span className="text-[10px] font-black uppercase text-primary/60">{isRtl ? 'صورة إثبات التوصيل' : 'Photo POD'}</span>
                    <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} className="hidden" />
                 </label>
                 <button onClick={finalizeDelivery} disabled={finalizing} className="flex flex-col items-center justify-center p-8 rounded-3xl bg-primary text-white hover:bg-gold hover:text-primary transition-all shadow-xl active:scale-95">
                    {finalizing ? <Loader2 className="w-8 h-8 animate-spin" /> : <CheckCircle className="w-8 h-8 mb-3" />}
-                   <span className="text-[10px] font-black uppercase">Confirm</span>
+                   <span className="text-[10px] font-black uppercase">{isRtl ? 'تأكيد' : 'Confirm'}</span>
                 </button>
               </div>
               {podPhoto && (

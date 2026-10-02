@@ -199,8 +199,8 @@ export default function SubscriberDashboard() {
         </header>
 
         <section className="mb-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-primary/10 bg-white p-5 shadow-sm">
-          <div><h2 className="font-bold text-primary">Your goals and rewards</h2><p className="mt-1 text-sm text-primary/60">Track progress and use your points from the Rewards page.</p></div>
-          <button type="button" onClick={() => (window.location.hash = 'rewards')} className="btn-primary px-5 py-3 text-xs">Open Rewards</button>
+          <div><h2 className="font-bold text-primary">{isRtl ? 'أهدافك ومكافآتك' : 'Your goals and rewards'}</h2><p className="mt-1 text-sm text-primary/60">{isRtl ? 'تابع تقدمك واستخدم نقاطك من صفحة المكافآت.' : 'Track progress and use your points from the Rewards page.'}</p></div>
+          <button type="button" onClick={() => (window.location.hash = 'rewards')} className="btn-primary px-5 py-3 text-xs">{isRtl ? 'افتح المكافآت' : 'Open Rewards'}</button>
         </section>
 
         <AnimatePresence mode="wait">
@@ -241,12 +241,12 @@ export default function SubscriberDashboard() {
 }
 
 function AllergyPreferences({ subscriber, onUpdate }: { subscriber: Subscriber; onUpdate: () => void }) {
-  const { t } = useLanguage();
+  const { t, isRtl } = useLanguage();
   const [allergies, setAllergies] = useState<string[]>(subscriber.allergies || []);
   const [saving, setSaving] = useState(false);
   const allergens = ['Fish', 'Dairy', 'Eggs', 'Gluten', 'Seafood', 'Sesame', 'Nuts'];
   const save = async () => { setSaving(true); const { error } = await supabase.from('subscribers').update({ allergies }).eq('id', subscriber.id); setSaving(false); if (error) alert(t('error_generic')); else { alert(t('safety_confirmed')); onUpdate(); } };
-  return <section className="rounded-2xl border border-red-200 bg-white p-4"><div className="mb-3 flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-red-600"/><div><h3 className="text-sm font-black uppercase text-primary">Allergies & food safety</h3><p className="text-[10px] text-primary/60">Kitchen safety notes for your meals.</p></div></div><div className="flex flex-wrap gap-2">{allergens.map((allergen) => { const selected=allergies.includes(allergen); return <button type="button" key={allergen} aria-pressed={selected} onClick={() => setAllergies((previous) => selected ? previous.filter((item) => item !== allergen) : [...previous, allergen])} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-primary/15 text-primary/70'}`}>{t(allergen.toLowerCase()) || allergen}</button>; })}</div><button type="button" onClick={save} disabled={saving} className="btn-primary mt-3 px-4 py-2 text-[10px]">{saving ? 'Saving…' : 'Save food-safety notes'}</button></section>;
+  return <section className="rounded-2xl border border-red-200 bg-white p-4"><div className="mb-3 flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-red-600"/><div><h3 className="text-sm font-black uppercase text-primary">{t('safety_taste')}</h3><p className="text-[10px] text-primary/60">{isRtl ? 'ملاحظات سلامة الطعام لوجباتك.' : 'Kitchen safety notes for your meals.'}</p></div></div><div className="flex flex-wrap gap-2">{allergens.map((allergen) => { const selected=allergies.includes(allergen); return <button type="button" key={allergen} aria-pressed={selected} onClick={() => setAllergies((previous) => selected ? previous.filter((item) => item !== allergen) : [...previous, allergen])} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-primary/15 text-primary/70'}`}>{t(allergen.toLowerCase()) || allergen}</button>; })}</div><button type="button" onClick={save} disabled={saving} className="btn-primary mt-3 px-4 py-2 text-[10px]">{saving ? (isRtl ? 'جارٍ الحفظ…' : 'Saving…') : (isRtl ? 'حفظ ملاحظات سلامة الطعام' : 'Save food-safety notes')}</button></section>;
 }
 
 function MenuSelection({ subscriber, onUpdate }: { subscriber: Subscriber, onUpdate: () => void }) {
@@ -467,7 +467,7 @@ function MenuSelection({ subscriber, onUpdate }: { subscriber: Subscriber, onUpd
         </div>
       </div>
 
-      {saveError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">Menu update failed: {saveError}</p>}
+      {saveError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">{isRtl ? 'تعذر تحديث قائمة الطعام:' : 'Menu update failed:'} {saveError}</p>}
       {!loading && !menuHasItems && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs font-semibold text-amber-900">{t('menu_not_published')}</p>}
       {qatarWeekday === 'Fri' && <p className="text-center text-[9px] font-bold text-primary/50">{t('menu_selection_closed')}</p>}
 
@@ -490,7 +490,7 @@ function MenuSelection({ subscriber, onUpdate }: { subscriber: Subscriber, onUpd
       <div className="space-y-4 animate-reveal">
         <div className="flex items-center justify-between px-2">
            <h3 className="text-lg font-black uppercase italic tracking-tighter text-primary">{t(days[activeDayIndex])}</h3>
-           <button disabled={!canEditMenu || saving} onClick={() => skipEntireDay(days[activeDayIndex])} className="text-[8px] font-black text-red-400 uppercase tracking-widest underline underline-offset-4 disabled:opacity-40">Skip Day</button>
+           <button disabled={!canEditMenu || saving} onClick={() => skipEntireDay(days[activeDayIndex])} className="text-[8px] font-black text-red-400 uppercase tracking-widest underline underline-offset-4 disabled:opacity-40">{isRtl ? 'تخطي اليوم' : 'Skip Day'}</button>
         </div>
 
         <div className="space-y-6">
@@ -506,7 +506,7 @@ function MenuSelection({ subscriber, onUpdate }: { subscriber: Subscriber, onUpd
                 <div className="flex items-center gap-3 px-2">
                    <p className="text-[9px] font-black uppercase tracking-[0.4em] text-gold">{t(mealType)}</p>
                    <div className="h-px flex-1 bg-primary/5" />
-                   {isSkipped && <span className="text-[7px] font-black text-red-500 uppercase tracking-widest">SKIPPED</span>}
+                   {isSkipped && <span className="text-[7px] font-black text-red-500 uppercase tracking-widest">{isRtl ? 'تم التخطي' : 'SKIPPED'}</span>}
                 </div>
 
                 <div className="space-y-2">
@@ -522,7 +522,7 @@ function MenuSelection({ subscriber, onUpdate }: { subscriber: Subscriber, onUpd
 
                         <div className="flex items-start justify-between gap-4">
                            <div className="flex-1 min-w-0">
-                              <h4 className="font-serif italic text-base text-primary leading-tight truncate">{isRtl ? dish.name_ar : dish.name}</h4>
+                              <h4 className="font-serif italic text-base text-primary leading-tight truncate">{isRtl ? (dish.name_ar || dish.name) : dish.name}</h4>
                               <div className="flex gap-3 mt-1">
                                  <span className="text-[8px] font-bold text-primary/30 uppercase">{dish.kcals} KCAL</span>
                                  {dish.macros && <span className="text-[8px] font-bold text-gold uppercase">P:{dish.macros.protein} C:{dish.macros.carbs}</span>}
@@ -532,15 +532,15 @@ function MenuSelection({ subscriber, onUpdate }: { subscriber: Subscriber, onUpd
                         </div>
 
                         <div className="flex items-center gap-2 mt-4">
-                           <button onClick={() => setAboutMeal(dish)} className="flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-primary/5 hover:bg-primary/5">About</button>
-                           <button disabled={!canEditMenu || saving} onClick={() => setCustomizingMeal({dish, meal: mealType})} className="flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-gold/10 text-gold hover:bg-gold/5 disabled:opacity-40">Personalize</button>
+                           <button onClick={() => setAboutMeal(dish)} className="flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-primary/5 hover:bg-primary/5">{isRtl ? 'التفاصيل' : 'About'}</button>
+                           <button disabled={!canEditMenu || saving} onClick={() => setCustomizingMeal({dish, meal: mealType})} className="flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-gold/10 text-gold hover:bg-gold/5 disabled:opacity-40">{isRtl ? 'تخصيص' : 'Personalize'}</button>
                            <button
                              disabled={!canEditMenu || saving} onClick={() => pickDish(days[activeDayIndex], mealType, dish)}
                              className={`flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${
                                isSelected ? 'bg-gold text-primary' : 'bg-primary/5 text-primary/60'
                              }`}
                            >
-                             {isSelected ? 'Active' : 'Select'}
+                             {isSelected ? (isRtl ? 'محدد' : 'Active') : (isRtl ? 'اختر' : 'Select')}
                            </button>
                         </div>
 
@@ -587,8 +587,8 @@ function AboutMealModal({ dish, isRtl, onClose }: { dish: MenuDish, isRtl: boole
       <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-[#FDFCF7] w-full max-w-2xl max-h-[85vh] rounded-[3rem] shadow-4xl overflow-hidden flex flex-col border border-white/40">
          <div className="p-10 border-b border-primary/5 flex items-center justify-between bg-white/40">
             <div>
-               <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em] mb-2 block">Meal Intel</span>
-               <h2 className="text-3xl font-black text-primary uppercase italic tracking-tighter">{isRtl ? dish.name_ar : dish.name}</h2>
+               <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em] mb-2 block">{isRtl ? 'تفاصيل الوجبة' : 'Meal Intel'}</span>
+               <h2 className="text-3xl font-black text-primary uppercase italic tracking-tighter">{isRtl ? (dish.name_ar || dish.name) : dish.name}</h2>
             </div>
             <button onClick={onClose} className="p-4 hover:bg-primary/5 rounded-full transition-colors"><X className="w-8 h-8 text-primary/20" /></button>
          </div>
@@ -596,41 +596,41 @@ function AboutMealModal({ dish, isRtl, onClose }: { dish: MenuDish, isRtl: boole
          <div className="flex-1 overflow-y-auto p-10 space-y-12">
             <section className="grid grid-cols-2 gap-8">
                <div className="space-y-2">
-                  <p className="text-[10px] font-black text-primary/30 uppercase tracking-widest flex items-center gap-2"><MapPin className="w-3 h-3" /> Culinary Origin</p>
-                  <p className="font-serif italic text-xl text-primary">{dish.origin || 'Global Fusion'}</p>
+                  <p className="text-[10px] font-black text-primary/30 uppercase tracking-widest flex items-center gap-2"><MapPin className="w-3 h-3" /> {isRtl ? 'المطبخ' : 'Culinary Origin'}</p>
+                  <p className="font-serif italic text-xl text-primary">{isRtl ? (dish.origin_ar || dish.origin || 'مطبخ عالمي') : (dish.origin || 'Global Fusion')}</p>
                </div>
                <div className="space-y-2">
-                  <p className="text-[10px] font-black text-primary/30 uppercase tracking-widest flex items-center gap-2"><Sparkles className="w-3 h-3" /> Integrity Tags</p>
+                  <p className="text-[10px] font-black text-primary/30 uppercase tracking-widest flex items-center gap-2"><Sparkles className="w-3 h-3" /> {isRtl ? 'الخصائص الغذائية' : 'Integrity Tags'}</p>
                   <div className="flex gap-2">
-                     {dish.isHeritage && <span className="pill bg-gold/10 text-gold text-[8px]">HERITAGE</span>}
-                     <span className="pill bg-teal/5 text-teal text-[8px]">MACRO OPTIMIZED</span>
+                     {dish.isHeritage && <span className="pill bg-gold/10 text-gold text-[8px]">{isRtl ? 'تراثي' : 'HERITAGE'}</span>}
+                     <span className="pill bg-teal/5 text-teal text-[8px]">{isRtl ? 'متوازن غذائياً' : 'MACRO OPTIMIZED'}</span>
                   </div>
                </div>
             </section>
 
             <section className="space-y-4">
-               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary">The History</h3>
-               <p className="text-muted leading-relaxed italic text-lg">{dish.history || dish.description}</p>
+               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary">{isRtl ? 'نبذة عن الطبق' : 'The History'}</h3>
+               <p className="text-muted leading-relaxed italic text-lg">{isRtl ? (dish.history_ar || dish.description_ar || dish.history || dish.description) : (dish.history || dish.description)}</p>
             </section>
 
             <section className="grid grid-cols-1 md:grid-cols-2 gap-10">
                <div className="space-y-4">
-                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary/40">Traditional Craft</h3>
-                  <p className="text-sm font-medium text-primary/60 leading-relaxed">{dish.preparation_traditional || 'Centuries of refinement using regional spices and hearth techniques.'}</p>
+                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary/40">{isRtl ? 'طريقة التحضير التقليدية' : 'Traditional Craft'}</h3>
+                  <p className="text-sm font-medium text-primary/60 leading-relaxed">{isRtl ? (dish.preparation_traditional_ar || dish.preparation_traditional || 'تحضير تقليدي بتوابل محلية وأساليب طهي أصيلة.') : (dish.preparation_traditional || 'Centuries of refinement using regional spices and hearth techniques.')}</p>
                </div>
                <div className="space-y-4">
-                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-gold">Triangle Evolution</h3>
-                  <p className="text-sm font-medium text-primary/80 leading-relaxed">{dish.preparation_triangle || 'Optimized for modern wellness without compromising cultural depth.'}</p>
+                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-gold">{isRtl ? 'لمسة تراينغل' : 'Triangle Evolution'}</h3>
+                  <p className="text-sm font-medium text-primary/80 leading-relaxed">{isRtl ? (dish.preparation_triangle_ar || dish.preparation_triangle || 'وصفة متوازنة للعافية الحديثة مع الحفاظ على نكهتها الأصيلة.') : (dish.preparation_triangle || 'Optimized for modern wellness without compromising cultural depth.')}</p>
                </div>
             </section>
 
             <section className="p-8 rounded-[2rem] bg-[#1A2E2E] text-white">
-               <h3 className="text-[10px] font-black uppercase tracking-[0.5em] text-[#C5A059] mb-8 text-center">Nutritional Breakdown</h3>
+               <h3 className="text-[10px] font-black uppercase tracking-[0.5em] text-[#C5A059] mb-8 text-center">{isRtl ? 'القيم الغذائية' : 'Nutritional Breakdown'}</h3>
                <div className="grid grid-cols-4 gap-4 text-center">
                   <div><p className="text-2xl font-serif mb-1">{dish.kcals}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">Kcal</p></div>
-                  <div><p className="text-2xl font-serif mb-1">{dish.macros?.protein || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">Protein</p></div>
-                  <div><p className="text-2xl font-serif mb-1">{dish.macros?.carbs || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">Carbs</p></div>
-                  <div><p className="text-2xl font-serif mb-1">{dish.macros?.fats || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">Fats</p></div>
+                  <div><p className="text-2xl font-serif mb-1">{dish.macros?.protein || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">{isRtl ? 'بروتين' : 'Protein'}</p></div>
+                  <div><p className="text-2xl font-serif mb-1">{dish.macros?.carbs || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">{isRtl ? 'كربوهيدرات' : 'Carbs'}</p></div>
+                  <div><p className="text-2xl font-serif mb-1">{dish.macros?.fats || '--'}</p><p className="text-[7px] opacity-40 uppercase tracking-widest">{isRtl ? 'دهون' : 'Fats'}</p></div>
                </div>
             </section>
          </div>
@@ -640,6 +640,7 @@ function AboutMealModal({ dish, isRtl, onClose }: { dish: MenuDish, isRtl: boole
 }
 
 function CustomizeMealModal({ dish, mealType, day, subscriber, onClose, onSave }: { dish: MenuDish, mealType: string, day: string, subscriber: Subscriber, onClose: () => void, onSave: (c: any) => void }) {
+  const { isRtl } = useLanguage();
   const [removed, setRemoved] = useState<string[]>([]);
   const [subs, setSubs] = useState<Record<string, string>>({});
 
@@ -654,13 +655,13 @@ function CustomizeMealModal({ dish, mealType, day, subscriber, onClose, onSave }
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-primary/40 backdrop-blur-md" />
       <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="relative bg-white w-full max-w-xl max-h-[85vh] rounded-[3rem] shadow-4xl overflow-hidden flex flex-col">
          <div className="p-8 border-b border-primary/5">
-            <span className="text-[9px] font-black text-gold uppercase tracking-[0.4em] mb-2 block">Meal Customization</span>
-            <h2 className="text-2xl font-black text-primary uppercase italic tracking-tighter">Customize Your {dish.name}</h2>
+            <span className="text-[9px] font-black text-gold uppercase tracking-[0.4em] mb-2 block">{isRtl ? 'تخصيص الوجبة' : 'Meal Customization'}</span>
+            <h2 className="text-2xl font-black text-primary uppercase italic tracking-tighter">{isRtl ? `خصص ${dish.name_ar || dish.name}` : `Customize Your ${dish.name}`}</h2>
          </div>
 
          <div className="flex-1 overflow-y-auto p-8 space-y-10">
             <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10">
-               <p className="text-[10px] font-black uppercase text-primary/40 mb-4 tracking-widest">Core Integrity (Non-changeable)</p>
+               <p className="text-[10px] font-black uppercase text-primary/40 mb-4 tracking-widest">{isRtl ? 'مكونات أساسية لا يمكن تغييرها' : 'Core Integrity (Non-changeable)'}</p>
                <div className="flex flex-wrap gap-2">
                   {currentIngredients.filter(i => i.is_required).map(i => (
                     <span key={i.slug} className="pill bg-white text-primary text-[9px] border border-primary/5">{i.name}</span>
@@ -669,7 +670,7 @@ function CustomizeMealModal({ dish, mealType, day, subscriber, onClose, onSave }
             </div>
 
             <div className="space-y-6">
-               <p className="text-[10px] font-black uppercase text-gold mb-4 tracking-widest">Adjustable Elements</p>
+               <p className="text-[10px] font-black uppercase text-gold mb-4 tracking-widest">{isRtl ? 'مكونات قابلة للتعديل' : 'Adjustable Elements'}</p>
                {currentIngredients.filter(i => !i.is_required).map(ing => (
                  <div key={ing.slug} className="p-5 rounded-2xl border border-primary/5 bg-gray-50/50 space-y-4">
                     <div className="flex items-center justify-between">
@@ -681,21 +682,21 @@ function CustomizeMealModal({ dish, mealType, day, subscriber, onClose, onSave }
                              removed.includes(ing.slug) ? 'bg-red-500 text-white' : 'bg-red-50 text-red-500 hover:bg-red-100'
                            }`}
                          >
-                           {removed.includes(ing.slug) ? 'REMOVED' : 'REMOVE'}
+                           {removed.includes(ing.slug) ? (isRtl ? 'تم الاستبعاد' : 'REMOVED') : (isRtl ? 'استبعاد' : 'REMOVE')}
                          </button>
                        )}
                     </div>
 
                     {!removed.includes(ing.slug) && ing.approved_substitutions && ing.approved_substitutions.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-[8px] font-black text-primary/30 uppercase">Approved Alternatives</p>
+                        <p className="text-[8px] font-black text-primary/30 uppercase">{isRtl ? 'بدائل معتمدة' : 'Approved Alternatives'}</p>
                         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                            <button
                              onClick={() => { const newSubs = {...subs}; delete newSubs[ing.slug]; setSubs(newSubs); }}
                              className={`flex-shrink-0 px-4 py-2 rounded-xl text-[8px] font-black uppercase border-2 transition-all ${
                                !subs[ing.slug] ? 'border-teal bg-teal text-white' : 'border-primary/5 bg-white text-primary/40'
                              }`}
-                           >Original</button>
+                           >{isRtl ? 'الأصلي' : 'Original'}</button>
                            {ing.approved_substitutions.map(subSlug => (
                              <button
                                key={subSlug}
@@ -713,16 +714,15 @@ function CustomizeMealModal({ dish, mealType, day, subscriber, onClose, onSave }
             </div>
 
             <div className="p-6 rounded-2xl bg-[#FDFCF7] border border-gold/10">
-               <h4 className="text-[9px] font-black text-gold uppercase mb-4 tracking-widest">Personalized Outcome</h4>
+               <h4 className="text-[9px] font-black text-gold uppercase mb-4 tracking-widest">{isRtl ? 'ملخص التخصيص' : 'Personalized Outcome'}</h4>
                <p className="text-sm font-medium text-primary/80 leading-relaxed italic">
-                 {dish.name} prepared with {Object.values(subs).length > 0 ? Object.values(subs).map(s => s.replace(/_/g, ' ')).join(', ') : 'original ingredients'}
-                 {removed.length > 0 ? ` and no ${removed.join(', ')}.` : '.'}
+                 {isRtl ? `${dish.name_ar || dish.name} مع ${Object.values(subs).length > 0 ? Object.values(subs).map(s => s.replace(/_/g, ' ')).join('، ') : 'المكونات الأصلية'}${removed.length > 0 ? ` · دون ${removed.join('، ')}` : ''}` : `${dish.name} prepared with ${Object.values(subs).length > 0 ? Object.values(subs).map(s => s.replace(/_/g, ' ')).join(', ') : 'original ingredients'}${removed.length > 0 ? ` and no ${removed.join(', ')}.` : '.'}`}
                </p>
             </div>
          </div>
 
          <div className="p-8 bg-gray-50 border-t border-primary/5">
-            <button onClick={handleSave} className="btn-primary w-full py-5 uppercase tracking-widest text-xs">Confirm My Protocol</button>
+            <button onClick={handleSave} className="btn-primary w-full py-5 uppercase tracking-widest text-xs">{isRtl ? 'تأكيد التخصيص' : 'Confirm My Protocol'}</button>
          </div>
       </motion.div>
     </div>
@@ -730,7 +730,7 @@ function CustomizeMealModal({ dish, mealType, day, subscriber, onClose, onSave }
 }
 
 function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate }: { subscriber: Subscriber; activeDelivery: any; riderLocation: any; onUpdate: () => void }) {
-  const { t } = useLanguage();
+  const { t, isRtl } = useLanguage();
   const [form, setForm] = useState({
     building_number: subscriber.building_number || '',
     street: subscriber.street || '',
@@ -791,10 +791,10 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
          <div className="space-y-6">
             <h3 className="text-xs font-black uppercase tracking-[0.4em] text-primary/40 ml-2">{t('shipment_details')}</h3>
             <div className="space-y-3">
-               <p className="text-[10px] font-black uppercase tracking-widest text-muted">Google Maps Location Link (Optional)</p>
+               <p className="text-[10px] font-black uppercase tracking-widest text-muted">{isRtl ? 'رابط الموقع من خرائط Google (اختياري)' : 'Google Maps Location Link (Optional)'}</p>
                <input
                  type="text"
-                 placeholder="Paste Google Maps URL or WhatsApp location link"
+                 placeholder="{isRtl ? 'ألصق رابط خرائط Google أو موقع WhatsApp' : 'Paste Google Maps URL or WhatsApp location link'}"
                  className="input-field py-4 font-black text-xs"
                  onChange={async (e) => {
                    const val = e.target.value;
@@ -837,7 +837,7 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
       <div className="glass-card p-10 border-dashed border-primary/10 bg-transparent flex flex-col items-center justify-center text-center opacity-40">
          <MapIcon className="w-20 h-20 mb-8" />
          <p className="text-xl font-black uppercase italic tracking-tighter">{t('full_gps')}</p>
-         <p className="text-xs font-medium uppercase mt-4 tracking-widest">Live Driver Tracking</p>
+         <p className="text-xs font-medium uppercase mt-4 tracking-widest">{isRtl ? 'تتبع السائق مباشرة' : 'Live Driver Tracking'}</p>
       </div>
     </div>
   );
@@ -845,7 +845,7 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
 
 function PlanSettings({ subscriber, onUpdate, updating, setUpdating }: { subscriber: Subscriber, onUpdate: () => void, updating: boolean, setUpdating: (v: boolean) => void }) {
   const { signOut, user } = useAuth();
-  const { t } = useLanguage();
+  const { t, isRtl } = useLanguage();
   const [pauseRequest, setPauseRequest] = useState<any>(null);
   const [requestDate, setRequestDate] = useState(qatarTomorrowString);
   const [requestReason, setRequestReason] = useState('');
@@ -865,13 +865,13 @@ function PlanSettings({ subscriber, onUpdate, updating, setUpdating }: { subscri
       const { data, error } = await supabase.from('subscription_pause_requests').insert({ subscriber_id: subscriber.id, request_type, requested_date: requestDate, reason: requestReason.trim() }).select('*').single();
       if (error) throw error;
       setPauseRequest(data);
-      alert('Your request has been sent to the Triangle Healthy Kitchen team for review.');
+      alert(isRtl ? 'تم إرسال طلبك إلى فريق تراينغل للمراجعة.' : 'Your request has been sent to the Triangle Healthy Kitchen team for review.');
     } catch (error) { alert(error instanceof Error ? error.message : t('error_generic')); }
     finally { setUpdating(false); }
   };
 
   const requestDeletion = async () => {
-    if (!confirm("Are you sure you want to request account deletion? This will terminate your subscription and remove your data according to our privacy policy.")) return;
+    if (!confirm(isRtl ? 'هل تريد بالتأكيد طلب حذف الحساب؟ سيؤدي ذلك إلى إنهاء اشتراكك وحذف بياناتك وفقاً لسياسة الخصوصية.' : 'Are you sure you want to request account deletion? This will terminate your subscription and remove your data according to our privacy policy.')) return;
     setUpdating(true);
     const { error } = await supabase.from('deletion_requests').insert({
       user_id: user?.id,
@@ -880,7 +880,7 @@ function PlanSettings({ subscriber, onUpdate, updating, setUpdating }: { subscri
     });
     if (error) alert(t('error_generic'));
     else {
-      alert("Request received. Our team will process it within 30 days.");
+      alert(isRtl ? 'تم استلام الطلب. سيعالجه فريقنا خلال ٣٠ يوماً.' : 'Request received. Our team will process it within 30 days.');
       signOut();
     }
     setUpdating(false);
@@ -892,17 +892,17 @@ function PlanSettings({ subscriber, onUpdate, updating, setUpdating }: { subscri
           <Shield className="w-12 h-12 text-teal mb-8" />
           <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-4">{t('subscription_control')}</h3>
           <p className="text-muted text-lg italic mb-10 leading-relaxed">{t('pause_desc')}</p>
-          {pauseRequest ? <p className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-900">Your {pauseRequest.request_type} request for {pauseRequest.requested_date} is waiting for team approval.</p> : <><label className="mb-4 block text-sm font-semibold">Requested date<input type="date" min={qatarTomorrowString()} value={requestDate} onChange={(event) => setRequestDate(event.target.value)} className="mt-2 w-full rounded-xl border border-primary/20 bg-white p-3" /></label><label className="mb-5 block text-sm font-semibold">Reason<input value={requestReason} onChange={(event) => setRequestReason(event.target.value)} maxLength={300} placeholder="Travel, work, or another reason" className="mt-2 w-full rounded-xl border border-primary/20 bg-white p-3" /></label><button onClick={togglePause} disabled={updating || !['active','paused'].includes(subscriber.status) || (subscriber.status === 'paused' && !subscriber.tap_charge_id && !subscriber.last_payment_id)} className={`btn-primary w-full py-6 uppercase tracking-widest ${subscriber.status === 'active' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
-             {updating ? '...' : subscriber.status === 'active' ? t('pause_plan') : subscriber.status === 'paused' ? t('resume_now') : 'Plan unavailable'}
+          {pauseRequest ? <p className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-900">{isRtl ? `طلب ${pauseRequest.request_type === 'pause' ? 'إيقاف' : 'استئناف'} بتاريخ ${pauseRequest.requested_date} بانتظار موافقة الفريق.` : `Your ${pauseRequest.request_type} request for ${pauseRequest.requested_date} is waiting for team approval.`}</p> : <><label className="mb-4 block text-sm font-semibold">{isRtl ? 'التاريخ المطلوب' : 'Requested date'}<input type="date" min={qatarTomorrowString()} value={requestDate} onChange={(event) => setRequestDate(event.target.value)} className="mt-2 w-full rounded-xl border border-primary/20 bg-white p-3" /></label><label className="mb-5 block text-sm font-semibold">{isRtl ? 'السبب' : 'Reason'}<input value={requestReason} onChange={(event) => setRequestReason(event.target.value)} maxLength={300} placeholder={isRtl ? 'سفر أو عمل أو سبب آخر' : 'Travel, work, or another reason'} className="mt-2 w-full rounded-xl border border-primary/20 bg-white p-3" /></label><button onClick={togglePause} disabled={updating || !['active','paused'].includes(subscriber.status) || (subscriber.status === 'paused' && !subscriber.tap_charge_id && !subscriber.last_payment_id)} className={`btn-primary w-full py-6 uppercase tracking-widest ${subscriber.status === 'active' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
+             {updating ? '...' : subscriber.status === 'active' ? t('pause_plan') : subscriber.status === 'paused' ? t('resume_now') : (isRtl ? 'الخطة غير متاحة' : 'Plan unavailable')}
           </button></>}
        </div>
 
        <div className="glass-card p-12 border-red-500/10 bg-red-50/5">
           <ShieldAlert className="w-12 h-12 text-red-500 mb-8" />
-          <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-4 text-red-500">Account Safety</h3>
-          <p className="text-muted text-lg italic mb-10 leading-relaxed">Requesting account deletion will cancel your active subscription and remove your profile data from our servers within 30 days.</p>
+          <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-4 text-red-500">{isRtl ? 'أمان الحساب' : 'Account Safety'}</h3>
+          <p className="text-muted text-lg italic mb-10 leading-relaxed">{isRtl ? 'سيؤدي طلب حذف الحساب إلى إلغاء اشتراكك النشط وحذف بيانات ملفك من خوادمنا خلال ٣٠ يوماً.' : 'Requesting account deletion will cancel your active subscription and remove your profile data from our servers within 30 days.'}</p>
           <button onClick={requestDeletion} disabled={updating} className="flex items-center gap-3 text-red-500 font-black uppercase tracking-[0.2em] text-[10px] hover:text-red-700 transition-colors">
-             <Trash2 className="w-6 h-6" /> {updating ? 'PROCESSING...' : t('request_account_deletion')}
+             <Trash2 className="w-6 h-6" /> {updating ? (isRtl ? 'جارٍ التنفيذ…' : 'PROCESSING...') : t('request_account_deletion')}
           </button>
        </div>
     </div>

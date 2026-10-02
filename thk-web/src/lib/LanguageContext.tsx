@@ -983,6 +983,17 @@ const translations: Record<Language, Record<string, string>> = {
     menu_item_unavailable: 'لا يوجد خيار متاح',
     select_each_meal_before_payment: 'اختر وجبة لكل يوم ولكل فترة وجبة قبل الدفع.',
     meals_selected: 'وجبة مختارة',
+    delivery: 'التوصيل',
+    health: 'الصحة',
+    settings: 'الإعدادات',
+    personal_mode: 'شخصي',
+    ops_mode: 'العمليات',
+    friday_delivery_addon: 'إضافة وجبات وتوصيل يوم الجمعة',
+    friday_delivery_price: '١٩٩ ريال قطري شهرياً',
+    friday_delivery_addon_desc: 'تشمل وجبات الجمعة واختياراتها والتوصيل كل أسبوع خلال الشهر.',
+    progress_tracker: 'متابعة التقدم',
+    goals_rewards: 'أهدافك ومكافآتك',
+    open_rewards: 'افتح المكافآت',
   }
 };
 
