@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth, type UserRole } from './lib/auth';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -63,6 +63,7 @@ function ProtectedRoute({ children, role, mode }: { children: React.ReactNode, r
 
 function AppContent() {
   const { user, accessMode, hasDualAccess, onboardingComplete, userRole, hasPersonal } = useAuth();
+  const location = useLocation();
   const [showSubFlow, setShowSubFlow] = useState(false);
   const [showBookFlow, setShowBookFlow] = useState(false);
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
@@ -88,7 +89,7 @@ function AppContent() {
       {user && hasDualAccess && !accessMode && <AccessSelector />}
 
       <ScrollToTop />
-      <Navbar onBookClick={() => openBookFlow()} onSubscribeClick={() => openSubFlow()} />
+      {location.pathname !== '/login' && <Navbar onBookClick={() => openBookFlow()} onSubscribeClick={() => openSubFlow()} />}
 
       <main className="flex-1">
         <Suspense fallback={routeFallback}><Routes>

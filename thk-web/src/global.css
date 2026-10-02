@@ -141,6 +141,12 @@
 /* Mobile Safari should focus controls immediately and avoid animating a large
    shadow/ring across the screen on every tap. */
 @media (hover: none) and (pointer: coarse) {
+  html,
+  body {
+    /* Native focus scrolling must not animate behind iOS's keyboard. */
+    scroll-behavior: auto;
+  }
+
   button,
   a,
   input,
@@ -155,6 +161,13 @@
   .ops-control {
     min-height: 48px;
     transition-duration: 150ms;
+  }
+
+  /* iOS Safari zooms the page when a focused form control uses <16px text. */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 
   .input-field:focus {
