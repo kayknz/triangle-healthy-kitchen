@@ -13,7 +13,10 @@
     width: 100%;
     position: relative;
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
   }
+
+  #root { min-height: 100vh; min-height: 100dvh; }
 
   /* Precision Scale Pass — The Billboard Killer */
   h1 { @apply text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-serif italic leading-[1.1] tracking-tight; }
@@ -25,6 +28,16 @@
   * {
     word-break: break-word;
     overflow-wrap: break-word;
+  }
+}
+
+@media (max-width: 639px) {
+  .home-hero {
+    min-height: 100vh;
+    min-height: 100svh;
+    min-height: 100dvh;
+    padding-top: calc(7rem + env(safe-area-inset-top));
+    padding-bottom: max(3rem, env(safe-area-inset-bottom));
   }
 }
 

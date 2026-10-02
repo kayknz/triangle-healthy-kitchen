@@ -20,29 +20,29 @@ export default function Home({ onSubscribeClick, onBookClick }: HomeProps) {
   return (
     <div className={`overflow-x-hidden bg-[#F5F3EB] ${isRtl ? 'text-right' : 'text-left'}`}>
       {/* Cinematic Airy Hero */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 pt-20">
+      <section className="home-hero relative min-h-screen flex items-center justify-center overflow-hidden px-4 pt-20">
         <div className="absolute inset-0 z-0">
           <CinematicSlider />
         </div>
 
-        <div className="relative z-10 w-full container-hq flex flex-col lg:grid lg:grid-cols-[1.1fr_0.9fr] gap-20 items-center">
+        <div className="relative z-10 w-full container-hq flex flex-col lg:grid lg:grid-cols-[1.1fr_0.9fr] gap-10 lg:gap-20 items-center">
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className={`badge mb-10 w-fit ${isRtl ? 'flex-row-reverse' : ''}`}>
+            <div className={`badge mb-6 sm:mb-10 w-fit ${isRtl ? 'flex-row-reverse' : ''}`}>
               <Star className="w-3.5 h-3.5 fill-gold text-gold" />
               <span className="font-black">{t('est_2017')} — {t('doha_excellence')}</span>
             </div>
 
-            <h1 className="mb-10 text-shadow-premium lg:text-8xl text-[#123F38]">
+            <h1 className="mb-6 sm:mb-10 text-shadow-premium lg:text-8xl text-[#123F38]">
               {t('hero_title_1')}<br />
               <span className="text-[#C5A059] selection:bg-[#C5A059] selection:text-[#123F38]">{t('hero_title_2')}</span><br />
               <span className="text-[#123F38]/50 font-sans font-black uppercase not-italic tracking-tighter text-3xl sm:text-5xl">{t('hero_title_3')}</span>
             </h1>
 
-            <p className="text-[#123F38] text-xl md:text-2xl font-bold italic mb-16 max-w-xl leading-relaxed opacity-80">
+            <p className="text-[#123F38] text-lg sm:text-xl md:text-2xl font-bold italic mb-10 sm:mb-16 max-w-xl leading-relaxed opacity-80">
               {t('hero_subtitle')}
             </p>
 
@@ -68,15 +68,15 @@ export default function Home({ onSubscribeClick, onBookClick }: HomeProps) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1.5, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="glass-card p-8 lg:p-12 space-y-8 lg:space-y-12 shadow-4xl bg-white/60 backdrop-blur-xl border-white/40"
+              className="glass-card p-6 sm:p-8 lg:p-12 space-y-6 sm:space-y-8 lg:space-y-12 shadow-4xl bg-white/60 backdrop-blur-xl border-white/40"
             >
                {[
                  { icon: Brain, label: t('healthy_mind_title'), sub: t('healthy_mind_subtitle') },
                  { icon: Leaf, label: t('healthy_body_title'), sub: t('healthy_body_subtitle') },
                  { icon: Wind, label: t('healthy_soul_title'), sub: t('healthy_soul_subtitle') }
                ].map((item, i) => (
-                 <div key={i} className={`flex items-center gap-8 group ${isRtl ? 'flex-row-reverse text-right' : ''}`}>
-                   <div className="w-16 h-16 rounded-[1.8rem] bg-[#123F38] flex items-center justify-center flex-shrink-0 shadow-2xl group-hover:bg-[#C5A059] transition-all duration-700">
+                 <div key={i} className={`flex items-center gap-5 sm:gap-8 group ${isRtl ? 'flex-row-reverse text-right' : ''}`}>
+                   <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-[1.5rem] sm:rounded-[1.8rem] bg-[#123F38] flex items-center justify-center flex-shrink-0 shadow-2xl group-hover:bg-[#C5A059] transition-all duration-700">
                      <item.icon className="w-7 h-7 text-[#C5A059] group-hover:text-[#123F38] transition-colors" />
                    </div>
                    <div>
