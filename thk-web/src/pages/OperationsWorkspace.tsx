@@ -142,8 +142,9 @@ export default function OperationsWorkspace() {
   const activeSubscribersIncludingDemo = subscribers.filter((s) => String(s.status || '').toLowerCase() === 'active');
   const serviceWeekStart = (value: string) => { const d = new Date(`${value}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + ((6 - d.getUTCDay() + 7) % 7)); return d.toISOString().slice(0, 10); };
   const weekStart = serviceWeekStart(date);
-  const productionWeekStart = (value: string) => { const d = new Date(`${value}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 1) % 7)); return d.toISOString().slice(0, 10); };
-  const selectedProductionWeek = productionWeekStart(date);
+  // Menu selections use a Saturday service-week start, just like the client
+  // booking and menu flows. Keep production and packing on that same date.
+  const selectedProductionWeek = serviceWeekStart(date);
   const zoneCounts = useMemo(() => {
     const counts = new Map<string, { live: number; demo: number }>();
     activeSubscribersIncludingDemo.forEach((s) => {
