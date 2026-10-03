@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   ArrowLeft, ArrowRight, Check, CheckCircle2, Loader2, X,
   Calendar, User, Phone, Mail, Target, Sparkles, AlertCircle,
-  ShieldCheck, Clock, Navigation, Activity
+  ShieldCheck, Clock, Activity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabase';
@@ -54,41 +54,6 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bookedSlots, setBookedSlots] = useState<Record<string, string[]>>({});
-  const [locating, setLocating] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
-
-  const detectLocation = () => {
-    setLocating(true);
-    setLocationError(null);
-    if (!navigator.geolocation) {
-      setLocationError("Location signal not supported by this browser.");
-      setLocating(false);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`);
-          const data = await res.json();
-          if (data && data.address) {
-            const addr = data.address;
-            const fullAddr = `${addr.house_number || ''} ${addr.road || ''}, ${addr.suburb || addr.city_district || ''}`.trim();
-            update({ health_notes: (data.health_notes ? data.health_notes + "\n" : "") + "Location: " + fullAddr });
-          } else {
-            setLocationError("Address signal weak, please refine manually.");
-          }
-        } catch (e) {
-           setLocationError("Reverse lookup failed.");
-        } finally { setLocating(false); }
-      },
-      (err) => {
-         setLocationError('Location access denied.');
-         setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
 
   const fetchBookedSlots = useCallback(async () => {
     const { data } = await supabase.from('bookings').select('appointment_date, appointment_time').neq('status', 'cancelled');
@@ -270,17 +235,6 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                 <div className="space-y-8">
                    <h3 className="text-xl font-black uppercase italic text-primary tracking-tight">Your Details</h3>
                    <div className="space-y-6">
-                      <div className="flex flex-col gap-4">
-                        <button
-                          onClick={detectLocation}
-                          disabled={locating}
-                          className={`w-full flex items-center justify-center gap-4 bg-white border border-primary/10 py-6 rounded-3xl text-[10px] font-black uppercase tracking-[0.3em] shadow-sm hover:border-gold transition-all active:scale-95 disabled:opacity-50 ${locating ? 'animate-pulse' : ''}`}
-                        >
-                          {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4 text-gold" />}
-                          {locating ? 'Checking...' : 'Find my location (Optional)'}
-                        </button>
-                        {locationError && <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest ml-4">{locationError}</p>}
-                      </div>
                       <input type="text" placeholder="Enter Full Name" value={data.client_name} onChange={e => update({ client_name: e.target.value })} className="input-field py-8 text-xl font-black bg-white shadow-sm" />
                       <input type="email" placeholder="Enter Email Address" value={data.client_email} onChange={e => update({ client_email: e.target.value })} className="input-field py-8 text-xl font-black bg-white shadow-sm" />
                       <input type="tel" placeholder="Mobile Number (+974)" value={data.client_phone} onChange={e => update({ client_phone: e.target.value })} className="input-field py-8 text-xl font-black bg-white shadow-sm" />

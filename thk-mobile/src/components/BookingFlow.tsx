@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ArrowLeft, ArrowRight, Check, Loader2, User, Target, AlertCircle, Navigation, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, User, Target, AlertCircle, CheckCircle } from 'lucide-react';
 
-import { safeHaptics } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
 import { TIME_SLOTS, FITNESS_GOALS, type BookingData } from '@/types/booking';
 import { useLanguage } from '@/lib/LanguageContext';
@@ -52,46 +51,8 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bookedSlots, setBookedSlots] = useState<Record<string, string[]>>({});
-  const [locating, setLocating] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const [invalidField, setInvalidField] = useState<string | null>(null);
   const flowBodyRef = useRef<HTMLDivElement>(null);
-
-  const detectLocation = async () => {
-    setLocating(true);
-    setLocationError(null);
-    await safeHaptics.impact();
-    if (!navigator.geolocation) {
-      setLocationError("Location signal blocked.");
-      setLocating(false);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`);
-          if (!res.ok) throw new Error("API Offline");
-          const data = await res.json();
-          if (data && data.address) {
-            const addr = data.address;
-            const fullAddr = `${addr.house_number || ''} ${addr.road || ''}, ${addr.suburb || addr.city_district || ''}`.trim();
-            update({ health_notes: (data.health_notes ? data.health_notes + "\n" : "") + "Verified Location: " + fullAddr });
-          } else {
-            throw new Error("Signal weak.");
-          }
-        } catch (e) {
-           // GRACEFUL FALLBACK: Don't block user, just alert and let them enter manually
-           setLocationError("Auto-lookup unavailable. Please verify manually below.");
-        } finally { setLocating(false); }
-      },
-      (err) => {
-         setLocationError('Access denied.');
-         setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
 
   const fetchBookedSlots = useCallback(async () => {
     const { data } = await supabase
@@ -453,17 +414,6 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
             {step === 3 && (
               <div className="space-y-8 animate-in">
                 <h3 className="text-[#0a3030] font-black text-2xl uppercase italic leading-none">{t('identity_verification')}</h3>
-                <div className="flex flex-col gap-4">
-                  <button
-                    onClick={detectLocation}
-                    disabled={locating}
-                    className={`w-full flex items-center justify-center gap-4 bg-white border border-primary/10 py-6 rounded-3xl text-[10px] font-black uppercase tracking-[0.3em] shadow-sm active:scale-95 disabled:opacity-50 ${locating ? 'animate-pulse' : ''}`}
-                  >
-                    {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4 text-[#C5A059]" />}
-                    {locating ? t('syncing') : (t('verify_location_optional') || 'Verify Location (Optional)')}
-                  </button>
-                  {locationError && <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest ml-4">{locationError}</p>}
-                </div>
                 <FormEntry label={t('full_name')} sub={t('passport_id')} required>
                   <input data-field-id="client_name" aria-invalid={invalidField === 'client_name'} onKeyDown={(event) => { if (event.key === 'Enter' && data.client_name.trim()) { event.preventDefault(); focusNextField('client_name'); } }} type="text" autoCapitalize="words" autoComplete="name" value={data.client_name} onChange={(e) => update({ client_name: e.target.value })} placeholder={t('enter_full_name') || "Enter Full Name"} className={`input-field py-5 font-black ${invalidField === 'client_name' ? 'border-red-500 ring-2 ring-red-200' : ''}`} />
                 </FormEntry>
