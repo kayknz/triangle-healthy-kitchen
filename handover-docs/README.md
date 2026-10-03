@@ -17,6 +17,7 @@ This handover set explains how customers use the service, how each operations te
 5. **Technical Handover** — architecture, roles, data flows, integrations, configuration names, security, and migration cautions.
 6. **Deployment and Maintenance** — web releases, database/functions, mobile builds, backups, recovery, and ongoing responsibilities.
 7. **Launch Checklist and Known Limits** — acceptance checks and items that need production-owner confirmation.
+8. **External Services Runbook** — setup, verification, ownership, and failure handling for Supabase, Vercel, Brevo, Tap, Firebase, health platforms, maps/geocoding, WhatsApp, and external assets.
 
 ## Current delivery snapshot
 

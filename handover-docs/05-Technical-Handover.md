@@ -70,6 +70,8 @@ The reviewed functions refer to configuration such as `SUPABASE_URL`, `SUPABASE_
 - Android health sync uses Health Connect; users with Samsung Health must enable its Health Connect sharing.
 - Device location/notifications/health permission prompts must be tested after producing signed builds.
 
+See **External Services Runbook** for step-by-step ownership, setup, safe credential handling, testing, and failure procedures.
+
 ## Integration inventory and state
 
 | Integration | Source evidence | Configuration/acceptance still required |
@@ -81,7 +83,8 @@ The reviewed functions refer to configuration such as `SUPABASE_URL`, `SUPABASE_
 | Brevo | Booking notification and menu-reminder function code exists in mobile function tree and migration scheduling refers to `send-reminders`. | Confirm canonical deployed code, sender/domain, vault settings, delivery logs, recipient behavior, and scheduled invocation. |
 | Firebase Cloud Messaging | Android push registration is conditional on local Firebase config. | Configure client-owned Firebase app, Android package, file, permissions, and real-device push test. |
 | Apple Health / Health Connect | Capacitor health plugin integration in mobile source. | Complete platform capability/signing and real-device permission/read/sync tests. |
-| Maps/geolocation | Geolocation, address fields, zone helper, and map-link generation exist in client/ops source. | Test Qatar address lookup, manual entry, map coordinates, and zone assignment on real devices; a GPS pin is not guaranteed to fill every address label correctly. |
+| Maps/geolocation | Google Maps URL/coordinate parsing and links, OpenStreetMap Nominatim reverse geocoding, and Qatar GIS FeatureServer zone lookup exist in source. | Test Qatar address lookup, manual entry, map coordinates, external service failure, and zone assignment on real devices; a GPS pin is not guaranteed to fill every address label correctly. |
+| WhatsApp/social/media | `wa.me` support links, Instagram links, remote Pexels/Unsplash images, and Pravatar demo imagery appear in source. | Confirm official links, contact details, consent-safe message text, and image rights/fallbacks; these are not messaging API integrations. |
 
 ## Critical repository cautions
 
