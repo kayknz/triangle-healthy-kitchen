@@ -33,6 +33,10 @@ function currentMenuReleaseStart() {
   return date.toISOString().slice(0, 10);
 }
 
+function FieldLabel({ children, required = true, isRtl = false }: { children?: React.ReactNode; required?: boolean; isRtl?: boolean }) {
+  return <span className="inline-flex flex-wrap items-center gap-1.5">{children}<span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black normal-case tracking-normal ${required ? 'bg-amber-100 text-amber-900' : 'bg-gray-100 text-gray-500'}`}>{required ? (isRtl ? 'مطلوب' : 'Required') : (isRtl ? 'اختياري' : 'Optional')}</span></span>;
+}
+
 interface SubscriptionFlowProps {
   open: boolean;
   onClose: () => void;
@@ -97,15 +101,19 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const [invalidField, setInvalidField] = useState<string | null>(null);
   const checkoutBodyRef = useRef<HTMLDivElement>(null);
 
   const focusCheckoutField = (fieldId: string) => {
+    setInvalidField(fieldId);
     window.requestAnimationFrame(() => {
       const field = checkoutBodyRef.current?.querySelector<HTMLElement>(`[data-field-id="${fieldId}"]`);
       field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       field?.focus({ preventScroll: true });
     });
   };
+  const clearInvalidField = (fieldId: string) => setInvalidField((current) => current === fieldId ? null : current);
+  const invalidFieldClass = (fieldId: string) => invalidField === fieldId ? 'border-red-500 ring-2 ring-red-200' : '';
   const focusNextCheckoutField = (fieldId: string) => {
     const ids: Record<string, string> = {
       assessment_age: 'assessment_weight', assessment_weight: 'assessment_height', assessment_height: 'assessment_goal',
@@ -294,6 +302,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       return;
     }
     setError(null);
+    setInvalidField(null);
     setStep((currentStepIndex) => Math.min(currentStepIndex + 1, STEPS.length - 1));
   };
 
@@ -483,12 +492,13 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {STEPS[step]?.id === 'assessment' && (
               <div className="space-y-4 animate-in">
                 <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'تقييم الصحة والأهداف' : 'Health & Goal Assessment'}</h3>
-                <div className="grid grid-cols-2 items-start gap-4"><label className="text-[10px] font-black uppercase text-gray-400"><span className="flex min-h-10 items-end">{isRtl ? 'الجنس' : 'Gender'}</span><select value={assessment.gender} onChange={(event) => setAssessment({ ...assessment, gender: event.target.value as 'male' | 'female' })} className="input-field mt-2 py-3 text-sm font-semibold normal-case"><option value="male">{isRtl ? 'ذكر' : 'Male'}</option><option value="female">{isRtl ? 'أنثى' : 'Female'}</option></select></label><label className="text-[10px] font-black uppercase text-gray-400"><span className="flex min-h-10 items-end">{isRtl ? 'العمر' : 'Age'}</span><input data-field-id="assessment_age" enterKeyHint="next" onKeyDown={(event) => { if (event.key === 'Enter' && assessment.age) { event.preventDefault(); focusNextCheckoutField('assessment_age'); } }} type="number" inputMode="numeric" min={13} max={110} value={assessment.age} onChange={(event) => setAssessment({ ...assessment, age: event.target.value })} className="input-field mt-2 py-3 font-bold" /></label></div>
+                <div className="grid grid-cols-2 items-start gap-4"><label className="block text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'الجنس' : 'Gender'}</FieldLabel><select value={assessment.gender} onChange={(event) => setAssessment({ ...assessment, gender: event.target.value as 'male' | 'female' })} className="input-field mt-2 py-3 text-sm font-semibold normal-case"><option value="male">{isRtl ? 'ذكر' : 'Male'}</option><option value="female">{isRtl ? 'أنثى' : 'Female'}</option></select></label><label className="block text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'العمر' : 'Age'}</FieldLabel><input data-field-id="assessment_age" aria-invalid={invalidField === 'assessment_age'} enterKeyHint="next" onKeyDown={(event) => { if (event.key === 'Enter' && assessment.age) { event.preventDefault(); focusNextCheckoutField('assessment_age'); } }} type="number" inputMode="numeric" min={13} max={110} value={assessment.age} onChange={(event) => { setAssessment({ ...assessment, age: event.target.value }); clearInvalidField('assessment_age'); }} className={`input-field mt-2 py-3 font-bold ${invalidFieldClass('assessment_age')}`} /></label></div>
                 <div className="grid grid-cols-2 items-start gap-4">
                   <div>
-                    <label className="flex min-h-10 items-end text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الوزن الحالي (كجم)' : 'Current Weight (kg)'}</label>
+                    <label className="flex min-h-10 items-end text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'الوزن الحالي (كجم)' : 'Current Weight (kg)'}</FieldLabel></label>
                     <input
                       data-field-id="assessment_weight"
+                      aria-invalid={invalidField === 'assessment_weight'}
                       enterKeyHint="next"
                       onKeyDown={(event) => { if (event.key === 'Enter' && assessment.weight) { event.preventDefault(); focusNextCheckoutField('assessment_weight'); } }}
                       type="number"
@@ -497,14 +507,15 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                       min={40}
                       max={150}
                       value={assessment.weight}
-                      onChange={(e) => setAssessment({ ...assessment, weight: e.target.value })}
-                      className="input-field py-3 font-bold"
+                      onChange={(e) => { setAssessment({ ...assessment, weight: e.target.value }); clearInvalidField('assessment_weight'); }}
+                      className={`input-field py-3 font-bold ${invalidFieldClass('assessment_weight')}`}
                     />
                   </div>
                   <div>
-                    <label className="flex min-h-10 items-end text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الطول (سم)' : 'Standing Height (cm)'}</label>
+                    <label className="flex min-h-10 items-end text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'الطول (سم)' : 'Standing Height (cm)'}</FieldLabel></label>
                     <input
                       data-field-id="assessment_height"
+                      aria-invalid={invalidField === 'assessment_height'}
                       enterKeyHint="next"
                       onKeyDown={(event) => { if (event.key === 'Enter' && assessment.height) { event.preventDefault(); focusNextCheckoutField('assessment_height'); } }}
                       type="number"
@@ -512,13 +523,13 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                       min={140}
                       max={220}
                       value={assessment.height}
-                      onChange={(e) => setAssessment({ ...assessment, height: e.target.value })}
-                      className="input-field py-3 font-bold"
+                      onChange={(e) => { setAssessment({ ...assessment, height: e.target.value }); clearInvalidField('assessment_height'); }}
+                      className={`input-field py-3 font-bold ${invalidFieldClass('assessment_height')}`}
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الهدف' : 'Target Goal'}</label>
+                  <label className="block text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'الهدف' : 'Target Goal'}</FieldLabel></label>
                   <select
                     data-field-id="assessment_goal"
                     value={assessment.fitness_goal}
@@ -530,22 +541,23 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                     <option value="gain">{isRtl ? 'زيادة العضلات (فائض السعرات)' : 'Muscle Gain (Calorie Surplus)'}</option>
                   </select>
                 </div>
-                <label className="block rounded-2xl border border-primary/10 bg-white p-4"><span className="block text-[10px] font-black uppercase tracking-widest text-primary">{isRtl ? 'تقرير مؤشر كتلة الجسم' : 'BMI report'} <span className="font-medium normal-case text-gray-400">{isRtl ? '(اختياري)' : '(optional)'}</span></span><span className="mt-1 block text-xs text-gray-500">{isRtl ? 'أرفق تقريراً حديثاً من العيادة أو تقرير تكوين الجسم لمراجعته غذائياً.' : 'Attach a recent clinic or body-composition report for nutrition review.'}</span><input type="file" accept="application/pdf,image/jpeg,image/png" className="mt-3 block w-full text-xs" onChange={(event) => { const file = event.target.files?.[0] || null; if (file && (!['application/pdf','image/jpeg','image/png'].includes(file.type) || file.size > 10 * 1024 * 1024)) { setError(isRtl ? 'اختر تقريراً بصيغة PDF أو JPG أو PNG بحجم يصل إلى ١٠ ميغابايت.' : 'Choose a PDF, JPG, or PNG report up to 10 MB.'); event.currentTarget.value = ''; setBmiReport(null); return; } setError(null); setBmiReport(file); }} />{bmiReport && <span className="mt-2 block text-xs font-semibold text-emerald-800">{isRtl ? 'تم الاختيار:' : 'Selected:'} {bmiReport.name}</span>}</label>
+                <label className="block rounded-2xl border border-primary/10 bg-white p-4"><span className="block text-[10px] font-black uppercase tracking-widest text-primary"><FieldLabel required={false} isRtl={isRtl}>{isRtl ? 'تقرير مؤشر كتلة الجسم' : 'BMI report'}</FieldLabel></span><span className="mt-1 block text-xs text-gray-500">{isRtl ? 'أرفق تقريراً حديثاً من العيادة أو تقرير تكوين الجسم لمراجعته غذائياً.' : 'Attach a recent clinic or body-composition report for nutrition review.'}</span><input type="file" accept="application/pdf,image/jpeg,image/png" className="mt-3 block w-full text-xs" onChange={(event) => { const file = event.target.files?.[0] || null; if (file && (!['application/pdf','image/jpeg','image/png'].includes(file.type) || file.size > 10 * 1024 * 1024)) { setError(isRtl ? 'اختر تقريراً بصيغة PDF أو JPG أو PNG بحجم يصل إلى ١٠ ميغابايت.' : 'Choose a PDF, JPG, or PNG report up to 10 MB.'); event.currentTarget.value = ''; setBmiReport(null); return; } setError(null); setBmiReport(file); }} />{bmiReport && <span className="mt-2 block text-xs font-semibold text-emerald-800">{isRtl ? 'تم الاختيار:' : 'Selected:'} {bmiReport.name}</span>}</label>
               </div>
             )}
 
             {/* Step 1: Pick Plan */}
             {STEPS[step]?.id === 'plan' && (
               <div className="space-y-4 animate-in">
-                <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'اختر خطة الوجبات' : 'Select Plan Protocol'}</h3>
+                <h3 className="flex items-center justify-between gap-2 text-[#0a3030] font-black text-lg uppercase italic"><span>{isRtl ? 'اختر خطة الوجبات' : 'Select Plan Protocol'}</span><FieldLabel required isRtl={isRtl} /></h3>
                 <div className="grid grid-cols-1 gap-3">
                   {availablePackages.map((p) => (
                     <button
                       key={p.id}
                       data-field-id={p.id === availablePackages[0]?.id ? 'plan_choice' : undefined}
                       onClick={() => { setPkgId(p.id); if (p.id === 'daily_trial' || p.id === 'weekly_reset') setFridayDelivery(false); }}
+                      aria-invalid={invalidField === 'plan_choice'}
                       className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${
-                        pkgId === p.id ? 'border-[#0a3030] bg-[#0a3030]/5 shadow-md' : 'border-gray-100 bg-white'
+                        invalidField === 'plan_choice' ? 'border-red-500 ring-2 ring-red-200' : pkgId === p.id ? 'border-[#0a3030] bg-[#0a3030]/5 shadow-md' : 'border-gray-100 bg-white'
                       }`}
                     >
                       <div>
@@ -563,11 +575,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {STEPS[step]?.id === 'menu' && (
               <div className="space-y-4 animate-in">
                 <div><h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'اختر وجباتك' : 'Choose your meals'}</h3><p className="mt-1 text-sm text-gray-500">{isRtl ? 'اختر وجباتك من قائمة المطبخ المنشورة لهذا الأسبوع. يتم تحديد اختيار المطبخ مسبقاً عند توفره.' : 'Select meals from this week’s published kitchen menu. Kitchen’s choice is preselected where available.'}</p></div>
-                <section className="rounded-2xl border border-red-200 bg-white p-4"><h4 className="font-black uppercase text-[#0a3030]">{isRtl ? 'الحساسية وملاحظات المطبخ' : 'Allergies and kitchen notes'}</h4><p className="mt-1 text-xs text-gray-500">{isRtl ? 'تُشارك مع المطبخ لضمان سلامة الطعام والتحضير المناسب.' : 'Shared with the kitchen for food safety and preparation.'}</p><div className="mt-3 flex flex-wrap gap-2">{CHECKOUT_ALLERGENS.map((item) => <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${foodAllergies.includes(item) ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 text-gray-700'}`}><input type="checkbox" checked={foodAllergies.includes(item)} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item] : current.filter((value) => value !== item))}/>{isRtl ? (t(item.toLowerCase()) || item) : item}</label>)}</div><label className="mt-4 block text-xs font-bold text-gray-700">{isRtl ? 'مكونات يجب تجنبها أو ملاحظات عامة للمطبخ' : 'Ingredients to avoid or general kitchen notes'}<textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder={isRtl ? 'مثال: بدون بصل، توابل خفيفة' : 'For example: no onions, mild spice'} className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
+                <section className="rounded-2xl border border-red-200 bg-white p-4"><h4 className="flex items-center justify-between gap-2 font-black uppercase text-[#0a3030]">{isRtl ? 'الحساسية وملاحظات المطبخ' : 'Allergies and kitchen notes'}<FieldLabel required={false} isRtl={isRtl} /></h4><p className="mt-1 text-xs text-gray-500">{isRtl ? 'تُشارك مع المطبخ لضمان سلامة الطعام والتحضير المناسب.' : 'Shared with the kitchen for food safety and preparation.'}</p><div className="mt-3 flex flex-wrap gap-2">{CHECKOUT_ALLERGENS.map((item) => { const selected = foodAllergies.includes(item); return <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 text-gray-700'}`}><input type="checkbox" checked={selected} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item] : current.filter((value) => value !== item))}/>{isRtl ? (t(item.toLowerCase()) || item) : item}</label>; })}</div><label className="mt-4 block text-xs font-bold text-gray-700"><FieldLabel required={false} isRtl={isRtl}>{isRtl ? 'مكونات يجب تجنبها أو ملاحظات عامة للمطبخ' : 'Ingredients to avoid or general kitchen notes'}</FieldLabel><textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder={isRtl ? 'مثال: بدون بصل، توابل خفيفة' : 'For example: no onions, mild spice'} className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
                 {menuLoading ? <p className="py-6 text-sm text-gray-500">{isRtl ? 'جارٍ تحميل القائمة…' : 'Loading menu…'}</p> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{isRtl ? 'لم ينشر المطبخ قائمة الطعام بعد. يرجى العودة بعد نشر قائمة الأسبوع.' : 'The kitchen has not published a menu yet. Check back after the weekly menu is released.'}</p> : packageMenuDays.map((day) => {
                   const meals = packageMenuMeals.filter((meal) => (initialMenuOptions[`${day}|${meal}`] || []).length);
                   if (!meals.length) return null;
-                  return <section key={day} className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="mb-3 font-black uppercase text-[#0a3030]">{day}</h4>{meals.map((meal) => { const key = `${day}|${meal}`; const choices = initialMenuOptions[key]; return <label key={key} className="mb-3 block text-xs font-bold uppercase text-gray-500">{meal}<select data-field-id={`menu-${key}`} value={initialMenuSelections[key]?.dish_id || ''} onChange={(event) => { const selected = choices.find((choice) => choice.id === event.target.value); if (selected) setInitialMenuSelections((previous) => ({ ...previous, [key]: { dish_id: selected.id, dish_name: selected.name, dish_kcals: selected.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal === 'snacks_2' ? 'snack_2' : meal, menu_period: menuPeriod } })); focusNextCheckoutField(`menu-${key}`); }} className="input-field mt-1 py-3 normal-case">{choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.kcals} kcal</option>)}</select></label>; })}</section>;
+                  return <section key={day} className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="mb-3 font-black uppercase text-[#0a3030]">{day}</h4>{meals.map((meal) => { const key = `${day}|${meal}`; const choices = initialMenuOptions[key]; return <label key={key} className="mb-3 block text-xs font-bold uppercase text-gray-500"><FieldLabel required isRtl={isRtl}>{t(meal) || meal}</FieldLabel><select data-field-id={`menu-${key}`} aria-invalid={invalidField === `menu-${key}`} value={initialMenuSelections[key]?.dish_id || ''} onChange={(event) => { const selected = choices.find((choice) => choice.id === event.target.value); if (selected) setInitialMenuSelections((previous) => ({ ...previous, [key]: { dish_id: selected.id, dish_name: selected.name, dish_kcals: selected.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal === 'snacks_2' ? 'snack_2' : meal, menu_period: menuPeriod } })); clearInvalidField(`menu-${key}`); focusNextCheckoutField(`menu-${key}`); }} className={`input-field mt-1 py-3 normal-case ${invalidFieldClass(`menu-${key}`)}`}>{choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.kcals} kcal</option>)}</select></label>; })}</section>;
                 })}
               </div>
             )}
@@ -592,7 +604,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   {(['home', 'office', 'gym', 'other'] as const).map((place) => <button type="button" key={place} aria-pressed={deliveryPlace === place} onClick={() => setDeliveryPlace(place)} className={`rounded-xl border px-3 py-3 text-xs font-black uppercase tracking-wider ${deliveryPlace === place ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-200 bg-white text-gray-600'}`}>{place === 'office' ? 'Work' : place}</button>)}
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رابط الموقع من خرائط Google (اختياري)' : 'Google Maps Location Link (Optional)'}</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required={false} isRtl={isRtl}>{isRtl ? 'رابط الموقع من خرائط Google' : 'Google Maps Location Link'}</FieldLabel></label>
                   <input
                     type="text"
                     value={googleMapsInput}
@@ -620,60 +632,63 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رقم المبنى' : 'Building Number'}</label>
+                    <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'رقم المبنى' : 'Building Number'}</FieldLabel></label>
                     <input
                       data-field-id="address_building"
                       enterKeyHint="next"
                       onKeyDown={(event) => { if (event.key === 'Enter' && address.building_number.trim()) { event.preventDefault(); focusNextCheckoutField('address_building'); } }}
                       type="text"
                       value={address.building_number}
-                      onChange={(e) => setAddress({ ...address, building_number: e.target.value })}
+                      aria-invalid={invalidField === 'address_building'}
+                      onChange={(e) => { setAddress({ ...address, building_number: e.target.value }); clearInvalidField('address_building'); }}
                       placeholder="e.g. Building 14"
-                      className="input-field py-3 font-bold"
+                      className={`input-field py-3 font-bold ${invalidFieldClass('address_building')}`}
                       required
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'اسم الشارع' : 'Street Name'}</label>
+                    <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'اسم الشارع' : 'Street Name'}</FieldLabel></label>
                     <input
                       data-field-id="address_street"
                       enterKeyHint="next"
                       onKeyDown={(event) => { if (event.key === 'Enter' && address.street.trim()) { event.preventDefault(); focusNextCheckoutField('address_street'); } }}
                       type="text"
                       value={address.street}
-                      onChange={(e) => setAddress({ ...address, street: e.target.value })}
+                      aria-invalid={invalidField === 'address_street'}
+                      onChange={(e) => { setAddress({ ...address, street: e.target.value }); clearInvalidField('address_street'); }}
                       placeholder="e.g. Lusail Boulevard"
-                      className="input-field py-3 font-bold"
+                      className={`input-field py-3 font-bold ${invalidFieldClass('address_street')}`}
                       required
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'اسم المنطقة' : 'Area Name'}</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'اسم المنطقة' : 'Area Name'}</FieldLabel></label>
                   <input
                     data-field-id="address_area"
                     enterKeyHint="next"
                     onKeyDown={(event) => { if (event.key === 'Enter' && address.area.trim()) { event.preventDefault(); focusNextCheckoutField('address_area'); } }}
                     type="text"
                     value={address.area}
-                    onChange={(e) => setAddress({ ...address, area: e.target.value })}
+                    aria-invalid={invalidField === 'address_area'}
+                    onChange={(e) => { setAddress({ ...address, area: e.target.value }); clearInvalidField('address_area'); }}
                     placeholder="e.g. Lusail / West Bay / The Pearl"
-                    className="input-field py-3 font-bold"
+                    className={`input-field py-3 font-bold ${invalidFieldClass('address_area')}`}
                     required
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رقم المنطقة' : 'Zone Number'}</label>
-                    <input data-field-id="address_zone" enterKeyHint="next" onKeyDown={(event) => { if (event.key === 'Enter' && address.zone.trim()) { event.preventDefault(); focusNextCheckoutField('address_zone'); } }} type="text" value={address.zone} onChange={(e) => setAddress({ ...address, zone: e.target.value })} placeholder="e.g. 66" className="input-field py-3 font-bold" required />
+                    <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'رقم المنطقة' : 'Zone Number'}</FieldLabel></label>
+                    <input data-field-id="address_zone" aria-invalid={invalidField === 'address_zone'} enterKeyHint="next" onKeyDown={(event) => { if (event.key === 'Enter' && address.zone.trim()) { event.preventDefault(); focusNextCheckoutField('address_zone'); } }} type="text" value={address.zone} onChange={(e) => { setAddress({ ...address, zone: e.target.value }); clearInvalidField('address_zone'); }} placeholder="e.g. 66" className={`input-field py-3 font-bold ${invalidFieldClass('address_zone')}`} required />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'هاتف التوصيل' : 'Delivery Phone'}</label>
-                    <input data-field-id="address_phone" type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+974 3312 3456" className="input-field py-3 font-bold" required />
+                    <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'هاتف التوصيل' : 'Delivery Phone'}</FieldLabel></label>
+                    <input data-field-id="address_phone" aria-invalid={invalidField === 'address_phone'} type="tel" autoComplete="tel" value={phone} onChange={(e) => { setPhone(e.target.value); clearInvalidField('address_phone'); }} placeholder="+974 3312 3456" className={`input-field py-3 font-bold ${invalidFieldClass('address_phone')}`} required />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'علامة مميزة أو تعليمات التوصيل (اختياري)' : 'Landmark or delivery instructions (optional)'}</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required={false} isRtl={isRtl}>{isRtl ? 'علامة مميزة أو تعليمات التوصيل' : 'Landmark or delivery instructions'}</FieldLabel></label>
                   <textarea value={address.delivery_notes} onChange={(e) => setAddress({ ...address, delivery_notes: e.target.value })} placeholder="For example: office reception, gym entrance, or villa gate" className="input-field min-h-24 py-3 font-medium" />
                 </div>
               </div>
@@ -684,46 +699,49 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
               <div className="space-y-4 animate-in">
                 <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'إنشاء الحساب' : 'Account Registration'}</h3>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الاسم الكامل' : 'Full Name'}</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'الاسم الكامل' : 'Full Name'}</FieldLabel></label>
                   <input
                     data-field-id="identity_name"
+                    aria-invalid={invalidField === 'identity_name'}
                     enterKeyHint="next"
                     onKeyDown={(event) => { if (event.key === 'Enter' && name.trim()) { event.preventDefault(); focusNextCheckoutField('identity_name'); } }}
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => { setName(e.target.value); clearInvalidField('identity_name'); }}
                     placeholder="Full Name"
-                    className="input-field py-3 font-bold"
+                    className={`input-field py-3 font-bold ${invalidFieldClass('identity_name')}`}
                     required
                   />
                 </div>
                 <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'البريد الإلكتروني لإيصالات الدفع' : 'Email for payment receipts'}</label>
+                    <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'البريد الإلكتروني لإيصالات الدفع' : 'Email for payment receipts'}</FieldLabel></label>
                     <input
                       data-field-id="identity_email"
+                      aria-invalid={invalidField === 'identity_email'}
                       enterKeyHint="next"
                       onKeyDown={(event) => { if (event.key === 'Enter' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { event.preventDefault(); focusNextCheckoutField('identity_email'); } }}
                       type="email"
                       value={email}
-                      onChange={(e) => { setEmail(e.target.value); setBillingEmail(e.target.value); }}
+                      onChange={(e) => { setEmail(e.target.value); setBillingEmail(e.target.value); clearInvalidField('identity_email'); }}
                       readOnly={signupOtpStep}
                     placeholder="email@example.com"
-                    className="input-field py-3 font-bold"
+                    className={`input-field py-3 font-bold ${invalidFieldClass('identity_email')}`}
                     required
                   />
                 </div>
-                {!signupOtpStep && <fieldset className="space-y-2"><legend className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'طريقة استلام رمز التحقق' : 'Verification code delivery'}</legend><div className="grid grid-cols-2 gap-3">{(['email','whatsapp'] as const).map((method) => <label key={method} className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-3 text-xs font-bold"><input type="radio" name="checkout-otp-channel" checked={signupChannel === method} onChange={() => setSignupChannel(method)} />{method === 'email' ? (isRtl ? 'البريد الإلكتروني' : 'Email') : 'WhatsApp'}</label>)}</div></fieldset>}
-                {signupChannel === 'whatsapp' && !signupOtpStep && <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رقم واتساب' : 'WhatsApp number'}</label><div className="mt-1 grid grid-cols-2 gap-2"><select aria-label={isRtl ? 'رمز الدولة' : 'Country calling code'} value={signupCountry} onChange={(e) => setSignupCountry(e.target.value as CountryCode)} className="input-field min-w-0 py-3 text-xs">{signupCountries.map((option) => <option key={option.country} value={option.country}>{option.name} ({option.dialCode})</option>)}</select><input data-field-id="identity_phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={isRtl ? 'رقم الهاتف' : 'Mobile number'} className="input-field min-w-0 py-3 font-bold" required /></div></div>}
-                {signupOtpStep && <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رمز التحقق' : 'Verification code'} · {signupChannel === 'email' ? email : toE164Phone(phone, signupCountry)}</label><input data-field-id="identity_otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={signupOtpCode} onChange={(e) => setSignupOtpCode(e.target.value.replace(/\s/g, ''))} placeholder="123456" className="input-field mt-1 py-3 text-center font-bold tracking-[0.3em]" required /></div>}
+                {!signupOtpStep && <fieldset className="space-y-2"><legend className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required={false} isRtl={isRtl}>{isRtl ? 'طريقة استلام رمز التحقق' : 'Verification code delivery'}</FieldLabel></legend><div className="grid grid-cols-2 gap-3">{(['email','whatsapp'] as const).map((method) => <label key={method} className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-3 text-xs font-bold"><input type="radio" name="checkout-otp-channel" checked={signupChannel === method} onChange={() => setSignupChannel(method)} />{method === 'email' ? (isRtl ? 'البريد الإلكتروني' : 'Email') : 'WhatsApp'}</label>)}</div></fieldset>}
+                {signupChannel === 'whatsapp' && !signupOtpStep && <div><label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'رقم واتساب' : 'WhatsApp number'}</FieldLabel></label><div className="mt-1 grid grid-cols-2 gap-2"><select aria-label={isRtl ? 'رمز الدولة' : 'Country calling code'} value={signupCountry} onChange={(e) => setSignupCountry(e.target.value as CountryCode)} className="input-field min-w-0 py-3 text-xs">{signupCountries.map((option) => <option key={option.country} value={option.country}>{option.name} ({option.dialCode})</option>)}</select><input data-field-id="identity_phone" aria-invalid={invalidField === 'identity_phone'} type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); clearInvalidField('identity_phone'); }} placeholder={isRtl ? 'رقم الهاتف' : 'Mobile number'} className={`input-field min-w-0 py-3 font-bold ${invalidFieldClass('identity_phone')}`} required /></div></div>}
+                {signupOtpStep && <div><label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'رمز التحقق' : 'Verification code'}</FieldLabel> · {signupChannel === 'email' ? email : toE164Phone(phone, signupCountry)}</label><input data-field-id="identity_otp" aria-invalid={invalidField === 'identity_otp'} type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={signupOtpCode} onChange={(e) => { setSignupOtpCode(e.target.value.replace(/\s/g, '')); clearInvalidField('identity_otp'); }} placeholder="123456" className={`input-field mt-1 py-3 text-center font-bold tracking-[0.3em] ${invalidFieldClass('identity_otp')}`} required /></div>}
                 {!signupOtpStep && <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'كلمة المرور' : 'Password'}</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'كلمة المرور' : 'Password'}</FieldLabel></label>
                   <input
                     data-field-id="identity_password"
+                    aria-invalid={invalidField === 'identity_password'}
                     type="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => { setPassword(e.target.value); clearInvalidField('identity_password'); }}
                     placeholder="••••••••"
-                    className="input-field py-3 font-bold"
+                    className={`input-field py-3 font-bold ${invalidFieldClass('identity_password')}`}
                      required={!signupOtpStep}
                      hidden={signupOtpStep}
                   />
@@ -735,15 +753,15 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {STEPS[step]?.id === 'payment' && (
               <div className="space-y-4 animate-in">
                 <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'اختر طريقة الدفع' : 'Choose payment method'}</h3>
-                <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'البريد الإلكتروني لإيصالات الدفع' : 'Email for payment receipts'}</label><input data-field-id="payment_email" type="email" value={billingEmail || email} onChange={(e) => setBillingEmail(e.target.value)} placeholder="email@example.com" className="input-field mt-1 py-3 font-bold" required /></div>
+                <div><label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'البريد الإلكتروني لإيصالات الدفع' : 'Email for payment receipts'}</FieldLabel></label><input data-field-id="payment_email" aria-invalid={invalidField === 'payment_email'} type="email" value={billingEmail || email} onChange={(e) => { setBillingEmail(e.target.value); clearInvalidField('payment_email'); }} placeholder="email@example.com" className={`input-field mt-1 py-3 font-bold ${invalidFieldClass('payment_email')}`} required /></div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button type="button" onClick={() => setPaymentMethod('tap')} className={`rounded-2xl border p-5 text-left flex items-start gap-3 ${paymentMethod === 'tap' ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-100 bg-white text-gray-600'}`}><CreditCard className="w-5 h-5 text-[#C5A059] shrink-0"/><span><strong className="block">{isRtl ? 'الدفع الإلكتروني عبر Tap' : 'Pay online with Tap'}</strong><small className="mt-1 block opacity-80">{isRtl ? 'ادفع بالبطاقة أو المحفظة. تُفعّل الخطة بعد تأكيد الدفع.' : 'Card and wallet checkout; plan activates after confirmation.'}</small></span></button>
                   <button type="button" onClick={() => setPaymentMethod('cash')} className={`rounded-2xl border p-5 text-left flex items-start gap-3 ${paymentMethod === 'cash' ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-100 bg-white text-gray-600'}`}><Banknote className="w-5 h-5 text-[#C5A059] shrink-0"/><span><strong className="block">{isRtl ? 'الدفع النقدي' : 'Cash collection'}</strong><small className="mt-1 block opacity-80">{isRtl ? 'سنتواصل لترتيب التحصيل قبل تفعيل خطتك.' : 'We’ll arrange collection before activating your plan.'}</small></span></button>
                 </div>
                 {paymentMethod === 'cash' && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{isRtl ? 'ستبقى خطتك معلّقة حتى يؤكد المسؤول أو الرئيس التنفيذي استلام المبلغ النقدي.' : 'Your plan stays pending until cash collection is verified by Admin or CEO.'}</p>}
                 <label className="flex items-start gap-3 rounded-2xl bg-white p-4 text-sm text-gray-600">
-                  <input data-field-id="payment_terms" type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="mt-1 h-5 w-5 accent-[#0a3030]" />
-                  <span>I agree to the meal plan terms and authorize {paymentMethod === 'cash' ? 'cash collection before activation' : 'the selected Tap payment'}.</span>
+                  <input data-field-id="payment_terms" aria-invalid={invalidField === 'payment_terms'} type="checkbox" checked={termsAccepted} onChange={(e) => { setTermsAccepted(e.target.checked); clearInvalidField('payment_terms'); }} className={`mt-1 h-5 w-5 accent-[#0a3030] ${invalidField === 'payment_terms' ? 'outline outline-2 outline-red-500' : ''}`} />
+                  <span><FieldLabel required isRtl={isRtl}>{isRtl ? `أوافق على شروط خطة الوجبات وأفوّض ${paymentMethod === 'cash' ? 'تحصيل النقد قبل التفعيل' : 'دفعة Tap المحددة'}.` : `I agree to the meal plan terms and authorize ${paymentMethod === 'cash' ? 'cash collection before activation' : 'the selected Tap payment'}.`}</FieldLabel></span>
                 </label>
               </div>
             )}

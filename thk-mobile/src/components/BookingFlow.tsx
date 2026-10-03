@@ -358,15 +358,15 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
               <div className="space-y-8 animate-in">
                 <h3 className="text-[#0a3030] font-black text-2xl uppercase italic leading-none">{t('biological_profile')}</h3>
                 <div className="grid grid-cols-2 items-start gap-3 sm:gap-6">
-                  <FormEntry label={t('current_weight')} sub="kg" headerClassName="min-h-10 items-start">
+                  <FormEntry label={t('current_weight')} sub="kg" required headerClassName="min-h-10 items-start">
                     <input data-field-id="weight_kg" aria-invalid={invalidField === 'weight_kg'} onKeyDown={(event) => { if (event.key === 'Enter' && data.weight_kg && Number(data.weight_kg) >= 40 && Number(data.weight_kg) <= 150) { event.preventDefault(); focusNextField('weight_kg'); } }} type="number" inputMode="decimal" step="0.1" min={40} max={150} value={data.weight_kg} onChange={(e) => update({ weight_kg: e.target.value })} placeholder="72" aria-label={`${t('current_weight')} (kg)`} className={`input-field py-5 font-black text-lg ${invalidField === 'weight_kg' ? 'border-red-500 ring-2 ring-red-200' : ''}`} />
                   </FormEntry>
-                  <FormEntry label={t('standing_height')} sub="cm" headerClassName="min-h-10 items-start">
+                  <FormEntry label={t('standing_height')} sub="cm" required headerClassName="min-h-10 items-start">
                     <input data-field-id="height_cm" aria-invalid={invalidField === 'height_cm'} onKeyDown={(event) => { if (event.key === 'Enter' && data.height_cm && Number(data.height_cm) >= 140 && Number(data.height_cm) <= 220) { event.preventDefault(); focusNextField('height_cm'); } }} type="number" inputMode="decimal" step="1" min={140} max={220} value={data.height_cm} onChange={(e) => update({ height_cm: e.target.value })} placeholder="175" aria-label={`${t('standing_height')} (cm)`} className={`input-field py-5 font-black text-lg ${invalidField === 'height_cm' ? 'border-red-500 ring-2 ring-red-200' : ''}`} />
                   </FormEntry>
                 </div>
                 <div>
-                  <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40 ml-1 mb-4 block">{t('target_ambition')}</label>
+                  <label className="mb-4 ml-1 flex items-center justify-between gap-2 text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-60"><span>{t('target_ambition')}</span><RequirementTag required isRtl={isRtl} /></label>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {FITNESS_GOALS.map((g) => (
                       <button key={g} type="button" data-field-id={g === FITNESS_GOALS[0] ? 'fitness_goal' : undefined} aria-pressed={data.fitness_goal === g} onClick={() => { update({ fitness_goal: g }); const weight = Number(data.weight_kg); const height = Number(data.height_cm); if (data.weight_kg && data.height_cm && weight >= 40 && weight <= 150 && height >= 140 && height <= 220) { setError(null); setStep(2); } else { focusField(!data.weight_kg || weight < 40 || weight > 150 ? 'weight_kg' : 'height_cm'); } }} className={`py-4 rounded-2xl text-[10px] font-black uppercase border-2 transition-all ${invalidField === 'fitness_goal' ? 'border-red-400' : data.fitness_goal === g ? 'border-[#0a3030] bg-[#0a3030] text-white shadow-lg' : 'border-gray-50 bg-white text-gray-300 hover:border-gray-200'}`}>{t(g) || g}</button>
@@ -384,7 +384,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                   <FormEntry label={t('exercise_routine')} sub={t('optional')}>
                     <textarea value={data.exercise_routine} onChange={(e) => update({ exercise_routine: e.target.value })} placeholder={t('exercise_placeholder') || "Current training frequency..."} className="input-field py-4 min-h-[100px] resize-none" />
                   </FormEntry>
-                  <FormEntry label={t('health_notes')} sub={t('clinical_context')}>
+                  <FormEntry label={t('health_notes')} sub={t('optional')}>
                     <input type="text" value={data.health_notes} onChange={(e) => update({ health_notes: e.target.value })} placeholder={t('history_placeholder') || "Any relevant medical history..."} className="input-field py-5" />
                   </FormEntry>
                 </div>
@@ -393,7 +393,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
 
             {step === 2 && (
               <div className="space-y-8 animate-in">
-                <h3 className="text-[#0a3030] font-black text-2xl uppercase italic leading-none">{t('consultation_slot')}</h3>
+                <h3 className="flex items-center justify-between gap-3 text-[#0a3030] font-black text-2xl uppercase italic leading-none"><span>{t('consultation_slot')}</span><RequirementTag required isRtl={isRtl} /></h3>
                 <div className="grid grid-cols-4 gap-3">
                   {allowedDates.slice(0, 8).map((d: string) => {
                     const date = new Date(d + 'T00:00:00');
@@ -464,20 +464,20 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                   </button>
                   {locationError && <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest ml-4">{locationError}</p>}
                 </div>
-                <FormEntry label={t('full_name')} sub={t('passport_id')}>
+                <FormEntry label={t('full_name')} sub={t('passport_id')} required>
                   <input data-field-id="client_name" aria-invalid={invalidField === 'client_name'} onKeyDown={(event) => { if (event.key === 'Enter' && data.client_name.trim()) { event.preventDefault(); focusNextField('client_name'); } }} type="text" autoCapitalize="words" autoComplete="name" value={data.client_name} onChange={(e) => update({ client_name: e.target.value })} placeholder={t('enter_full_name') || "Enter Full Name"} className={`input-field py-5 font-black ${invalidField === 'client_name' ? 'border-red-500 ring-2 ring-red-200' : ''}`} />
                 </FormEntry>
-                <FormEntry label={t('email_address')} sub={t('official')}>
+                <FormEntry label={t('email_address')} sub={t('official')} required>
                   <input data-field-id="client_email" aria-invalid={invalidField === 'client_email'} onKeyDown={(event) => { if (event.key === 'Enter' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client_email)) { event.preventDefault(); focusNextField('client_email'); } }} type="email" autoComplete="email" value={data.client_email} onChange={(e) => update({ client_email: e.target.value })} placeholder={t('enter_email') || "Enter Email"} className={`input-field py-5 font-black ${invalidField === 'client_email' ? 'border-red-500 ring-2 ring-red-200' : ''}`} />
                 </FormEntry>
-                <FormEntry label={t('mobile_number')} sub={t('whatsapp_linked')}>
+                <FormEntry label={t('mobile_number')} sub={t('whatsapp_linked')} required>
                   <input data-field-id="client_phone" aria-invalid={invalidField === 'client_phone'} onKeyDown={(event) => { if (event.key === 'Enter' && data.client_phone.trim()) { event.preventDefault(); focusNextField('client_phone'); } }} type="tel" autoComplete="tel" value={data.client_phone} onChange={(e) => update({ client_phone: e.target.value })} placeholder="+974" className={`input-field py-5 font-black ${invalidField === 'client_phone' ? 'border-red-500 ring-2 ring-red-200' : ''}`} />
                 </FormEntry>
                 <label className="flex items-start gap-4 mt-10 cursor-pointer group">
                   <button type="button" data-field-id="terms_accepted" aria-pressed={data.terms_accepted} onClick={() => { const accepted = !data.terms_accepted; update({ terms_accepted: accepted }); if (accepted && data.client_name.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client_email) && data.client_phone.trim()) { setError(null); setStep(4); } }} className={`mt-0.5 min-h-11 min-w-11 rounded-xl border-2 flex items-center justify-center transition-all ${invalidField === 'terms_accepted' ? 'border-red-500 ring-2 ring-red-200' : data.terms_accepted ? 'border-[#0a3030] bg-[#0a3030] shadow-lg' : 'border-gray-200'}`}>
                     {data.terms_accepted && <Check className="w-4 h-4 text-white" />}
                   </button>
-                  <span className="text-gray-500 text-xs font-medium leading-relaxed italic">{t('agree_terms')}</span>
+                  <span className="text-gray-500 text-xs font-medium leading-relaxed italic">{t('agree_terms')} <RequirementTag required isRtl={isRtl} /></span>
                 </label>
               </div>
             )}
@@ -514,16 +514,21 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
   );
 }
 
-function FormEntry({ label, sub, children, headerClassName = '' }: any) {
+function FormEntry({ label, sub, children, required = false, headerClassName = '' }: any) {
+  const { t, isRtl } = useLanguage();
   return (
     <div className="w-full">
       <div className={`flex justify-between items-end mb-3 px-2 ${headerClassName}`}>
-        <span className="text-[#0a3030] font-black text-[10px] uppercase tracking-[0.3em] opacity-40">{label}</span>
+        <span className="flex items-center gap-1.5 text-[#0a3030] font-black text-[10px] uppercase tracking-[0.3em] opacity-50">{label}{required && <RequirementTag required isRtl={isRtl} />}</span>
         <span className="text-gray-300 text-[9px] font-black uppercase tracking-widest">{sub}</span>
       </div>
       {children}
     </div>
   );
+}
+
+function RequirementTag({ required, isRtl }: { required: boolean; isRtl: boolean }) {
+  return <span className="inline-flex whitespace-nowrap rounded-full bg-[#C5A059]/10 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-normal text-[#8a682d]">{required ? (isRtl ? 'مطلوب' : 'Required') : (isRtl ? 'اختياري' : 'Optional')}</span>;
 }
 
 function ReviewRow({ label, value }: any) {
