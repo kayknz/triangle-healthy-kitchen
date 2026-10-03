@@ -10,13 +10,34 @@ import {
 } from '@/types/subscription';
 import { type Booking, type RiderApplication, type RiderDelivery } from '@/types/shared';
 import { useLanguage } from '@/lib/LanguageContext';
-import { getQatarDate, addDays } from '@/lib/date-utils';
+import { getQatarDate, getQatarDayOfWeek, addDays } from '@/lib/date-utils';
 
 interface ProviderDashboardProps {
   onExit: () => void;
 }
 
 type Tab = 'performance' | 'reviews' | 'members' | 'kitchen' | 'logistics' | 'audit';
+
+interface KitchenProductionRow {
+  week_start_date: string;
+  day_of_week: string;
+  meal_type: string;
+  dish_name: string;
+  dish_kcals: number | null;
+  customizations: Record<string, unknown>;
+  nutrition_category: string;
+  servings: number;
+  allergy_flags: string[] | null;
+  food_notes: string[] | null;
+}
+
+interface KitchenIngredientRow {
+  ingredient_name: string;
+  ingredient_name_ar: string | null;
+  unit: string;
+  quantity_to_order: number;
+  meal_servings: number;
+}
 
 export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
   const { signOut, userRole } = useAuth();
@@ -35,6 +56,8 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [registrations, setRegistrations] = useState<THKRegistration[]>([]);
   const [kitchenJobs, setKitchenJobs] = useState<KitchenJob[]>([]);
+  const [kitchenProduction, setKitchenProduction] = useState<KitchenProductionRow[]>([]);
+  const [kitchenIngredients, setKitchenIngredients] = useState<KitchenIngredientRow[]>([]);
   const [deliveryJobs, setDeliveryJobs] = useState<DeliveryJob[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [riders, setRiders] = useState<RiderApplication[]>([]);
@@ -58,6 +81,9 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
   const targetPrepDateStr = prepDate === 'tomorrow'
     ? getQatarDate(addDays(new Date(), 1))
     : getQatarDate(new Date());
+  const targetPrepDate = new Date(`${targetPrepDateStr}T12:00:00+03:00`);
+  const targetWeekStartStr = getQatarDate(addDays(targetPrepDate, -((getQatarDayOfWeek(targetPrepDate) + 1) % 7)));
+  const targetDayName = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Qatar', weekday: 'long' }).format(targetPrepDate);
 
   const fmtDate = (iso: string): string => {
     try {
@@ -70,16 +96,21 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      const [{ data: books }, { data: subs }, { data: setts }, { data: regs }, { data: rdrs }, { data: kj }, { data: dj }, { data: logs }] = await Promise.all([
+      const [{ data: books }, { data: subs }, { data: setts }, { data: regs }, { data: rdrs }, { data: kj }, { data: dj }, { data: logs }, { data: production, error: productionError }, { data: ingredients, error: ingredientError }] = await Promise.all([
         supabase.from('provider_bookings_view').select('*').order('appointment_date', { ascending: true }),
-        supabase.from('subscribers').select('*').order('created_at', { ascending: false }),
+        isKitchenStaff ? Promise.resolve({ data: null }) : supabase.from('subscribers').select('*').order('created_at', { ascending: false }),
         supabase.from('global_settings').select('*').single(),
         supabase.from('registrations').select('*').order('created_at', { ascending: false }),
         supabase.from('rider_applications').select('*').order('approved', { ascending: true }),
         supabase.from('kitchen_jobs').select('*').eq('service_date', targetPrepDateStr),
         supabase.from('delivery_jobs').select('*').eq('service_date', targetPrepDateStr),
         supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('kitchen_production_view').select('*').eq('week_start_date', targetWeekStartStr),
+        supabase.from('kitchen_ingredient_order_view').select('*').eq('week_start_date', targetWeekStartStr),
       ]);
+
+      if (productionError) throw productionError;
+      if (ingredientError) throw ingredientError;
 
       setBookings(books || []);
       setSubscribers((subs as Subscriber[]) || []);
@@ -87,6 +118,8 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
       setRegistrations((regs as THKRegistration[]) || []);
       setRiders((rdrs as RiderApplication[]) || []);
       setKitchenJobs((kj as KitchenJob[]) || []);
+      setKitchenProduction((production as KitchenProductionRow[]) || []);
+      setKitchenIngredients((ingredients as KitchenIngredientRow[]) || []);
       setDeliveryJobs((dj as DeliveryJob[]) || []);
       setAuditLogs((logs as AuditLog[]) || []);
       setError(null);
@@ -95,11 +128,40 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
     } finally {
       setLoading(false);
     }
-  }, [targetPrepDateStr]);
+  }, [isKitchenStaff, targetPrepDateStr, targetWeekStartStr]);
 
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  const kitchenDayRows = kitchenProduction.filter((row) =>
+    row.day_of_week.toLowerCase() === targetDayName.toLowerCase()
+  );
+  const kitchenDishGroups = Array.from(kitchenDayRows.reduce((groups, row) => {
+    const key = `${row.meal_type}|${row.dish_name}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = { meal: row.meal_type, dish: row.dish_name, servings: 0, portions: {} as Record<string, number>, variants: new Map<string, { servings: number; category: string; notes: string[]; allergies: string[] }>() };
+      groups.set(key, group);
+    }
+    group.servings += Number(row.servings || 0);
+    const category = row.nutrition_category || 'Needs category';
+    group.portions[category] = (group.portions[category] || 0) + Number(row.servings || 0);
+    const customizations = row.customizations || {};
+    const removed = Array.isArray(customizations.removed_ingredients) ? customizations.removed_ingredients.map(String) : [];
+    const substitutions = customizations.substitutions && typeof customizations.substitutions === 'object'
+      ? Object.entries(customizations.substitutions as Record<string, unknown>).map(([from, to]) => `Swap ${from.replace(/_/g, ' ')} for ${String(to).replace(/_/g, ' ')}`)
+      : [];
+    const notes = [...(row.food_notes || []).filter(Boolean), ...removed.map((item) => `No ${item.replace(/_/g, ' ')}`), ...substitutions];
+    const allergies = (row.allergy_flags || []).filter(Boolean);
+    const variantKey = `${category}|${notes.join('|')}|${allergies.join('|')}`;
+    const variant = group.variants.get(variantKey) || { servings: 0, category, notes, allergies };
+    variant.servings += Number(row.servings || 0);
+    group.variants.set(variantKey, variant);
+    return groups;
+  }, new Map<string, { meal: string; dish: string; servings: number; portions: Record<string, number>; variants: Map<string, { servings: number; category: string; notes: string[]; allergies: string[] }> }>()).values())
+    .map((group) => ({ ...group, variants: Array.from(group.variants.values()) }))
+    .sort((a, b) => a.meal.localeCompare(b.meal) || a.dish.localeCompare(b.dish));
 
   // Quick Action: Approve Pending Registration with Category & Package Assignment
   const approveRegistration = async (reg: THKRegistration) => {
@@ -207,25 +269,27 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
   };
 
   const exportKitchenPrepCSV = () => {
-    const activeSubs = subscribers.filter(s => s.status === 'active' || s.status === 'trialing');
-    const headers = ['Name', 'Email', 'Phone', 'Category', 'Package', 'Area', 'Building', 'Street', 'Breakfast Window', 'Lunch Window', 'Dinner Window', 'Allergies', 'Dislikes'];
-    const rows = activeSubs.map(s => [
-      `"${s.full_name || ''}"`,
-      `"${s.email || ''}"`,
-      `"${s.phone || ''}"`,
-      `"${s.category || 'A'}"`,
-      `"${s.package_name || ''}"`,
-      `"${s.area || ''}"`,
-      `"${s.building_number || ''}"`,
-      `"${s.street || ''}"`,
-      `"${s.breakfast_window || '7-9 AM'}"`,
-      `"${s.lunch_window || '12-2 PM'}"`,
-      `"${s.dinner_window || '6-8 PM'}"`,
-      `"${(s.allergies || []).join(', ')}"`,
-      `"${(s.dislikes || []).join(', ')}"`
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const productionHeaders = ['Service date', 'Meal', 'Dish', 'Total servings', 'Portion breakdown', 'Preparation notes', 'Allergy alerts'];
+    const productionRows = kitchenDishGroups.map((group) => [
+      targetPrepDateStr,
+      group.meal,
+      group.dish,
+      group.servings,
+      Object.entries(group.portions).map(([portion, count]) => `${portion}: ${count}`).join('; '),
+      group.variants.flatMap((variant) => variant.notes.map((note) => `${variant.servings} servings: ${note}`)).join('; '),
+      group.variants.flatMap((variant) => variant.allergies.map((allergy) => `${variant.servings} servings: ${allergy}`)).join('; '),
+    ].map(escape).join(','));
+    const ingredientRows = [...kitchenIngredients]
+      .sort((a, b) => a.ingredient_name.localeCompare(b.ingredient_name))
+      .map((item) => [item.ingredient_name, item.quantity_to_order, item.unit, item.meal_servings].map(escape).join(','));
+    const csvContent = [
+      productionHeaders.map(escape).join(','),
+      ...productionRows,
+      '',
+      ['Weekly ingredient', 'Estimated quantity', 'Unit', 'Meal servings'].map(escape).join(','),
+      ...ingredientRows,
+    ].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -277,13 +341,15 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
               </button>
             )}
 
-            <button
-              onClick={exportKitchenPrepCSV}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-50 border border-gray-200 text-[#0a3030] font-black text-[10px] uppercase tracking-wider hover:bg-[#0a3030] hover:text-white transition-all shadow-sm"
-            >
-              <Download className="w-4 h-4 text-[#C5A059]" />
-              <span className="hidden sm:inline">Export CSV</span>
-            </button>
+            {(isCeoOrAdmin || isKitchenStaff) && (
+              <button
+                onClick={exportKitchenPrepCSV}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-50 border border-gray-200 text-[#0a3030] font-black text-[10px] uppercase tracking-wider hover:bg-[#0a3030] hover:text-white transition-all shadow-sm"
+              >
+                <Download className="w-4 h-4 text-[#C5A059]" />
+                <span className="hidden sm:inline">Export Prep Sheet</span>
+              </button>
+            )}
 
             <button onClick={handleSignOut} className="p-2 text-primary/30 hover:text-red-500 transition-all" title="Sign Out">
               <LogOut className="w-6 h-6" />
@@ -309,7 +375,7 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
             ...(isCeoOrAdmin ? [{ id: 'performance', label: 'Performance', icon: <TrendingUp className="w-4 h-4" /> }] : []),
             ...(isCeoOrAdmin ? [{ id: 'reviews', label: `Reviews (${pendingRegs.length})`, icon: <FileText className="w-4 h-4" /> }] : []),
             ...(isCeoOrAdmin || isKitchenStaff ? [{ id: 'kitchen', label: 'Kitchen Prep', icon: <ChefHat className="w-4 h-4" /> }] : []),
-            { id: 'members', label: 'Subscribers', icon: <Users className="w-4 h-4" /> },
+            ...(isCeoOrAdmin || isTransportStaff ? [{ id: 'members', label: 'Subscribers', icon: <Users className="w-4 h-4" /> }] : []),
             ...(isCeoOrAdmin || isTransportStaff ? [{ id: 'logistics', label: 'Deliveries & Drivers', icon: <Truck className="w-4 h-4" /> }] : []),
             ...(isCeoOrAdmin ? [{ id: 'audit', label: 'Audit Logs', icon: <Shield className="w-4 h-4" /> }] : []),
           ] as const).map((item) => (
@@ -469,36 +535,66 @@ export default function ProviderDashboard({ onExit }: ProviderDashboardProps) {
               </div>
             </div>
 
-            {/* Kitchen Packing Table */}
-            <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm overflow-x-auto">
-              <h4 className="text-[#0a3030] text-base font-black uppercase italic mb-6">Packing & Portions Sheet ({activeSubs.length} Active Clients)</h4>
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-gray-100 text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                    <th className="py-4 px-4">Customer Name</th>
-                    <th className="py-4 px-4">Category</th>
-                    <th className="py-4 px-4">Package</th>
-                    <th className="py-4 px-4">Area & Building</th>
-                    <th className="py-4 px-4">Allergies</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 text-xs font-bold text-[#0a3030]">
-                  {activeSubs.map(s => (
-                    <tr key={s.id} className="hover:bg-gray-50/50">
-                      <td className="py-4 px-4 font-black">{s.full_name}</td>
-                      <td className="py-4 px-4">
-                        <span className="px-3 py-1 rounded-full text-[9px] font-black bg-[#C5A059]/10 text-[#0a3030]">Category {s.category || 'A'}</span>
-                      </td>
-                      <td className="py-4 px-4">{s.package_name}</td>
-                      <td className="py-4 px-4">{s.area || 'Doha'} (Bldg {s.building_number || '-'})</td>
-                      <td className="py-4 px-4 text-red-600 font-black">
-                        {(s.allergies && s.allergies.length > 0) ? s.allergies.join(', ') : 'None'}
-                      </td>
-                    </tr>
+            <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm sm:p-8">
+              <div className="mb-5">
+                <h4 className="text-[#0a3030] text-base font-black uppercase italic">Today’s production</h4>
+                <p className="mt-1 text-xs text-gray-500">Dish totals, portion bands, and preparation alerts for {targetDayName}.</p>
+              </div>
+              {kitchenDishGroups.length === 0 ? (
+                <p className="rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-900">No client meal selections are recorded for {targetDayName} yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {kitchenDishGroups.map((group) => (
+                    <article key={`${group.meal}|${group.dish}`} className="rounded-2xl border border-gray-100 p-4 sm:p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#C5A059]">{group.meal.replace(/_/g, ' ')}</p>
+                          <h5 className="mt-1 text-base font-black text-[#0a3030]">{group.dish}</h5>
+                        </div>
+                        <p className="rounded-xl bg-[#0a3030] px-3 py-2 text-sm font-black text-white">{group.servings} servings</p>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {Object.entries(group.portions).map(([portion, count]) => (
+                          <span key={portion} className={`rounded-full px-3 py-1 text-[10px] font-bold ${portion === 'Needs category' ? 'bg-amber-100 text-amber-900' : 'bg-[#C5A059]/10 text-[#0a3030]'}`}>
+                            {portion === 'Needs category' ? portion : `Portion ${portion}`}: {count}
+                          </span>
+                        ))}
+                      </div>
+                      {group.variants.some((variant) => variant.notes.length || variant.allergies.length) && (
+                        <ul className="mt-4 space-y-2 border-t border-gray-100 pt-3 text-xs">
+                          {group.variants.flatMap((variant, index) => [
+                            ...variant.notes.map((note) => <li key={`note-${index}-${note}`} className="font-semibold text-amber-900">{variant.servings} servings · {note}</li>),
+                            ...variant.allergies.map((allergy) => <li key={`allergy-${index}-${allergy}`} className="font-black text-red-700">{variant.servings} servings · Allergy alert: {allergy}</li>),
+                          ])}
+                        </ul>
+                      )}
+                    </article>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm sm:p-8">
+              <div className="mb-5">
+                <h4 className="text-[#0a3030] text-base font-black uppercase italic">Weekly ingredient order</h4>
+                <p className="mt-1 text-xs text-gray-500">Estimated bulk quantities for the service week starting {targetWeekStartStr}.</p>
+              </div>
+              {kitchenIngredients.length === 0 ? (
+                <p className="rounded-2xl bg-gray-50 p-4 text-sm font-semibold text-gray-600">No ingredient quantities are configured for this week’s selected meals yet.</p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {[...kitchenIngredients].sort((a, b) => a.ingredient_name.localeCompare(b.ingredient_name)).map((item) => (
+                    <div key={`${item.ingredient_name}|${item.unit}`} className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 p-4">
+                      <div>
+                        <p className="font-bold text-[#0a3030]">{isRtl ? item.ingredient_name_ar || item.ingredient_name : item.ingredient_name}</p>
+                        <p className="mt-1 text-[10px] text-gray-500">Across {item.meal_servings} meal servings</p>
+                      </div>
+                      <p className="shrink-0 text-right font-black text-[#0a3030]">{Number(item.quantity_to_order).toLocaleString(language === 'ar' ? 'ar-QA' : 'en-US')}<span className="ml-1 text-xs font-semibold text-gray-500">{item.unit}</span></p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
         )}
 
