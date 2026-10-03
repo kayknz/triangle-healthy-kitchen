@@ -20,7 +20,7 @@ Do not use this document as a price list when the active database record or cust
 1. The customer chooses a package, menu, address, and Tap as payment method.
 2. A server-side Supabase Edge Function creates the Tap charge using server secrets.
 3. Tap returns the customer to `/payment/callback?tap_id=...`; a webhook/callback updates the transaction and plan state.
-4. The client app waits for captured status. A captured payment activates the plan; a pending result stays pending.
+4. The customer app waits for captured status. A captured payment activates the plan; a pending result stays pending.
 
 ### If the return page loops or says pending
 
@@ -40,7 +40,7 @@ Tap checkout and manual reconciliation code exist. This handover review does not
 3. Staff contacts the customer and collects the full amount before the plan begins.
 4. Only after receiving the cash, a CEO/Admin opens **Payments** and clicks **Confirm cash received** for that transaction.
 5. The database function checks payment method, status, package amount/currency, and authorized staff role; it activates the plan and writes an audit event.
-6. Reconcile physical cash against the system report according to the client’s bookkeeping process.
+6. Reconcile physical cash against the system report according to Triangle Healthy Kitchen’s bookkeeping process.
 
 Never verify cash because a customer says it was handed over; verify only after the responsible employee confirms actual collection. Do not let Kitchen or Transport approve a cash transaction.
 
@@ -53,4 +53,4 @@ Demo customers are synthetic and unpaid. Admin/CEO can activate them for kitchen
 - Tap is the only online checkout integration evidenced by the reviewed current product source. No Sadad implementation was found.
 - Tap account keys and merchant settings are stored server-side through Supabase-managed secrets/vault access; never enter them into client code or this documentation.
 - Brevo-backed functions send operational email/reminders; the sender identity, API secret, domain verification, suppression handling, and production cron invocation must be checked.
-- Payment settlement, refunds, chargebacks, tax/accounting, and cash reconciliation procedures remain the client’s financial responsibility unless a signed services agreement says otherwise.
+- Payment settlement, refunds, chargebacks, tax/accounting, and cash reconciliation procedures remain Triangle Healthy Kitchen’s financial responsibility unless a signed services agreement says otherwise.

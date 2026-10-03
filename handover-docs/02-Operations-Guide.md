@@ -23,10 +23,10 @@ The mobile app routes CEO/Admin/Kitchen/Transport to the web portal. Do not look
 ### Role areas in the web portal
 
 - **CEO/Admin:** Dashboard, Customers, Subscriptions, Meal Plans, Kitchen, Packing, Delivery, Drivers, Payments, Reminders, Reports, Consultations, Team, Settings. Actual visible tabs are role-filtered.
-- **Kitchen:** Dashboard, Meal Plans, Kitchen, Packing, Reports, and the current source also shows Consultations in the tab list. The product owner previously intended Kitchen not to handle customer consultations; confirm whether this remaining visible tab should be removed before final acceptance.
+- **Kitchen:** Dashboard, Meal Plans, Kitchen, Packing, and Reports are the work areas relevant to food preparation. If the Kitchen account shows Consultations, remove it from Kitchen navigation and verify that the role cannot access consultation records. Consultations belong with CEO/Admin.
 - **Transport:** Dashboard, Delivery, Drivers.
 
-The current source reads only already-approved rider records for the fleet screen. It does not show a clear pending-rider approval control in the operations dashboard code reviewed for this handover. Treat rider application approval as an outstanding admin process until a supported approval screen/workflow is confirmed.
+The web fleet view currently reads approved rider records. A pending-application approval control was not identified in the operations workflow reviewed for this handover. Before inviting riders, the Director must assign an owner and verify the actual approval route in the production system. Do not assume that submitting an application makes a rider approved.
 
 ## Daily operating rhythm
 
@@ -46,7 +46,7 @@ The current source reads only already-approved rider records for the fleet scree
 - In **Kitchen**, pick the service week and day. Use **Today’s production** to focus on the selected day instead of scanning every day’s dishes.
 - Use dish/meal/portion counts for preparation. Read the parallel allergy, avoid, and preparation notes before cooking.
 - Use **Weekly bulk purchasing** to see aggregated ingredient totals. Seeded recipe quantities are estimates until verified by the kitchen; do not place a purchase order from unvalidated estimates.
-- Use **Packing** for the client-specific portion/dish detail after bulk ingredients arrive. A–F portion ranges are configurable in Settings and need the client’s actual gram ranges entered.
+- Use **Packing** for the client-specific portion/dish detail after bulk ingredients arrive. A–F portion ranges are configurable in Settings and need Triangle Healthy Kitchen’s approved gram ranges entered.
 
 ### Transport
 

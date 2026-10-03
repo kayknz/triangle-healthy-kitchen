@@ -1,4 +1,6 @@
-# Technical Handover
+> **For the Director and the named technical owner.** This section shows where the parts of the system live, how customer and operations data move, and what a future maintainer must check before changing it. You do not need to edit these files for ordinary daily operations. Use this map when appointing or briefing the technical owner; keep account ownership with Triangle Healthy Kitchen.
+
+# Platform, Data, and Access Reference
 
 ## System overview
 
@@ -16,7 +18,7 @@ Mobile app ID: `com.trianglehealthykitchen.app`
 
 ## Main data areas
 
-Names below are the principal data concepts visible in the reviewed source/migrations; this is an operational map, not a complete column-level schema export.
+Names below are the principal data concepts visible in the application and database migration files reviewed for this handover; this is an operational map, not a complete column-level schema export.
 
 | Data area | Purpose and primary users |
 |---|---|
@@ -89,7 +91,7 @@ See **External Services Runbook** for step-by-step ownership, setup, safe creden
 ## Critical repository cautions
 
 1. **Edge Function source is split.** `thk-web/supabase/functions/` contains `tap-checkout`; `thk-mobile/supabase/functions/` contains additional functions including `tap-webhook`, `send-reminders`, `send-booking-notification`, `reconcile-activity`, and `process-account-deletion`. Do not deploy one folder blindly. Confirm which code is deployed to the production Supabase project, diff the duplicates, choose a canonical source, and bring the other tree into agreement.
-2. **Migration history may be incomplete.** The repository README records missing-local migration history in the linked Supabase project. Do not run a bulk `supabase db push` until the remote/local history is reconciled. Review each migration and apply through the client-approved release procedure.
+2. **Migration history may be incomplete.** The repository README records missing-local migration history in the production Supabase project. Do not run a bulk `supabase db push` until the remote/local history is reconciled. Review each migration and apply through Triangle Healthy Kitchen’s approved release procedure.
 3. **Database migrations are duplicated.** Compare web and mobile migration trees before database changes; apply each intended migration once to the correct Supabase project.
 4. **Current repository contains local build artifacts and configuration outside this documentation set.** Do not distribute `node_modules`, `dist`, `www`, `.temp`, `.env*`, `google-services.json`, signing files, or local IDE/AI state as handover material.
 5. **Demo SQL scripts are destructive or mutate demo records.** Read their comments and target filters; do not run against live customers.

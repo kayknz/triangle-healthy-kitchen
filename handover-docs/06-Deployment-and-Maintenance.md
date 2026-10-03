@@ -1,8 +1,10 @@
-# Deployment and Maintenance
+> **For the Director.** This guide explains which accounts and responsibilities stay with Triangle Healthy Kitchen, how an appointed technical owner should release changes safely, and what ongoing support needs a separate written agreement. The commands below are for the developer or technical owner you appoint; the Director should not need to run them personally.
+
+# Ownership, Releases, and Maintenance
 
 ## Account ownership
 
-The client should own the production Vercel project/domain, Supabase project, payment account, email sender, Firebase project, Apple Developer account, Google Play Console account, and any signing credentials. Invite the developer as a named user with only the role needed. Keep a separate secure inventory of owners, billing contacts, recovery contacts, MFA, and renewal dates; do not put passwords or recovery codes in this manual.
+Triangle Healthy Kitchen should own the production Vercel project and domain, Supabase project, payment account, email sender, Firebase project, Apple Developer account, Google Play Console account, and signing credentials. If you retain a developer, invite that person as a named user with only the access required. Keep a separate secure inventory of owners, billing contacts, recovery contacts, MFA, and renewal dates; do not put passwords or recovery codes in this manual.
 
 ## Web development and release
 
@@ -22,7 +24,7 @@ Before a production release:
 2. Confirm required environment variables in the correct Vercel environment (preview and production are separate).
 3. Review and apply any database migration through the agreed release process. Back up first; check remote migration history because the local README reports historical drift.
 4. Deploy a Vercel preview and run the relevant customer/role workflow checks.
-5. Promote/deploy the approved commit to production using the client-owned Vercel workflow.
+5. Promote/deploy the approved commit to production using the Triangle Healthy Kitchen’s Vercel workflow.
 6. Verify the deployed commit, login, customer signup, menu, payment return, operations roles, and mobile-web entry point.
 7. Record deployment date, commit, migration IDs, checks, owner, and rollback target.
 
@@ -42,8 +44,8 @@ npx cap sync
 ```
 
 - Android emulator/debug APK: `npm run build:apk` (requires Android SDK/Gradle environment).
-- Android store bundle: use Android Studio **Build → Generate Signed Bundle / APK**, with the client-owned Play Console app and protected release keystore.
-- iOS assets sync: `npm run build:ios`; open `ios/App/App.xcworkspace` in Xcode, set the client Team/signing profile/capabilities, archive, and upload using the client-owned Apple account.
+- Android store bundle: use Android Studio **Build → Generate Signed Bundle / APK**, with the Triangle Healthy Kitchen’s Play Console app and protected release keystore.
+- iOS assets sync: `npm run build:ios`; open `ios/App/App.xcworkspace` in Xcode, set the client Team/signing profile/capabilities, archive, and upload using the Triangle Healthy Kitchen’s Apple account.
 - Increase the platform build/version number for each store update. Preserve and back up the same Android signing key; losing it can block updates.
 - Test signed release builds on physical iPhone and Android devices. Emulator preview is not store acceptance.
 - Store listing, privacy disclosures, age/content ratings, screenshots, review, and account fees are client-owned dependencies unless a separate written delivery includes them. Store publication has not been established by this handover.
@@ -54,7 +56,7 @@ npx cap sync
 2. Compare local files with the deployed production function versions and deployed migration history.
 3. Back up or confirm point-in-time recovery is available; rehearse a restore to a non-production environment.
 4. Review policies, function grants, triggers, cron jobs, and secrets for every change.
-5. Apply one reviewed migration at a time through the client-approved procedure. Do not bulk push while migration history is unresolved.
+5. Apply one reviewed migration at a time through the Triangle Healthy Kitchen’s approved procedure. Do not bulk push while migration history is unresolved.
 6. Deploy the intended functions and inspect function logs.
 7. Confirm `send-reminders-job`, kitchen-choice default processing, account data cleanup schedule, and any required network extension jobs in the production project.
 8. Verify exact post-release role access and audit records.

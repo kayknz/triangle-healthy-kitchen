@@ -1,62 +1,36 @@
 # Triangle Healthy Kitchen Software Handover
 
-**Documentation set:** 1.0
-**Reviewed:** 3 October 2026
-**Product:** Triangle Healthy Kitchen customer platform, operations portal, and mobile apps
+**Prepared by:** Software Developer  
+**Prepared for:** Director, Triangle Healthy Kitchen  
+**Handover date:** 3 October 2026  
+**Documentation set:** 1.1
 
-## What this package covers
+## Welcome
 
-This handover set explains how customers use the service, how each operations team works, how menus and production flow through the system, how payments are reconciled, and what the client or next developer must configure before a full launch. It is written against the current `thk-web/` and `thk-mobile/` source trees. It does not include source code, customer exports, database credentials, payment keys, Firebase configuration files, signing keys, or signed contracts.
+Director, this is the practical handover for the Triangle Healthy Kitchen website, customer apps, and operations system. I have arranged it around your team's work: what customers do, what each work area receives, how the menu and kitchen production totals connect, how payments are checked, and which account owners must complete the final setup.
 
-## Read these first
+Start with **00 - Director's Handover and Acceptance**. It explains the service from customer signup through kitchen and delivery, identifies what this software package includes, and lists the items that must be verified before live operation. The remaining guides provide the detail for your customer support, Admin, Kitchen, Transport, finance, and technical owners.
 
-1. **Customer Guide** — account, package, meal selection, delivery details, payment, and mobile health connections.
-2. **Operations Guide** — the web dashboards for CEO/Admin, Kitchen, and Transport, plus the Rider mobile workflow.
-3. **Kitchen Production Guide** — daily production, weekly bulk purchasing, portions, safety notes, and packing.
-4. **Payments and Subscriptions** — Tap and cash processing, review steps, plan states, menu schedule, and customer retention.
-5. **Technical Handover** — architecture, roles, data flows, integrations, configuration names, security, and migration cautions.
-6. **Deployment and Maintenance** — web releases, database/functions, mobile builds, backups, recovery, and ongoing responsibilities.
-7. **Launch Checklist and Known Limits** — acceptance checks and items that need production-owner confirmation.
-8. **External Services Runbook** — setup, verification, ownership, and failure handling for Supabase, Vercel, Brevo, Tap, Firebase, health platforms, maps/geocoding, WhatsApp, and external assets.
+## Read this set in order
 
-## Current delivery snapshot
+1. **00 - Director's Handover and Acceptance** - the full delivery summary, owner responsibilities, definitions, acceptance evidence, and readiness conditions.
+2. **01 - Customer Guide** - how customers register, choose packages and meals, set an address, pay, use health connections, and get account help.
+3. **02 - Operations Guide** - what the CEO/Admin, Kitchen, Transport, and Rider teams do and which workspace they use.
+4. **03 - Kitchen Production Guide** - menu release, daily cook totals, purchasing estimates, allergy and preparation notes, portions, and packing.
+5. **04 - Payments and Subscriptions** - package rules, Tap reconciliation, cash collection, and safe handling of pending plans.
+6. **05 - Technical Handover** - where the platform's main parts live, what data they handle, and which access rules protect it.
+7. **06 - Deployment and Maintenance** - how Triangle Healthy Kitchen releases, backed up, maintained, and supported.
+8. **07 - Launch Checklist and Known Limits** - the evidence-based acceptance record for final business sign-off.
+9. **08 - External Services Runbook** - how to manage Supabase, Vercel, Brevo, Tap, Firebase, mobile health, maps, WhatsApp, and remote media.
 
-| Area | Current state described by source/configuration | Before calling it production-ready |
-|---|---|---|
-| Web | Live Vercel site: [trianglehealthykitchen.vercel.app](https://trianglehealthykitchen.vercel.app/) | Run the client’s final acceptance checks on the live domain. |
-| Customer mobile app | Capacitor iOS and Android projects are in `thk-mobile/`; app features use the shared customer product. | Build, sign, and distribute through the client’s Apple/Google accounts. Store approval is external and not included in this code handover. |
-| Operations mobile access | CEO, Admin, Kitchen, and Transport are directed to the web operations portal. Riders use the mobile app. | Confirm role assignments and portal access for named staff. |
-| Menu and kitchen | Monthly menu creation, weekly meal selections, production views, ingredient totals, and packing views are present in source/migrations. | Confirm the production database has the matching migrations, menu data, recipe quantities, scheduled jobs, and the client-approved portion ranges. Recipe quantities currently require kitchen validation. |
-| Payments | Tap checkout/callback and manual reconciliation are present; cash collection requests and verification are present. | Confirm live provider credentials, webhook delivery, amount/currency, and one real end-to-end transaction. Tap callback was not independently certified by this documentation review. |
-| Sadad | No Sadad checkout implementation was found in the reviewed product source. | Do not advertise Sadad as an available in-app payment method unless it is separately implemented and tested. |
-| Emails/reminders | Brevo-backed Edge Function code and a scheduled reminder job exist in the repository copies. | Confirm the deployed function source, Brevo secrets/sender verification, and Supabase cron job on the production project. |
-| Android push | Android push registration is conditional on a Firebase Android config file. A local Firebase config file is not included in this documentation bundle. | Set up under the client-owned Firebase project, secure the file, rebuild, and test on a real device. |
-| iOS distribution | The iOS project is present. | Client Apple Developer membership, HealthKit entitlement/signing, signed archive, privacy disclosures, and App Store review are required for store release. |
+## What this package is and is not
 
-“Present in source” does not prove that a feature is deployed, configured, or accepted in the production environment. The launch checklist identifies those checks explicitly.
+This is the operating and technical handover for the software and setup status described in this handover. It is not a claim that every external account is configured or every feature has passed a live production test. The website is live at [trianglehealthykitchen.vercel.app](https://trianglehealthykitchen.vercel.app/). The iOS and Android projects exist in the code repository, but source code is not bundled here and app-store publication is not established by this manual.
 
-## Access and data handling
+The PDF is designed to read and share. The Markdown files are editable source documents. Neither copy contains private credentials, signing keys, customer exports, or signed agreements. Keep those in client-controlled accounts or approved secure storage.
 
-- The client should own or control Vercel, Supabase, Tap, Brevo, Apple Developer, Google Play, and Firebase accounts.
-- Transfer access through each provider’s invitation/role system. Never put passwords, service-role keys, Tap secrets, webhook secrets, signing keys, or private Firebase files in this bundle, email, Git, or a support ticket.
-- The browser/mobile app’s Supabase anon key is a public client key; it is not a substitute for RLS and must never be confused with the service-role key.
-- Do not send real client health, allergy, address, or payment information in sample screenshots or support messages.
+## How to close the handover
 
-## Commercial paperwork is separate
+The Director assigns a named business owner to each item in `07-Launch-Checklist-and-Known-Limits.md`. The owner records Pass, Fail, or Not tested, with a date and safe evidence. The Director accepts the work only after all launch-critical items have passed or an explicit written exception names its owner and consequence. Payment configuration, data access, menu schedules, recipe/portion accuracy, backups, and app-store readiness must not be inferred from a successful screen rendering.
 
-The supplied fee, license, and referral agreements are working drafts, not product manuals. Use one agreed master agreement and make its fee, license scope, support obligations, referrals, and app-store scope consistent with the EULA before anyone signs. This documentation set does not change or replace those agreements.
-
-## Handover completion record
-
-Complete this with the client at handover:
-
-- Production URL and Vercel project owner: ____________________
-- Supabase project owner and project reference: ____________________
-- Production database migration review completed by/date: ____________________
-- Tap live configuration and test transaction verified by/date: ____________________
-- Brevo sender and reminder schedule verified by/date: ____________________
-- Firebase Android push configured/tested by/date: ____________________
-- Apple signing/store release owner/date: ____________________
-- Staff roles and initial access verified by/date: ____________________
-- Backup/restore rehearsal owner/date: ____________________
-- Client acceptance owner/date: ____________________
+Commercial terms remain in the separate fee, license, referral, and services documents. Complete and align their blanks before signing; this manual does not supply missing prices, warranties, ownership rights, support hours, or service levels.

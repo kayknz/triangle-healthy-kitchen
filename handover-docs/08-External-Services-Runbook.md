@@ -1,6 +1,8 @@
-# External Services Runbook
+> **For the Director and provider-account owners.** These services are operated through separate vendor accounts. Triangle Healthy Kitchen should own each production account and billing relationship. Assign the steps to the named account owner or technical owner; never send credentials to the developer through this manual, email, screenshots, or source code. The runbook says what each service does, what to verify, and what to do when it fails.
 
-This runbook identifies services outside the application code, what THK uses them for, who should own them, how to configure or verify them, and what to do when they fail. Create provider accounts in the client’s name. Keep all credentials in the provider or its approved secret store; this runbook intentionally contains no credential values.
+# Outside Services Setup and Support
+
+This runbook identifies services outside the application code, what THK uses them for, who should own them, how to configure or verify them, and what to do when they fail. Create and retain every production provider account in Triangle Healthy Kitchen’s name. Keep all credentials in the provider or its approved secret store; this runbook intentionally contains no credential values.
 
 ## Service inventory
 
@@ -25,7 +27,7 @@ This runbook identifies services outside the application code, what THK uses the
 
 ### Ownership and initial access
 
-1. Keep the production project under the client’s organization, with at least two client-controlled owner/recovery contacts and MFA.
+1. Keep the production project under Triangle Healthy Kitchen’s organization, with at least two client-controlled owner/recovery contacts and MFA.
 2. Invite developers as named team members with only the access needed. Do not share the owner login.
 3. Keep the project URL and anon/public key in the client app configuration. Never use the service-role key in web/mobile code.
 4. Store server keys only in Supabase Edge Function secrets or the protected database Vault/RPC mechanism expected by the function. The service-role key bypasses ordinary row policies and must never be sent to a browser/device.
@@ -56,7 +58,7 @@ This runbook identifies services outside the application code, what THK uses the
 
 ## 2. Vercel
 
-1. Keep the Vercel project under the client’s account or organization and connect the intended GitHub repository/production branch.
+1. Keep the Vercel project under Triangle Healthy Kitchen’s account or organization and connect the intended GitHub repository/production branch.
 2. Set the project root to `thk-web/` if that is not already the configured Vercel root. Confirm the build command is `npm run build`, output directory is `dist`, and SPA routes rewrite to `index.html`.
 3. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Preview and Production. Set `VITE_OPERATIONS_WEB_URL` in the mobile build only if the default production URL should be overridden.
 4. Use a Preview deployment to verify each release before promoting to Production. Confirm `/login`, `/account`, `/payment/callback`, `/dashboard`, and role-specific routes load directly.
@@ -98,7 +100,7 @@ THK uses Brevo through **two distinct channels**. Configure and test both:
 
 ## 5. Firebase Cloud Messaging (Android)
 
-1. Create/choose the client-owned Firebase project and register the Android app with package/application ID `com.trianglehealthykitchen.app`.
+1. Create/choose the Triangle Healthy Kitchen’s Firebase project and register the Android app with package/application ID `com.trianglehealthykitchen.app`.
 2. Download the Android client configuration file from Firebase and put it at `thk-mobile/android/app/google-services.json`. Keep it out of public Git and out of this documentation archive.
 3. Confirm Gradle’s Google Services/Firebase Messaging setup and the application ID match Firebase. Rebuild and sync the Capacitor project after adding configuration.
 4. Sign in on a physical Android device, grant notification permission, confirm FCM token registration, then send a controlled test message through the intended server notification path.
@@ -110,8 +112,8 @@ THK uses Brevo through **two distinct channels**. Configure and test both:
 ### iPhone / Apple Health
 
 - The app asks for customer consent to read steps, distance, calories, and weight. It does not sync until the customer initiates it.
-- The iOS project has a HealthKit entitlement and usage description. The client still needs an active Apple Developer membership, the matching App ID capability, provisioning/signing, and a signed device build.
-- The client has not yet paid for the Apple Developer subscription. Therefore iOS HealthKit store/distribution readiness is blocked until that account is active and signing is configured. A simulator/source check is not a production-device validation.
+- The iOS project has a HealthKit entitlement and usage description. Triangle Healthy Kitchen still needs an active Apple Developer membership, the matching App ID capability, provisioning/signing, and a signed device build.
+- As of this handover, the Apple Developer subscription had not yet been paid. Therefore iOS HealthKit store/distribution readiness is blocked until that account is active and signing is configured. A simulator/source check is not a production-device validation.
 - Test grant, deny, revoke, empty data, and successful sync on an iPhone. Confirm the privacy policy accurately describes health data.
 
 ### Android / Health Connect
@@ -124,7 +126,7 @@ Health integrations are optional wellness features; do not present their output 
 
 ## 7. Location and maps
 
-- The app can use device geolocation, parse Google Maps URLs/coordinates, and create outgoing Google Maps links. The reviewed source does not use a Google Maps API key or provide Places autocomplete.
+- The app can use device geolocation, parse Google Maps URLs/coordinates, and create outgoing Google Maps links. The application files reviewed for this handover do not use a Google Maps API key or provide Places autocomplete.
 - The `Locate` flow calls OpenStreetMap Nominatim reverse geocoding to suggest address labels, and Qatar’s GIS FeatureServer to resolve a `ZONE_NO` from the GPS point. These are external network services; they can fail, time out, or return incomplete address data.
 - If either lookup fails, the customer must be able to enter/review the delivery address manually. Treat zone as unconfirmed if the lookup is blank; Transport should check it before assigning a rider.
 - Verify coordinates inside Qatar, edge-of-zone addresses, a manually entered home/office/gym address, denied location permission, and network failure. Ensure the location pin and human-readable address refer to the same place.
@@ -134,7 +136,7 @@ Health integrations are optional wellness features; do not present their output 
 
 - WhatsApp buttons open `wa.me` chats; this is not a WhatsApp Business API integration. Confirm the business number, country-code formatting, prefilled text, and rider/client support routing.
 - Do not place passwords, payment-card data, health measurements, BMI reports, or detailed allergy information in WhatsApp URLs/messages. The current client-support link can include the customer’s name in the prefilled text; review consent and minimize data in these message templates.
-- Confirm website and mobile Instagram links point to the same official account. The reviewed source has different handle strings between the two clients.
+- Confirm website and mobile Instagram links point to the same official account. The web and mobile currently contain different handle strings between the two clients.
 - Pexels/Unsplash supply remote image URLs; Pravatar supplies generated community avatars. Ensure the owner has appropriate usage rights/approval and replace demo-looking assets before client sign-off. Remote images require network access; test their fallback/loading behavior.
 
 ## Provider incident checklist

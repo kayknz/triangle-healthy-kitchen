@@ -11,7 +11,7 @@ Kitchen needs to know what to purchase and prepare for each service day without 
 3. Review extracted/imported dishes against the source menu. Correct names, meal periods, day, and availability; add or remove dishes as needed.
 4. Mark the Kitchen’s choice among the available options for each day/meal slot. Customers who miss the weekly deadline use this choice.
 5. Review the monthly schedule and publish. The release is expected to be available to customers on Saturday for the service week ahead.
-6. Verify the client account sees the published week before relying on it. If no replacement release exists, the backend contains a function to roll a previous release forward, but that job and active collection must be verified on production.
+6. Sign in with a customer test account and confirm the published week is visible before relying on it. If no replacement release exists, the backend contains a function to roll a previous release forward, but that job and active collection must be verified on production.
 
 The user interface describes a monthly menu repeating across four service weeks. Confirm the number and dates in the deployed schedule when publishing; monthly date boundaries and Saturday service-week boundaries are not identical.
 

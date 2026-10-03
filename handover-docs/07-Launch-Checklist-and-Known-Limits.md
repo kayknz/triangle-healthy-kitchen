@@ -1,6 +1,8 @@
-# Launch Checklist and Known Limits
+> **For the Director and acceptance owners.** This is the sign-off record, not a list of claims that every item has already passed. Assign each item to a named owner. Mark it Pass only after the stated evidence has been checked in the intended production account or on the intended device. If an item is not complete, record the responsible person and the operational effect before accepting the handover.
 
-Use this checklist with the client’s named business, kitchen, transport, and technical owners. Mark each item **Pass**, **Fail**, or **Not tested** and attach a safe reference (no passwords, card data, or client health records).
+# Launch Acceptance and Known Limits
+
+The Director assigns each section to named owners from Triangle Healthy Kitchen’s business, Kitchen, Transport, Finance, and technical teams. Mark each item **Pass**, **Fail**, or **Not tested** and attach a safe reference (no passwords, card data, or client health records).
 
 ## A. Ownership and access
 
@@ -70,9 +72,9 @@ Use this checklist with the client’s named business, kitchen, transport, and t
 - [ ] Operations and client-owner training completed; support owner and escalation contact named.
 - [ ] Client accepts the agreed scope and signs the aligned commercial/license documents.
 
-## Known limitations and handover conditions found in repository review
+## Known limitations and items requiring acceptance
 
-1. **Payment provider:** Tap implementation is present but live transaction/callback behavior needs client-owned credential and webhook verification. Sadad was not found in current source.
+1. **Payment provider:** Tap implementation is present but live transaction/callback behavior needs Triangle Healthy Kitchen’s credential and webhook verification. Sadad was not found in application files reviewed for this handover.
 2. **Supabase functions are split:** checkout appears under the web tree; webhook, reminders, booking email, health reconciliation, and account deletion appear under the mobile tree. Production deployment must be reconciled with this layout.
 3. **Migration history:** root README warns that the linked production project has local/remote migration-history drift. Bulk database push is not a safe assumed handover step.
 4. **Menu/kitchen data quality:** recipe ingredient quantities are seeded estimates and require Kitchen approval. Portion ranges A–F require real gram values. Procurement should not rely on defaults until confirmed.
