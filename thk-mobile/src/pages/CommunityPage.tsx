@@ -114,33 +114,33 @@ export default function CommunityPage() {
   const suggestedGroup = communities[0];
 
   return (
-    <div className="space-y-12 max-w-7xl mx-auto py-12" dir={isRtl ? 'rtl' : 'ltr'}>
+    <div className="mx-auto max-w-7xl space-y-8 py-6 sm:space-y-12 sm:py-12" dir={isRtl ? 'rtl' : 'ltr'}>
       {/* Page Header */}
-      <div className="px-6 md:px-12">
+      <div className="px-4 sm:px-6 md:px-12">
         <div className="badge border-[#C5A059]/20 bg-[#C5A059]/10 px-4 py-1.5 rounded-full w-fit mb-6">
           <Sparkles className="w-3 h-3 fill-[#C5A059] text-[#C5A059]" />
           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#0a3030]">
             {t('collective_ecosystem') || 'Community Ecosystem'}
           </span>
         </div>
-        <h1 className="text-4xl md:text-6xl font-black text-[#0a3030] leading-tight tracking-tight uppercase italic">
+        <h1 className="break-words text-3xl font-black leading-tight tracking-tight text-[#0a3030] uppercase italic sm:text-4xl md:text-6xl">
           {t('tribe_title') || 'Community Tribe'}
         </h1>
-        <p className="text-[#0a3030]/60 font-medium mt-3 text-base max-w-lg italic">
+        <p className="mt-3 max-w-lg text-sm font-medium italic text-[#0a3030]/60 sm:text-base">
           {t('doha_community_desc') || 'Join the Doha community focused on healthy eating. Get your plan today.'}
         </p>
       </div>
 
       {!subscriber?.preferred_region_id ? (
-        <div className="px-6 md:px-12 space-y-12">
+        <div className="space-y-8 px-4 sm:space-y-12 sm:px-6 md:px-12">
            {suggestedGroup && (
              <motion.div
                initial={{ opacity: 0, y: 20 }}
                animate={{ opacity: 1, y: 0 }}
-               className="bg-[#0a3030] rounded-[3rem] p-8 sm:p-10 text-white shadow-3xl relative overflow-hidden"
+               className="relative overflow-hidden rounded-3xl bg-[#0a3030] p-5 text-white shadow-3xl sm:rounded-[3rem] sm:p-8 md:p-10"
              >
                 <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-6">
+                  <div className="mb-5 flex flex-wrap items-center gap-2 sm:mb-6 sm:gap-3">
                     <div className="bg-[#C5A059] text-[#0a3030] px-3.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
                       {t('privacy_discovery') || 'Privacy-First Discovery'}
                     </div>
@@ -148,12 +148,12 @@ export default function CommunityPage() {
                   <h2 className="text-2xl sm:text-3xl font-black uppercase italic mb-4 leading-tight">
                     {t('group_near_you') || 'A group near your rhythm.'}
                   </h2>
-                  <p className="text-white/80 font-medium italic mb-8 max-w-xl text-sm sm:text-base leading-relaxed">
+                  <p className="mb-6 max-w-xl text-sm font-medium italic leading-relaxed text-white/80 sm:mb-8 sm:text-base">
                     We found a Triangle community in <span className="text-[#C5A059] font-bold">{suggestedGroup.name}</span>.
                     Join to share encouragement and team progress.
                   </p>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                  <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:mb-8 md:grid-cols-3 sm:gap-4">
                     <div className="bg-white/5 backdrop-blur-md rounded-2xl p-5 border border-white/10">
                       <p className="text-[10px] font-black text-[#C5A059] uppercase tracking-widest mb-1">{t('team_vitality') || 'Team Activity'}</p>
                       <p className="text-2xl font-black italic">{suggestedGroup.weekly_team_target_pct ?? 0}%</p>
@@ -167,7 +167,7 @@ export default function CommunityPage() {
                   <button
                     onClick={() => joinGroup(suggestedGroup.id)}
                     disabled={joining !== null}
-                    className="bg-[#C5A059] text-[#0a3030] px-8 py-4 rounded-full text-xs font-black uppercase tracking-widest hover:scale-105 transition-transform flex items-center gap-2 shadow-xl"
+                    className="flex items-center justify-center gap-2 rounded-full bg-[#C5A059] px-5 py-3.5 text-xs font-black uppercase tracking-widest text-[#0a3030] shadow-xl transition-transform hover:scale-105 sm:px-8 sm:py-4"
                   >
                     {joining === suggestedGroup.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (t('join_community') || 'Join Group')}
                     <ChevronRight className="w-4 h-4" />
@@ -179,13 +179,13 @@ export default function CommunityPage() {
 
            <div className="space-y-8">
               <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#0a3030]/50 ml-2">{t('regional_collectives') || 'Regional Groups'}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 sm:gap-6">
                   {communities.filter(g => g.id !== suggestedGroup?.id).map((group) => (
                     <button
                       key={group.id}
                       onClick={() => joinGroup(group.id)}
                       disabled={joining !== null}
-                      className="bg-white rounded-[2.5rem] p-8 border border-[#0a3030]/5 shadow-xl hover:border-[#C5A059]/30 transition-all group text-left relative overflow-hidden"
+                      className="group relative overflow-hidden rounded-3xl border border-[#0a3030]/5 bg-white p-5 text-left shadow-xl transition-all hover:border-[#C5A059]/30 sm:rounded-[2.5rem] sm:p-8"
                     >
                       <div className="relative z-10">
                           <div className="flex justify-between items-start mb-6">
@@ -194,8 +194,8 @@ export default function CommunityPage() {
                             </div>
                             <span className="text-[10px] font-black text-[#0a3030]/40 uppercase tracking-widest">{t('regional_collectives') || 'Community'}</span>
                           </div>
-                          <h3 className="text-2xl font-black uppercase italic text-[#0a3030] mb-2">{group.name}</h3>
-                          <p className="text-[#0a3030]/60 text-sm italic mb-8 font-medium">{group.description}</p>
+                          <h3 className="mb-2 break-words text-xl font-black uppercase italic text-[#0a3030] sm:text-2xl">{group.name}</h3>
+                          <p className="mb-6 break-words text-sm font-medium italic text-[#0a3030]/60 sm:mb-8">{group.description}</p>
                           <div className="flex items-center gap-2 text-[10px] font-black text-[#C5A059] uppercase tracking-widest group-hover:translate-x-2 transition-transform">
                             {t('join_community') || 'Join Group'} <ChevronRight className="w-4 h-4" />
                           </div>
@@ -208,10 +208,10 @@ export default function CommunityPage() {
         </div>
       ) : (
         <>
-          <div className="px-6 md:px-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 bg-[#0a3030] rounded-[3rem] p-8 sm:p-10 text-white shadow-3xl relative overflow-hidden">
+          <div className="grid grid-cols-1 gap-5 px-4 sm:gap-8 sm:px-6 md:px-12 lg:grid-cols-3">
+            <div className="relative overflow-hidden rounded-3xl bg-[#0a3030] p-5 text-white shadow-3xl sm:rounded-[3rem] sm:p-8 md:p-10 lg:col-span-2">
               <div className="relative z-10">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-10">
+                <div className="mb-8 flex flex-col justify-between gap-5 sm:mb-10 sm:gap-8 md:flex-row md:items-center">
                    <div>
                       <div className="flex items-center gap-3 mb-4">
                         <div className="bg-[#C5A059] text-[#0a3030] px-3.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
@@ -225,7 +225,7 @@ export default function CommunityPage() {
                           <LogOut className="w-4 h-4" />
                         </button>
                       </div>
-                      <h2 className="text-3xl sm:text-4xl font-black uppercase italic">{activeGroup?.name}</h2>
+                      <h2 className="break-words text-2xl font-black uppercase italic sm:text-4xl">{activeGroup?.name}</h2>
                    </div>
                    <div className="flex -space-x-4">
                    </div>
@@ -252,7 +252,7 @@ export default function CommunityPage() {
               <div className="absolute top-[-20%] right-[-10%] w-96 h-96 bg-[#C5A059]/10 rounded-full blur-[100px]" />
             </div>
 
-            <div className="bg-white rounded-[3rem] p-8 border border-[#0a3030]/5 shadow-xl">
+            <div className="rounded-3xl border border-[#0a3030]/5 bg-white p-5 shadow-xl sm:rounded-[3rem] sm:p-8">
               <div className="flex items-center gap-3 mb-6">
                 <Trophy className="w-5 h-5 text-[#C5A059]" />
                 <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#0a3030]/60">{t('leaderboard') || 'Community Leaderboard'}</h3>
@@ -285,21 +285,21 @@ export default function CommunityPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 sm:gap-6">
               {posts.length > 0 ? posts.map((post) => (
                 <motion.div
                   key={post.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white p-8 rounded-[2.5rem] border border-[#0a3030]/5 shadow-sm hover:shadow-xl transition-all relative group"
+                  className="group relative rounded-3xl border border-[#0a3030]/5 bg-white p-5 shadow-sm transition-all hover:shadow-xl sm:rounded-[2.5rem] sm:p-8"
                 >
                   <div className="flex items-start justify-between mb-6">
-                    <div className="flex gap-4">
+                    <div className="flex min-w-0 gap-3 sm:gap-4">
                       <div className="w-12 h-12 rounded-2xl bg-[#0a3030]/5 flex items-center justify-center shrink-0 border border-[#0a3030]/5">
                         <MessageSquare className="w-5 h-5 text-[#0a3030]" />
                       </div>
                       <div>
-                        <p className="text-sm font-black text-[#0a3030] uppercase tracking-tight">
+                        <p className="break-words text-sm font-black tracking-tight text-[#0a3030] uppercase">
                           {post.subscriber?.full_name}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
@@ -318,7 +318,7 @@ export default function CommunityPage() {
                   <p className="text-[#0a3030]/80 text-sm font-medium leading-relaxed italic">{post.content}</p>
                 </motion.div>
               )) : (
-                <div className="col-span-2 bg-white p-10 rounded-[2.5rem] text-center border border-[#0a3030]/5 text-gray-400 font-bold text-sm">
+                <div className="col-span-1 rounded-3xl border border-[#0a3030]/5 bg-white p-6 text-center text-sm font-bold text-gray-400 sm:col-span-2 sm:rounded-[2.5rem] sm:p-10">
                   {t('no_active_deliveries') || 'No posts yet.'}
                 </div>
               )}

@@ -61,9 +61,9 @@ export default function Home({ onBookClick, onSubscribeClick }: HomeProps) {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
-                className="bg-white/5 backdrop-blur-sm border border-white/10 p-10 rounded-[3rem] hover:bg-white/10 transition-all group"
+                className="group rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm transition-all hover:bg-white/10 sm:rounded-[3rem] sm:p-10"
               >
-                <div className="w-16 h-16 rounded-2xl bg-gold/20 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
+                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gold/20 transition-transform group-hover:scale-110 sm:mb-8 sm:h-16 sm:w-16">
                   <benefit.icon className="w-8 h-8 text-gold" />
                 </div>
                 <h3 className="text-xl font-black uppercase italic mb-4">{benefit.title}</h3>
@@ -76,7 +76,7 @@ export default function Home({ onBookClick, onSubscribeClick }: HomeProps) {
 
       {/* Pillar 3: How much does it cost? */}
       <section id="pricing" className="py-20 bg-white/50">
-        <div className="max-w-7xl mx-auto px-6 text-center mb-16">
+        <div className="max-w-7xl mx-auto px-6 text-center mb-8">
           <h2 className="text-4xl sm:text-6xl font-black uppercase italic tracking-tighter text-primary mb-4">
             {t('what_cost') || 'How much does it cost?'}
           </h2>

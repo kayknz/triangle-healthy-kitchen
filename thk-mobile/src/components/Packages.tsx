@@ -1,9 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { Check, Star } from 'lucide-react';
-import { PACKAGES } from '../types/booking';
-import { supabase } from '../lib/supabase';
-import { useLanguage } from '../lib/LanguageContext';
-import AnimatedSection from '../components/AnimatedSection';
+import { Clock3, Sparkles } from 'lucide-react';
+import { usePackages } from '@/lib/packages';
+import { PACKAGES } from '@/types/booking';
+import { useLanguage } from '@/lib/LanguageContext';
 
 interface PlansPageProps {
   onSubscribeClick: (pkgId: string) => void;
@@ -11,115 +9,105 @@ interface PlansPageProps {
 
 export default function PlansPage({ onSubscribeClick }: PlansPageProps) {
   const { t, isRtl } = useLanguage();
-  const [packages, setPackages] = useState<Array<{ id: string; name: string; description: string | null; price: number; currency: string; kcals: number; duration: string | null }>>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+  const { packages } = usePackages();
+  const monthlyPlans = packages.filter((pkg) => !['daily_trial', 'weekly_reset'].includes(pkg.id));
+  const trialPlans = packages.filter((pkg) => ['daily_trial', 'weekly_reset'].includes(pkg.id));
 
-  useEffect(() => {
-    let cancelled = false;
-    let settled = false;
-    const timeout = window.setTimeout(() => {
-      if (cancelled || settled) return;
-      settled = true;
-      setLoadError(true);
-      setLoading(false);
-    }, 15000);
-    void Promise.resolve(supabase.from('packages')
-      .select('id, name, description, price, currency, kcals, duration')
-      .eq('active', true)
-      .order('sort_order'))
-      .then(({ data, error }) => {
-        if (cancelled || settled) return;
-        settled = true;
-        window.clearTimeout(timeout);
-        setPackages(data || []);
-        setLoadError(Boolean(error));
-        setLoading(false);
-      })
-      .catch(() => {
-        if (cancelled || settled) return;
-        settled = true;
-        window.clearTimeout(timeout);
-        setLoadError(true);
-        setLoading(false);
-      });
-    return () => { cancelled = true; window.clearTimeout(timeout); };
-  }, [retryCount]);
+  const text = (key: string, fallback: string) => {
+    const translated = t(key);
+    return translated && translated !== key ? translated : fallback;
+  };
+
+  const mealLabel = (id: string, mealKey?: string) => {
+    if (id === 'daily_trial' || id === 'weekly_reset') {
+      return text('3_meals_1_snack', isRtl ? '٣ وجبات + سناك واحد' : '3 meals + 1 snack');
+    }
+    const key = mealKey || PACKAGES.find((item) => item.id === id)?.meals_key;
+    if (key) return text(key, key.replace(/_/g, ' '));
+    return isRtl ? 'وجبات حسب الخطة' : 'Meals as listed in this plan';
+  };
+
+  const titleFor = (id: string, fallback: string) => text(id, fallback);
+  const currency = (value: string) => value.toUpperCase() === 'QR' ? 'QAR' : value;
+
+  const PlanCard = ({ plan, isTrial = false }: { plan: (typeof packages)[number]; isTrial?: boolean }) => {
+    const serviceDays = isTrial
+      ? plan.id === 'daily_trial'
+        ? text('plan_one_day', isRtl ? 'يوم واحد' : '1 day')
+        : text('plan_six_days', isRtl ? '٦ أيام' : '6 days')
+      : text('plan_24_days', isRtl ? '٢٤ يوم خدمة' : '24 service days');
+
+    return (
+      <article key={plan.id} className="rounded-3xl border border-primary/10 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            {isTrial && <span className="mb-2 inline-flex rounded-full bg-gold/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-primary/70">{text('trial', isRtl ? 'تجربة' : 'Trial')}</span>}
+            <h3 className="text-lg font-black leading-tight text-primary sm:text-xl">{titleFor(plan.id, plan.name)}</h3>
+          </div>
+          <p className="shrink-0 text-right text-xl font-black tracking-tight text-primary sm:text-2xl">
+            {plan.price.toLocaleString()} <span className="text-xs font-bold">{currency(plan.currency)}</span>
+            {!isTrial && <span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-primary/50">{text('per_month', isRtl ? 'شهرياً' : 'per month')}</span>}
+          </p>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="rounded-full bg-sage/10 px-3 py-1.5 text-xs font-bold text-primary">{mealLabel(plan.id, plan.meals)}</span>
+          <span className="rounded-full bg-primary/5 px-3 py-1.5 text-xs font-bold text-primary/70">{plan.kcals.toLocaleString()} {text('calories_per_day', isRtl ? 'سعرة حرارية يومياً' : 'Calories per day')}</span>
+        </div>
+
+        <div className="mt-4 flex items-center gap-2 text-xs font-bold text-primary/60">
+          <Clock3 className="h-4 w-4 text-gold" />
+          <span>{serviceDays}</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onSubscribeClick(plan.id)}
+          className="mt-5 w-full rounded-2xl bg-primary px-4 py-3.5 text-sm font-black text-white transition-colors hover:bg-teal"
+        >
+          {text('choose_plan', isRtl ? 'اختر هذه الخطة' : 'Choose this plan')}
+        </button>
+      </article>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-background py-32 px-6 md:px-12 relative overflow-hidden">
-      <div className="absolute inset-0 z-0 opacity-10 grayscale bg-food-atmosphere" />
-
-      <div className="max-w-7xl mx-auto relative z-10">
-        <header className="text-center mb-24 max-w-3xl mx-auto">
-          <div className="badge mb-8 mx-auto">
-            <Star className="w-2.5 h-2.5 fill-gold" />
-            <span>{t('premium_experience')}</span>
+    <section className="relative overflow-hidden bg-background px-5 pb-12 pt-2 sm:px-8 sm:pb-16 sm:pt-4" dir={isRtl ? 'rtl' : 'ltr'}>
+      <div className="mx-auto max-w-6xl">
+        <header className="mb-8 max-w-2xl">
+          <div className="mb-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-gold">
+            <Sparkles className="h-4 w-4" />
+            {text('plan_summary', isRtl ? 'ملخص الخطط' : 'Plans at a glance')}
           </div>
-          <h1 className="text-5xl md:text-7xl font-black text-primary leading-[1] tracking-tighter uppercase italic mb-8">
-            {isRtl ? 'مختارة' : 'Curated'}<br />
-            <span className="text-sage">{isRtl ? 'التغذية.' : 'Nutrition.'}</span>
-          </h1>
-          <p className="text-muted text-lg md:text-xl font-medium italic leading-relaxed">
-            {t('packages_subtitle')}
+          <h2 className="text-3xl font-black leading-tight tracking-tight text-primary sm:text-4xl">
+            {text('packages_title', isRtl ? 'اختر خطتك' : 'Choose your plan')}
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted sm:text-base">
+            {text('plan_summary_hint', isRtl ? 'قارن الوجبات والسعرات وأيام الخدمة قبل الاختيار.' : 'Compare meals, calories and service days before you choose.')}
+          </p>
+          <p className="mt-4 rounded-2xl border border-gold/25 bg-gold/10 px-4 py-3 text-sm font-bold leading-relaxed text-primary">
+            {text('plan_days_price_summary', isRtl ? 'الخطط الشهرية تشمل ٢٤ يوم خدمة. وجبات وتوصيل الجمعة إضافة اختيارية بـ١٩٩ ريالاً قطرياً شهرياً.' : 'Monthly plans include 24 service days. Friday meals and delivery are optional for 199 QAR/month.')}
           </p>
         </header>
 
-        {loading && <p className="mb-20 text-center text-muted" role="status">{isRtl ? 'جارٍ تحميل الخطط…' : 'Loading meal plans…'}</p>}
-        {!loading && loadError && <div className="mb-20 text-center text-red-700" role="alert"><p>{isRtl ? 'خطط الوجبات غير متاحة مؤقتاً. يرجى المحاولة لاحقاً.' : 'Meal plans are temporarily unavailable. Please try again shortly.'}</p><button type="button" className="mt-3 underline" onClick={() => { setLoading(true); setLoadError(false); setRetryCount((count) => count + 1); }}>{isRtl ? 'حاول مرة أخرى' : 'Try again'}</button></div>}
-        {!loading && !loadError && packages.length === 0 && <p className="mb-20 text-center text-muted">{isRtl ? 'لا توجد خطط وجبات متاحة حالياً.' : 'No meal plans are available right now.'}</p>}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-32">
-          {packages.map((pkg) => {
-            const details = PACKAGES.find((item) => item.id === pkg.id);
-            const title = t(pkg.id) !== pkg.id ? t(pkg.id) : pkg.name;
-            return (
-            <AnimatedSection key={pkg.id}>
-              <div className="glass-card h-full flex flex-col p-6 sm:p-8 group">
-                <div className="relative h-60 overflow-hidden rounded-[2rem] mb-8">
-                  <img src={details?.image || ''} alt={title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[3s]" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-primary/60 via-transparent to-transparent" />
-                  <div className="absolute bottom-6 left-6 right-6">
-                    <p className="text-gold text-[9px] font-black uppercase tracking-widest mb-1">{details ? t(details.highlight) : t('premium')}</p>
-                    <h3 className="text-white text-2xl font-black uppercase italic tracking-tighter">{title}</h3>
-                  </div>
-                </div>
+        {monthlyPlans.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {monthlyPlans.map((plan) => <PlanCard key={plan.id} plan={plan} />)}
+          </div>
+        ) : (
+          <p className="rounded-2xl border border-primary/10 bg-white p-5 text-sm text-muted">{text('plans_unavailable', isRtl ? 'الخطط غير متاحة حالياً.' : 'Plans are temporarily unavailable.')}</p>
+        )}
 
-                <div className="px-4 flex-1">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-8 border-b border-primary/5 pb-6">
-                    <span className="whitespace-nowrap text-3xl sm:text-4xl font-black text-primary tracking-tighter">{pkg.price.toLocaleString()} <span className="text-xs">{pkg.currency}</span></span>
-                    <span className="min-w-0 text-[10px] font-bold text-gold uppercase tracking-widest break-words">
-                      {pkg.id === 'daily_trial' ? '1 Day Trial' : pkg.id === 'weekly_reset' ? '6 Day Trial' : ['1100kcal', '1400kcal', '1500kcal', '1600kcal'].includes(pkg.id) ? '24 Service Days' : pkg.duration || t('month')}
-                    </span>
-                  </div>
+        {trialPlans.length > 0 && (
+          <div className="mt-8">
+            <h3 className="mb-3 text-lg font-black text-primary">{text('try_first', isRtl ? 'جرّب قبل الاشتراك' : 'Try before you subscribe')}</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {trialPlans.map((plan) => <PlanCard key={plan.id} plan={plan} isTrial />)}
+            </div>
+          </div>
+        )}
 
-                  <div className="space-y-4 mb-10">
-                     {[
-                       details ? t(details.meals_key || '3_main_meals') : pkg.description,
-                       pkg.kcals + ' ' + t('kcal'),
-                       t('continuous_delivery')
-                     ].filter(Boolean).map((feature) => (
-                       <div key={feature} className="flex items-center gap-4">
-                         <div className="w-5 h-5 rounded-full bg-sage/10 flex items-center justify-center">
-                           <Check className="w-3 h-3 text-sage" />
-                         </div>
-                         <span className="text-[10px] font-black text-primary/60 uppercase tracking-[0.15em]">{feature}</span>
-                       </div>
-                     ))}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => onSubscribeClick(pkg.id)}
-                  className="w-full btn-primary py-5 text-[11px] tracking-[0.3em] font-black"
-                >
-                  {t('hero_cta_book')}
-                </button>
-              </div>
-            </AnimatedSection>
-          );})}
-        </div>
       </div>
-    </div>
+    </section>
   );
 }

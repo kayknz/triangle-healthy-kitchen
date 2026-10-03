@@ -500,7 +500,7 @@ function SummaryCard({
   trend: number | null; progress: number | null; color: string;
 }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-[2rem] p-6 shadow-sm hover:shadow-xl transition-all duration-300">
+    <div className="min-w-0 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl sm:rounded-[2rem] sm:p-6">
       <div className="flex items-center justify-between mb-4">
         <span className="w-12 h-12 rounded-2xl flex items-center justify-center border border-gray-50" style={{ backgroundColor: `${color}10`, color }}>
           {icon}
@@ -512,8 +512,8 @@ function SummaryCard({
           </span>
         )}
       </div>
-      <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">{label}</p>
-      <p className="text-[#0a3030] font-black text-2xl mt-1 tracking-tight">{value}</p>
+      <p className="break-words text-gray-400 text-[10px] font-bold uppercase tracking-wider sm:text-xs sm:tracking-widest">{label}</p>
+      <p className="mt-1 break-words text-xl font-black tracking-tight text-[#0a3030] sm:text-2xl">{value}</p>
       {progress !== null && (
         <div className="mt-4 h-2 bg-gray-50 rounded-full overflow-hidden">
           <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(progress, 100)}%`, backgroundColor: color }} />
@@ -538,13 +538,13 @@ function TrendChart({
   const diff = startValue && endValue ? endValue - startValue : null;
 
   return (
-    <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-sm">
-      <div className="flex items-center justify-between mb-8">
+    <div className="min-w-0 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm sm:rounded-[2.5rem] sm:p-8">
+      <div className="mb-5 flex items-center justify-between gap-2 sm:mb-8 sm:gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400">
             {icon}
           </div>
-          <h3 className="text-[#0a3030] font-black text-lg tracking-tight">{title}</h3>
+          <h3 className="break-words text-base font-black tracking-tight text-[#0a3030] sm:text-lg">{title}</h3>
         </div>
         {diff !== null && diff !== 0 && (
           <div className={`px-4 py-1.5 rounded-full flex items-center gap-1.5 font-black text-xs ${diff < 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>

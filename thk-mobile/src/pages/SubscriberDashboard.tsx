@@ -180,7 +180,7 @@ export default function SubscriberDashboard() {
                 key={tKey}
                 onClick={() => setTab(tKey)}
                 disabled={isHardLocked && tKey !== 'menu'}
-                className={`relative px-8 py-3.5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                className={`relative whitespace-nowrap rounded-[1.25rem] px-4 py-3 text-[9px] font-black uppercase tracking-wider transition-all sm:rounded-[1.5rem] sm:px-8 sm:py-3.5 sm:text-[10px] sm:tracking-widest ${
                   tab === tKey ? 'bg-teal text-white shadow-xl' : 'text-primary/40 hover:text-primary'
                 } ${isHardLocked && tKey !== 'menu' ? 'opacity-20 cursor-not-allowed' : ''}`}
               >
@@ -212,7 +212,7 @@ export default function SubscriberDashboard() {
       </div>
 
       {/* Floating Concierge Support */}
-      <div className="fixed bottom-12 right-12 flex flex-col gap-4 z-50">
+      <div className="fixed bottom-5 right-4 z-50 flex flex-col gap-3 sm:bottom-12 sm:right-12 sm:gap-4">
          <a
            href="tel:+97466624942"
            className="w-16 h-16 bg-blue-600 text-white rounded-2xl shadow-4xl flex items-center justify-center hover:scale-110 transition-all border-2 border-white/20"
@@ -574,19 +574,19 @@ function MenuSelection({ subscriber, onUpdate }: { subscriber: Subscriber, onUpd
 
 function AboutMealModal({ dish, isRtl, onClose }: { dish: MenuDish, isRtl: boolean, onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-primary/40 backdrop-blur-md" />
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-[#FDFCF7] w-full max-w-2xl max-h-[85vh] rounded-[3rem] shadow-4xl overflow-hidden flex flex-col border border-white/40">
-         <div className="p-10 border-b border-primary/5 flex items-center justify-between bg-white/40">
+      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/40 bg-[#FDFCF7] shadow-4xl sm:max-h-[85vh] sm:rounded-[3rem]">
+         <div className="flex items-center justify-between gap-3 border-b border-primary/5 bg-white/40 p-5 sm:p-10">
             <div>
                <span className="text-[10px] font-black text-gold uppercase tracking-[0.4em] mb-2 block">{isRtl ? 'تفاصيل الوجبة' : 'Meal Intel'}</span>
-               <h2 className="text-3xl font-black text-primary uppercase italic tracking-tighter">{isRtl ? (dish.name_ar || dish.name) : dish.name}</h2>
+               <h2 className="break-words text-xl font-black tracking-tighter text-primary uppercase italic sm:text-3xl">{isRtl ? (dish.name_ar || dish.name) : dish.name}</h2>
             </div>
             <button onClick={onClose} className="p-4 hover:bg-primary/5 rounded-full transition-colors"><X className="w-8 h-8 text-primary/20" /></button>
          </div>
 
-         <div className="flex-1 overflow-y-auto p-10 space-y-12">
-            <section className="grid grid-cols-2 gap-8">
+         <div className="flex-1 space-y-8 overflow-y-auto p-5 sm:space-y-12 sm:p-10">
+            <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-8">
                <div className="space-y-2">
                   <p className="text-[10px] font-black text-primary/30 uppercase tracking-widest flex items-center gap-2"><MapPin className="w-3 h-3" /> {isRtl ? 'المطبخ' : 'Culinary Origin'}</p>
                   <p className="font-serif italic text-xl text-primary">{isRtl ? (dish.origin_ar || dish.origin || 'مطبخ عالمي') : (dish.origin || 'Global Fusion')}</p>

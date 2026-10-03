@@ -135,18 +135,18 @@ export default function MyRhythm() {
       {syncing && <SecuringProtocol message="Syncing Health Data" subtitle="Updating your daily steps and goals..." />}
 
       {/* Main Rhythm Widget */}
-      <div className="glass-card bg-primary p-8 sm:p-10 rounded-[3rem] text-white overflow-hidden relative shadow-4xl border border-white/10">
+      <div className="glass-card relative overflow-hidden rounded-3xl border border-white/10 bg-primary p-5 text-white shadow-4xl sm:rounded-[3rem] sm:p-8 md:p-10">
         <div className="absolute top-0 right-0 w-80 h-80 bg-gold/10 rounded-full blur-[120px] -mr-20 -mt-20 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-teal/20 rounded-full blur-[120px] -ml-20 -mb-20 pointer-events-none" />
 
         <div className="relative z-10 space-y-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/10">
                 <Activity className="w-5 h-5 text-gold animate-pulse" />
               </div>
               <div>
-                <h3 className="text-xl font-black uppercase italic tracking-tight">{t('rhythm_title') || 'Your Daily Rhythm'}</h3>
+                <h3 className="break-words text-lg font-black uppercase italic tracking-tight sm:text-xl">{t('rhythm_title') || 'Your Daily Rhythm'}</h3>
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/50">{t('rhythm_subtitle') || 'Live Movement & Steps'}</p>
               </div>
             </div>
@@ -165,9 +165,9 @@ export default function MyRhythm() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-white/10">
             <div className="col-span-1 sm:col-span-2 space-y-3">
               <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gold">{t('steps_today') || 'Today\'s Steps'}</span>
-              <div className="flex items-baseline gap-3">
-                <span className="text-5xl sm:text-6xl font-black italic tracking-tighter">{metrics.steps.toLocaleString()}</span>
-                <span className="text-xs font-black uppercase tracking-widest opacity-40">/ {metrics.goal.toLocaleString()} Steps</span>
+              <div className="flex flex-wrap items-baseline gap-2 sm:gap-3">
+                <span className="text-4xl font-black italic tracking-tighter sm:text-6xl">{metrics.steps.toLocaleString()}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 sm:text-xs">/ {metrics.goal.toLocaleString()} Steps</span>
               </div>
 
               {/* Progress Bar */}
@@ -212,12 +212,12 @@ export default function MyRhythm() {
       </div>
 
       {/* Weekly History Row */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl space-y-6">
+      <div className="space-y-5 rounded-3xl border border-gray-100 bg-white p-4 shadow-xl sm:space-y-6 sm:rounded-[2.5rem] sm:p-8">
         <h4 className="text-xs font-black uppercase tracking-[0.3em] text-[#0a3030]">7-Day Activity History</h4>
 
         <div className="grid grid-cols-7 gap-2 sm:gap-4 text-center">
           {weeklyStatus.map((item, idx) => (
-            <div key={idx} className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-gray-50 border border-gray-100">
+            <div key={idx} className="flex min-w-0 flex-col items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 p-1.5 sm:rounded-2xl sm:p-3">
               <span className="text-[10px] font-black uppercase text-gray-400">{item.day}</span>
               {item.status === 'recorded' && <CheckCircle2 className="w-5 h-5 text-emerald-500" aria-label={isRtl ? 'تم تسجيل النشاط' : 'Activity recorded'} />}
               {item.status === 'today' && <Timer className="w-5 h-5 text-[#C5A059]" aria-label={isRtl ? 'اليوم' : 'Today'} />}

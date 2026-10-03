@@ -60,7 +60,7 @@ export default function Menu() {
     <section id="menu" className="bg-[#F9FBF9] py-32 px-6 sm:px-8 lg:px-12" dir={isRtl ? 'rtl' : 'ltr'}>
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-5xl sm:text-6xl font-black text-[#0a3030] mb-6 tracking-tighter">
+          <h2 className="mb-5 break-words text-4xl font-black tracking-tighter text-[#0a3030] sm:mb-6 sm:text-6xl">
             {t('menu_title') || (isRtl ? 'ماذا يوجد في المنيو' : "What's on the Menu")}
           </h2>
           <p className="text-gray-400 text-xl max-w-2xl mx-auto font-medium">
@@ -142,7 +142,7 @@ export default function Menu() {
               </button>
 
               {expandedMeal === meal && dishes.length > 0 && (
-                <div className="px-8 pb-8 grid grid-cols-1 sm:grid-cols-2 gap-4" dir={isRtl ? 'rtl' : 'ltr'}>
+                <div className="grid grid-cols-1 gap-3 px-4 pb-6 sm:grid-cols-2 sm:gap-4 sm:px-8 sm:pb-8" dir={isRtl ? 'rtl' : 'ltr'}>
                   {dishes.map((d: any) => (
                     <div key={d.name} className="bg-gray-50/50 border border-gray-100 rounded-[1.5rem] p-5">
                       <div className={`flex items-start justify-between gap-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
@@ -159,7 +159,7 @@ export default function Menu() {
           ))}
         </div>
 
-        <div className={`mt-16 p-8 bg-gray-50 rounded-3xl border border-gray-100 flex items-start gap-4 ${isRtl ? 'flex-row-reverse text-right' : ''}`}>
+        <div className={`mt-10 flex items-start gap-3 rounded-3xl border border-gray-100 bg-gray-50 p-5 sm:mt-16 sm:gap-4 sm:p-8 ${isRtl ? 'flex-row-reverse text-right' : ''}`}>
           <Sparkles className="w-6 h-6 text-[#C5A059] flex-shrink-0" />
           <p className="text-gray-400 text-xs font-medium leading-relaxed">
             {t('menu_disclaimer') || 'All meals are prepared fresh daily in our municipality-approved Doha kitchen.'}

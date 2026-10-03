@@ -215,7 +215,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
       maxWidth="max-w-2xl"
     >
       {submitted ? (
-        <div className="px-10 py-16 text-center animate-in">
+        <div className="animate-in px-5 py-10 text-center sm:px-10 sm:py-16">
           <div className="w-24 h-24 rounded-[2.5rem] bg-[#0a3030] flex items-center justify-center mx-auto mb-10 shadow-2xl rotate-6">
             <CheckCircle className="w-12 h-12 text-[#C5A059]" />
           </div>
@@ -227,7 +227,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
         </div>
       ) : (
         <div className="flex flex-col h-full">
-          <div className="px-10 py-6 border-b border-primary/5 flex-shrink-0 bg-gray-50/30 overflow-x-auto no-scrollbar">
+          <div className="flex-shrink-0 overflow-x-auto border-b border-primary/5 bg-gray-50/30 px-5 py-5 no-scrollbar sm:px-10 sm:py-6">
             <div className="flex items-center min-w-max gap-4">
               {STEPS.map((label, i) => (
                 <div key={label} className="flex items-center gap-4">
@@ -249,9 +249,9 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-10 py-10">
+          <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-10 sm:py-10">
             {error && (
-              <div className="mb-8 flex items-start gap-3 bg-red-50 border border-red-100 rounded-2xl px-6 py-5 animate-in">
+              <div className="animate-in mb-6 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-4 sm:mb-8 sm:px-6 sm:py-5">
                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <p className="text-red-700 text-sm font-medium">{error}</p>
               </div>
@@ -307,7 +307,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
             {step === 1 && (
               <div className="space-y-8 animate-in">
                 <h3 className="text-[#0a3030] font-black text-2xl uppercase italic leading-none">{t('biological_profile')}</h3>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-3 sm:gap-6">
                   <FormEntry label={t('current_weight')} sub="kg">
                     <input type="number" inputMode="decimal" min={40} max={150} value={data.weight_kg} onChange={(e) => update({ weight_kg: e.target.value === '' ? '40' : String(Math.min(150, Math.max(40, Number(e.target.value)))) })} placeholder="72" className="input-field py-5 font-black text-lg" />
                   </FormEntry>
@@ -317,7 +317,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                 </div>
                 <div>
                   <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40 ml-1 mb-4 block">{t('target_ambition')}</label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {FITNESS_GOALS.map((g) => (
                       <button key={g} onClick={() => update({ fitness_goal: g })} className={`py-4 rounded-2xl text-[10px] font-black uppercase border-2 transition-all ${data.fitness_goal === g ? 'border-[#0a3030] bg-[#0a3030] text-white shadow-lg' : 'border-gray-50 bg-white text-gray-300 hover:border-gray-200'}`}>{t(g) || g}</button>
                     ))}
@@ -441,16 +441,16 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
             )}
           </div>
 
-          <div className="flex items-center justify-between px-10 py-10 border-t border-primary/5 flex-shrink-0 bg-white/60 backdrop-blur-md">
+          <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-primary/5 bg-white/60 px-5 py-5 backdrop-blur-md sm:px-10 sm:py-8">
             <button onClick={back} disabled={step === 0} className="flex items-center gap-2 text-gray-400 font-black uppercase tracking-widest text-[10px] disabled:opacity-20 transition-all hover:text-[#0a3030]">
               <ArrowLeft className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} /> {t('back')}
             </button>
             {step < STEPS.length - 1 ? (
-              <button onClick={next} className="btn-primary py-4 px-10 text-sm uppercase tracking-widest flex items-center gap-3">
+              <button onClick={next} className="btn-primary flex items-center gap-2 px-5 py-3.5 text-xs uppercase tracking-widest sm:gap-3 sm:px-10 sm:py-4 sm:text-sm">
                 {t('next')} <ArrowRight className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
               </button>
             ) : (
-              <button onClick={submit} disabled={submitting} className="bg-[#C5A059] text-white font-black px-12 py-4 rounded-2xl text-sm uppercase tracking-widest transition-all flex items-center gap-3 shadow-[0_20px_40px_rgba(197,160,89,0.3)] hover:-translate-y-1 active:scale-95 disabled:opacity-50">
+              <button onClick={submit} disabled={submitting} className="flex items-center gap-2 rounded-2xl bg-[#C5A059] px-4 py-3.5 text-xs font-black uppercase tracking-wider text-white shadow-[0_20px_40px_rgba(197,160,89,0.3)] transition-all hover:-translate-y-1 active:scale-95 disabled:opacity-50 sm:gap-3 sm:px-12 sm:py-4 sm:text-sm sm:tracking-widest">
                 {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : t('register_consult')}
               </button>
             )}
