@@ -1,7 +1,7 @@
 # Director's Handover Letter and Acceptance Guide
 
 **To:** Director, Triangle Healthy Kitchen  
-**From:** Software Developer  
+**From:** Kevin George Muliika, Software Developer  
 **Handover date:** 3 October 2026  
 **Product:** Triangle Healthy Kitchen website, customer mobile apps, and operations system
 

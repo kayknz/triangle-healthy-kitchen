@@ -1,6 +1,6 @@
 # Triangle Healthy Kitchen Software Handover
 
-**Prepared by:** Software Developer  
+**Prepared by:** Kevin George Muliika, Software Developer  
 **Prepared for:** Director, Triangle Healthy Kitchen  
 **Handover date:** 3 October 2026  
 **Documentation set:** 1.1
