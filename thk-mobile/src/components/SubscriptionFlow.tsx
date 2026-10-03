@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
@@ -58,11 +58,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const [menuPeriod, setMenuPeriod] = useState('autumn');
   const [menuLoading, setMenuLoading] = useState(false);
 
-  const [assessment, setAssessment] = useState({
-    age: 30,
+  const [assessment, setAssessment] = useState<{ age: string; gender: 'male' | 'female'; weight: string; height: string; fitness_goal: string; activity_level: string }>({
+    age: '30',
     gender: 'male' as 'male' | 'female',
-    weight: 75,
-    height: 180,
+    weight: '75',
+    height: '180',
     fitness_goal: 'weight_loss',
     activity_level: 'moderate',
   });
@@ -97,6 +97,36 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const checkoutBodyRef = useRef<HTMLDivElement>(null);
+
+  const focusCheckoutField = (fieldId: string) => {
+    window.requestAnimationFrame(() => {
+      const field = checkoutBodyRef.current?.querySelector<HTMLElement>(`[data-field-id="${fieldId}"]`);
+      field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      field?.focus({ preventScroll: true });
+    });
+  };
+  const focusNextCheckoutField = (fieldId: string) => {
+    const ids: Record<string, string> = {
+      assessment_age: 'assessment_weight', assessment_weight: 'assessment_height', assessment_height: 'assessment_goal',
+      address_building: 'address_street', address_street: 'address_area', address_area: 'address_zone', address_zone: 'address_phone',
+      identity_name: 'identity_email', identity_email: 'identity_password', payment_email: 'payment_terms',
+    };
+    if (fieldId.startsWith('menu-')) {
+      window.setTimeout(() => {
+        const fields = Array.from(checkoutBodyRef.current?.querySelectorAll<HTMLElement>('[data-field-id^="menu-"]') || []);
+        const nextField = fields[fields.findIndex((field) => field.dataset.fieldId === fieldId) + 1];
+        nextField?.focus({ preventScroll: false });
+      }, 0);
+      return;
+    }
+    const nextId = ids[fieldId];
+    if (nextId) window.requestAnimationFrame(() => checkoutBodyRef.current?.querySelector<HTMLElement>(`[data-field-id="${nextId}"]`)?.focus({ preventScroll: false }));
+  };
+  const rejectStep = (message: string, fieldId?: string) => {
+    setError(message);
+    if (fieldId) focusCheckoutField(fieldId);
+  };
 
   const getSteps = () => {
     const base = [
@@ -190,40 +220,50 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
   const handleNext = async () => {
     const currentStep = STEPS[step]?.id;
-    if (currentStep === 'assessment' && (!Number.isFinite(assessment.weight) || assessment.weight < 40 || assessment.weight > 150 || !Number.isFinite(assessment.height) || assessment.height < 140 || assessment.height > 220 || assessment.age < 13 || assessment.age > 110)) {
-      setError('Enter your age and a valid weight (40–150 kg) and height (140–220 cm).');
+    const assessmentAge = Number(assessment.age);
+    const assessmentWeight = Number(assessment.weight);
+    const assessmentHeight = Number(assessment.height);
+    if (currentStep === 'assessment' && (!Number.isFinite(assessmentWeight) || assessmentWeight < 40 || assessmentWeight > 150 || !Number.isFinite(assessmentHeight) || assessmentHeight < 140 || assessmentHeight > 220 || !Number.isFinite(assessmentAge) || assessmentAge < 13 || assessmentAge > 110)) {
+      const target = !Number.isFinite(assessmentAge) || assessmentAge < 13 || assessmentAge > 110 ? 'assessment_age' : !Number.isFinite(assessmentWeight) || assessmentWeight < 40 || assessmentWeight > 150 ? 'assessment_weight' : 'assessment_height';
+      rejectStep('Enter your age and a valid weight (40–150 kg) and height (140–220 cm).', target);
       return;
     }
     if (currentStep === 'plan' && !pkg) {
-      setError('Select an available meal plan to continue.');
+      rejectStep('Select an available meal plan to continue.', 'plan_choice');
       return;
     }
     if (currentStep === 'menu') {
-      if (menuLoading) { setError('Please wait while the weekly menu loads.'); return; }
-      if (!Object.values(initialMenuOptions).some((choices) => choices.length)) { setError('The kitchen has not published a menu yet. Please check back after the weekly menu is released.'); return; }
+      if (menuLoading) { rejectStep('Please wait while the weekly menu loads.'); return; }
+      if (!Object.values(initialMenuOptions).some((choices) => choices.length)) { rejectStep('The kitchen has not published a menu yet. Please check back after the weekly menu is released.'); return; }
       const requiredKeys = packageMenuDays.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`));
-      if (requiredKeys.some((key) => !(initialMenuOptions[key] || []).length)) return setError('The published menu is missing one or more meals for this package. Please ask the kitchen to complete the weekly menu.');
-      if (!requiredKeys.length) { setError('No meals are available for this package in the published menu.'); return; }
-      if (requiredKeys.some((key) => !initialMenuSelections[key])) { setError('Choose one meal for every day and meal period to continue.'); return; }
-      if (packageMenuMeals.includes('snacks_2') && packageMenuDays.some((day) => initialMenuSelections[`${day}|snacks`]?.dish_id === initialMenuSelections[`${day}|snacks_2`]?.dish_id)) { setError('Choose two different snacks for each day. The published menu needs at least two snack choices.'); return; }
+      const missingOptions = requiredKeys.find((key) => !(initialMenuOptions[key] || []).length);
+      if (missingOptions) return rejectStep('The published menu is missing one or more meals for this package. Please ask the kitchen to complete the weekly menu.', `menu-${missingOptions}`);
+      if (!requiredKeys.length) { rejectStep('No meals are available for this package in the published menu.'); return; }
+      const missingSelection = requiredKeys.find((key) => !initialMenuSelections[key]);
+      if (missingSelection) { rejectStep('Choose one meal for every day and meal period to continue.', `menu-${missingSelection}`); return; }
+      const duplicateSnacks = packageMenuMeals.includes('snacks_2') && packageMenuDays.find((day) => initialMenuSelections[`${day}|snacks`]?.dish_id === initialMenuSelections[`${day}|snacks_2`]?.dish_id);
+      if (duplicateSnacks) { rejectStep('Choose two different snacks for each day. The published menu needs at least two snack choices.', `menu-${duplicateSnacks}|snacks_2`); return; }
     }
     if (currentStep === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) {
-      setError('Enter your phone number and complete the building, street, area, and zone details.');
+      const target = !address.building_number.trim() ? 'address_building' : !address.street.trim() ? 'address_street' : !address.area.trim() ? 'address_area' : !address.zone.trim() ? 'address_zone' : 'address_phone';
+      rejectStep('Enter your phone number and complete the building, street, area, and zone details.', target);
       return;
     }
     if (currentStep === 'identity') {
-      if (!name.trim() || !email.trim() || password.length < 6 || !phone.trim()) {
-        setError('Enter your name, billing email, phone number, and a password with at least 6 characters.');
+      if (!name.trim() || !email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || password.length < 6 || !phone.trim()) {
+        const target = !name.trim() ? 'identity_name' : !email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? 'identity_email' : password.length < 6 ? 'identity_password' : signupChannel === 'whatsapp' ? 'identity_phone' : 'address_phone';
+        rejectStep('Enter your name, billing email, phone number, and a password with at least 6 characters.', target);
         return;
       }
       if (signupChannel === 'whatsapp' && !toE164Phone(phone, signupCountry)) {
-        setError(t('error_phone') || 'Enter a valid phone number for the selected country.');
+        rejectStep(t('error_phone') || 'Enter a valid phone number for the selected country.', 'identity_phone');
         return;
       }
       setSubmitting(true);
       setError(null);
       try {
         if (signupOtpStep) {
+          if (!signupOtpCode.trim()) { rejectStep(isRtl ? 'أدخل رمز التحقق المرسل إليك.' : 'Enter the verification code sent to you.', 'identity_otp'); return; }
           const destination = signupChannel === 'email' ? email.trim().toLowerCase() : toE164Phone(phone, signupCountry)!;
           const verified = await verifySignupOtp(destination, signupOtpCode.trim(), signupChannel);
           if (verified.error) { setError(verified.error); return; }
@@ -246,11 +286,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       return;
     }
     if (currentStep === 'payment' && !termsAccepted) {
-      setError('Please accept the plan and payment terms to continue.');
+      rejectStep('Please accept the plan and payment terms to continue.', 'payment_terms');
       return;
     }
     if (currentStep === 'payment' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(billingEmail.trim() || email.trim() || user?.email || '')) {
-      setError('Enter a valid email address for Tap payment receipts.');
+      rejectStep('Enter a valid email address for Tap payment receipts.', 'payment_email');
       return;
     }
     setError(null);
@@ -327,12 +367,12 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
           profile: {
             email: billingEmail.trim().toLowerCase() || email.trim().toLowerCase() || activeUser.email || '',
             full_name: name || activeUser.user_metadata?.full_name || 'Triangle Member',
-            age: assessment.age,
+            age: Number(assessment.age),
             gender: assessment.gender,
             bmi_report_path: bmiReportPath,
             phone: (signupChannel === 'whatsapp' ? toE164Phone(phone, signupCountry) : null) || phone || activeUser.user_metadata?.phone || '',
-            weight_kg: assessment.weight,
-            height_cm: assessment.height,
+            weight_kg: Number(assessment.weight),
+            height_cm: Number(assessment.height),
             fitness_goal: assessment.fitness_goal,
             allergies: foodAllergies,
             dislikes: foodDislikes.split(',').map((item) => item.trim()).filter(Boolean),
@@ -389,8 +429,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       title="Start Your Plan"
       badge="Verified Member"
       maxWidth="max-w-xl"
+      contentClassName="min-h-0 flex-1 overflow-hidden"
     >
-      <div className="p-6 sm:p-10" dir={isRtl ? 'rtl' : 'ltr'}>
+      <div className="h-full min-h-0 overflow-y-auto overscroll-contain p-6 sm:p-10" ref={checkoutBodyRef} dir={isRtl ? 'rtl' : 'ltr'}>
         {preselectedPackage && pkg && (
           <div className="mb-6 rounded-2xl border border-[#C5A059]/30 bg-[#C5A059]/10 p-4">
             <p className="text-[9px] font-black uppercase tracking-widest text-[#7b6332]">{isRtl ? 'الخطة المختارة' : 'Selected plan'}</p>
@@ -432,7 +473,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             </div>
 
             {error && (
-              <div className="flex items-start gap-3 bg-red-50 border border-red-100 rounded-2xl p-4 text-red-700 text-xs font-semibold">
+              <div role="alert" aria-live="assertive" className="flex items-start gap-3 bg-red-50 border border-red-100 rounded-2xl p-4 text-red-700 text-xs font-semibold">
                 <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
@@ -442,27 +483,36 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {STEPS[step]?.id === 'assessment' && (
               <div className="space-y-4 animate-in">
                 <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'تقييم الصحة والأهداف' : 'Health & Goal Assessment'}</h3>
-                <div className="grid grid-cols-2 gap-4"><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الجنس' : 'Gender'}<select value={assessment.gender} onChange={(event) => setAssessment({ ...assessment, gender: event.target.value as 'male' | 'female' })} className="input-field mt-2 py-3 text-sm font-semibold normal-case"><option value="male">{isRtl ? 'ذكر' : 'Male'}</option><option value="female">{isRtl ? 'أنثى' : 'Female'}</option></select></label><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'العمر' : 'Age'}<input type="number" min={13} max={110} value={assessment.age} onChange={(event) => setAssessment({ ...assessment, age: Number(event.target.value) })} className="input-field mt-2 py-3 font-bold" /></label></div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 items-start gap-4"><label className="text-[10px] font-black uppercase text-gray-400"><span className="flex min-h-10 items-end">{isRtl ? 'الجنس' : 'Gender'}</span><select value={assessment.gender} onChange={(event) => setAssessment({ ...assessment, gender: event.target.value as 'male' | 'female' })} className="input-field mt-2 py-3 text-sm font-semibold normal-case"><option value="male">{isRtl ? 'ذكر' : 'Male'}</option><option value="female">{isRtl ? 'أنثى' : 'Female'}</option></select></label><label className="text-[10px] font-black uppercase text-gray-400"><span className="flex min-h-10 items-end">{isRtl ? 'العمر' : 'Age'}</span><input data-field-id="assessment_age" enterKeyHint="next" onKeyDown={(event) => { if (event.key === 'Enter' && assessment.age) { event.preventDefault(); focusNextCheckoutField('assessment_age'); } }} type="number" inputMode="numeric" min={13} max={110} value={assessment.age} onChange={(event) => setAssessment({ ...assessment, age: event.target.value })} className="input-field mt-2 py-3 font-bold" /></label></div>
+                <div className="grid grid-cols-2 items-start gap-4">
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الوزن الحالي (كجم)' : 'Current Weight (kg)'}</label>
+                    <label className="flex min-h-10 items-end text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الوزن الحالي (كجم)' : 'Current Weight (kg)'}</label>
                     <input
+                      data-field-id="assessment_weight"
+                      enterKeyHint="next"
+                      onKeyDown={(event) => { if (event.key === 'Enter' && assessment.weight) { event.preventDefault(); focusNextCheckoutField('assessment_weight'); } }}
                       type="number"
+                      inputMode="decimal"
+                      step="0.1"
                       min={40}
                       max={150}
                       value={assessment.weight}
-                      onChange={(e) => setAssessment({ ...assessment, weight: e.target.value === '' ? 40 : Math.min(150, Math.max(40, Number(e.target.value))) })}
+                      onChange={(e) => setAssessment({ ...assessment, weight: e.target.value })}
                       className="input-field py-3 font-bold"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الطول (سم)' : 'Standing Height (cm)'}</label>
+                    <label className="flex min-h-10 items-end text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الطول (سم)' : 'Standing Height (cm)'}</label>
                     <input
+                      data-field-id="assessment_height"
+                      enterKeyHint="next"
+                      onKeyDown={(event) => { if (event.key === 'Enter' && assessment.height) { event.preventDefault(); focusNextCheckoutField('assessment_height'); } }}
                       type="number"
+                      inputMode="numeric"
                       min={140}
                       max={220}
                       value={assessment.height}
-                      onChange={(e) => setAssessment({ ...assessment, height: e.target.value === '' ? 140 : Math.min(220, Math.max(140, Number(e.target.value))) })}
+                      onChange={(e) => setAssessment({ ...assessment, height: e.target.value })}
                       className="input-field py-3 font-bold"
                     />
                   </div>
@@ -470,6 +520,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 <div>
                   <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الهدف' : 'Target Goal'}</label>
                   <select
+                    data-field-id="assessment_goal"
                     value={assessment.fitness_goal}
                     onChange={(e) => setAssessment({ ...assessment, fitness_goal: e.target.value })}
                     className="input-field py-3 font-bold bg-white"
@@ -491,6 +542,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   {availablePackages.map((p) => (
                     <button
                       key={p.id}
+                      data-field-id={p.id === availablePackages[0]?.id ? 'plan_choice' : undefined}
                       onClick={() => { setPkgId(p.id); if (p.id === 'daily_trial' || p.id === 'weekly_reset') setFridayDelivery(false); }}
                       className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${
                         pkgId === p.id ? 'border-[#0a3030] bg-[#0a3030]/5 shadow-md' : 'border-gray-100 bg-white'
@@ -515,7 +567,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 {menuLoading ? <p className="py-6 text-sm text-gray-500">{isRtl ? 'جارٍ تحميل القائمة…' : 'Loading menu…'}</p> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{isRtl ? 'لم ينشر المطبخ قائمة الطعام بعد. يرجى العودة بعد نشر قائمة الأسبوع.' : 'The kitchen has not published a menu yet. Check back after the weekly menu is released.'}</p> : packageMenuDays.map((day) => {
                   const meals = packageMenuMeals.filter((meal) => (initialMenuOptions[`${day}|${meal}`] || []).length);
                   if (!meals.length) return null;
-                  return <section key={day} className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="mb-3 font-black uppercase text-[#0a3030]">{day}</h4>{meals.map((meal) => { const key = `${day}|${meal}`; const choices = initialMenuOptions[key]; return <label key={key} className="mb-3 block text-xs font-bold uppercase text-gray-500">{meal}<select value={initialMenuSelections[key]?.dish_id || ''} onChange={(event) => { const selected = choices.find((choice) => choice.id === event.target.value); if (selected) setInitialMenuSelections((previous) => ({ ...previous, [key]: { dish_id: selected.id, dish_name: selected.name, dish_kcals: selected.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal === 'snacks_2' ? 'snack_2' : meal, menu_period: menuPeriod } })); }} className="input-field mt-1 py-3 normal-case">{choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.kcals} kcal</option>)}</select></label>; })}</section>;
+                  return <section key={day} className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="mb-3 font-black uppercase text-[#0a3030]">{day}</h4>{meals.map((meal) => { const key = `${day}|${meal}`; const choices = initialMenuOptions[key]; return <label key={key} className="mb-3 block text-xs font-bold uppercase text-gray-500">{meal}<select data-field-id={`menu-${key}`} value={initialMenuSelections[key]?.dish_id || ''} onChange={(event) => { const selected = choices.find((choice) => choice.id === event.target.value); if (selected) setInitialMenuSelections((previous) => ({ ...previous, [key]: { dish_id: selected.id, dish_name: selected.name, dish_kcals: selected.kcals, day_of_week: day, meal_type: meal === 'snacks' ? 'snack' : meal === 'snacks_2' ? 'snack_2' : meal, menu_period: menuPeriod } })); focusNextCheckoutField(`menu-${key}`); }} className="input-field mt-1 py-3 normal-case">{choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.kcals} kcal</option>)}</select></label>; })}</section>;
                 })}
               </div>
             )}
@@ -570,6 +622,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   <div>
                     <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رقم المبنى' : 'Building Number'}</label>
                     <input
+                      data-field-id="address_building"
+                      enterKeyHint="next"
+                      onKeyDown={(event) => { if (event.key === 'Enter' && address.building_number.trim()) { event.preventDefault(); focusNextCheckoutField('address_building'); } }}
                       type="text"
                       value={address.building_number}
                       onChange={(e) => setAddress({ ...address, building_number: e.target.value })}
@@ -581,6 +636,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   <div>
                     <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'اسم الشارع' : 'Street Name'}</label>
                     <input
+                      data-field-id="address_street"
+                      enterKeyHint="next"
+                      onKeyDown={(event) => { if (event.key === 'Enter' && address.street.trim()) { event.preventDefault(); focusNextCheckoutField('address_street'); } }}
                       type="text"
                       value={address.street}
                       onChange={(e) => setAddress({ ...address, street: e.target.value })}
@@ -593,6 +651,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 <div>
                   <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'اسم المنطقة' : 'Area Name'}</label>
                   <input
+                    data-field-id="address_area"
+                    enterKeyHint="next"
+                    onKeyDown={(event) => { if (event.key === 'Enter' && address.area.trim()) { event.preventDefault(); focusNextCheckoutField('address_area'); } }}
                     type="text"
                     value={address.area}
                     onChange={(e) => setAddress({ ...address, area: e.target.value })}
@@ -604,11 +665,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رقم المنطقة' : 'Zone Number'}</label>
-                    <input type="text" value={address.zone} onChange={(e) => setAddress({ ...address, zone: e.target.value })} placeholder="e.g. 66" className="input-field py-3 font-bold" required />
+                    <input data-field-id="address_zone" enterKeyHint="next" onKeyDown={(event) => { if (event.key === 'Enter' && address.zone.trim()) { event.preventDefault(); focusNextCheckoutField('address_zone'); } }} type="text" value={address.zone} onChange={(e) => setAddress({ ...address, zone: e.target.value })} placeholder="e.g. 66" className="input-field py-3 font-bold" required />
                   </div>
                   <div>
                     <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'هاتف التوصيل' : 'Delivery Phone'}</label>
-                    <input type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+974 3312 3456" className="input-field py-3 font-bold" required />
+                    <input data-field-id="address_phone" type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+974 3312 3456" className="input-field py-3 font-bold" required />
                   </div>
                 </div>
                 <div>
@@ -625,6 +686,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 <div>
                   <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'الاسم الكامل' : 'Full Name'}</label>
                   <input
+                    data-field-id="identity_name"
+                    enterKeyHint="next"
+                    onKeyDown={(event) => { if (event.key === 'Enter' && name.trim()) { event.preventDefault(); focusNextCheckoutField('identity_name'); } }}
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -636,6 +700,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                 <div>
                     <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'البريد الإلكتروني لإيصالات الدفع' : 'Email for payment receipts'}</label>
                     <input
+                      data-field-id="identity_email"
+                      enterKeyHint="next"
+                      onKeyDown={(event) => { if (event.key === 'Enter' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { event.preventDefault(); focusNextCheckoutField('identity_email'); } }}
                       type="email"
                       value={email}
                       onChange={(e) => { setEmail(e.target.value); setBillingEmail(e.target.value); }}
@@ -646,11 +713,12 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   />
                 </div>
                 {!signupOtpStep && <fieldset className="space-y-2"><legend className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'طريقة استلام رمز التحقق' : 'Verification code delivery'}</legend><div className="grid grid-cols-2 gap-3">{(['email','whatsapp'] as const).map((method) => <label key={method} className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-3 text-xs font-bold"><input type="radio" name="checkout-otp-channel" checked={signupChannel === method} onChange={() => setSignupChannel(method)} />{method === 'email' ? (isRtl ? 'البريد الإلكتروني' : 'Email') : 'WhatsApp'}</label>)}</div></fieldset>}
-                {signupChannel === 'whatsapp' && !signupOtpStep && <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رقم واتساب' : 'WhatsApp number'}</label><div className="mt-1 grid grid-cols-2 gap-2"><select aria-label={isRtl ? 'رمز الدولة' : 'Country calling code'} value={signupCountry} onChange={(e) => setSignupCountry(e.target.value as CountryCode)} className="input-field min-w-0 py-3 text-xs">{signupCountries.map((option) => <option key={option.country} value={option.country}>{option.name} ({option.dialCode})</option>)}</select><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={isRtl ? 'رقم الهاتف' : 'Mobile number'} className="input-field min-w-0 py-3 font-bold" required /></div></div>}
-                {signupOtpStep && <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رمز التحقق' : 'Verification code'} · {signupChannel === 'email' ? email : toE164Phone(phone, signupCountry)}</label><input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={signupOtpCode} onChange={(e) => setSignupOtpCode(e.target.value.replace(/\s/g, ''))} placeholder="123456" className="input-field mt-1 py-3 text-center font-bold tracking-[0.3em]" required /></div>}
+                {signupChannel === 'whatsapp' && !signupOtpStep && <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رقم واتساب' : 'WhatsApp number'}</label><div className="mt-1 grid grid-cols-2 gap-2"><select aria-label={isRtl ? 'رمز الدولة' : 'Country calling code'} value={signupCountry} onChange={(e) => setSignupCountry(e.target.value as CountryCode)} className="input-field min-w-0 py-3 text-xs">{signupCountries.map((option) => <option key={option.country} value={option.country}>{option.name} ({option.dialCode})</option>)}</select><input data-field-id="identity_phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={isRtl ? 'رقم الهاتف' : 'Mobile number'} className="input-field min-w-0 py-3 font-bold" required /></div></div>}
+                {signupOtpStep && <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'رمز التحقق' : 'Verification code'} · {signupChannel === 'email' ? email : toE164Phone(phone, signupCountry)}</label><input data-field-id="identity_otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={signupOtpCode} onChange={(e) => setSignupOtpCode(e.target.value.replace(/\s/g, ''))} placeholder="123456" className="input-field mt-1 py-3 text-center font-bold tracking-[0.3em]" required /></div>}
                 {!signupOtpStep && <div>
                   <label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'كلمة المرور' : 'Password'}</label>
                   <input
+                    data-field-id="identity_password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -667,21 +735,21 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {STEPS[step]?.id === 'payment' && (
               <div className="space-y-4 animate-in">
                 <h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'اختر طريقة الدفع' : 'Choose payment method'}</h3>
-                <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'البريد الإلكتروني لإيصالات الدفع' : 'Email for payment receipts'}</label><input type="email" value={billingEmail || email} onChange={(e) => setBillingEmail(e.target.value)} placeholder="email@example.com" className="input-field mt-1 py-3 font-bold" required /></div>
+                <div><label className="text-[10px] font-black uppercase text-gray-400">{isRtl ? 'البريد الإلكتروني لإيصالات الدفع' : 'Email for payment receipts'}</label><input data-field-id="payment_email" type="email" value={billingEmail || email} onChange={(e) => setBillingEmail(e.target.value)} placeholder="email@example.com" className="input-field mt-1 py-3 font-bold" required /></div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button type="button" onClick={() => setPaymentMethod('tap')} className={`rounded-2xl border p-5 text-left flex items-start gap-3 ${paymentMethod === 'tap' ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-100 bg-white text-gray-600'}`}><CreditCard className="w-5 h-5 text-[#C5A059] shrink-0"/><span><strong className="block">{isRtl ? 'الدفع الإلكتروني عبر Tap' : 'Pay online with Tap'}</strong><small className="mt-1 block opacity-80">{isRtl ? 'ادفع بالبطاقة أو المحفظة. تُفعّل الخطة بعد تأكيد الدفع.' : 'Card and wallet checkout; plan activates after confirmation.'}</small></span></button>
                   <button type="button" onClick={() => setPaymentMethod('cash')} className={`rounded-2xl border p-5 text-left flex items-start gap-3 ${paymentMethod === 'cash' ? 'border-[#0a3030] bg-[#0a3030] text-white' : 'border-gray-100 bg-white text-gray-600'}`}><Banknote className="w-5 h-5 text-[#C5A059] shrink-0"/><span><strong className="block">{isRtl ? 'الدفع النقدي' : 'Cash collection'}</strong><small className="mt-1 block opacity-80">{isRtl ? 'سنتواصل لترتيب التحصيل قبل تفعيل خطتك.' : 'We’ll arrange collection before activating your plan.'}</small></span></button>
                 </div>
                 {paymentMethod === 'cash' && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{isRtl ? 'ستبقى خطتك معلّقة حتى يؤكد المسؤول أو الرئيس التنفيذي استلام المبلغ النقدي.' : 'Your plan stays pending until cash collection is verified by Admin or CEO.'}</p>}
                 <label className="flex items-start gap-3 rounded-2xl bg-white p-4 text-sm text-gray-600">
-                  <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="mt-1 accent-[#0a3030]" />
+                  <input data-field-id="payment_terms" type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="mt-1 h-5 w-5 accent-[#0a3030]" />
                   <span>I agree to the meal plan terms and authorize {paymentMethod === 'cash' ? 'cash collection before activation' : 'the selected Tap payment'}.</span>
                 </label>
               </div>
             )}
 
             {/* Navigation Buttons */}
-            <div className="flex justify-between pt-6 border-t border-gray-100">
+            <div className="sticky bottom-0 z-20 flex shrink-0 justify-between border-t border-gray-100 bg-[#F5F3EB]/95 px-6 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-8px_24px_rgba(10,48,48,0.06)] backdrop-blur-md sm:px-10">
               {step > 0 && (
                 <button
                   type="button"

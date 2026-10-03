@@ -10,6 +10,7 @@ interface EditorialPanelProps {
   badge?: string;
   children: ReactNode;
   maxWidth?: string;
+  contentClassName?: string;
 }
 
 export default function EditorialPanel({
@@ -18,7 +19,8 @@ export default function EditorialPanel({
   title,
   badge,
   children,
-  maxWidth = "max-w-4xl"
+  maxWidth = "max-w-4xl",
+  contentClassName = "flex-1 overflow-y-auto"
 }: EditorialPanelProps) {
   const { isRtl, t } = useLanguage();
 
@@ -66,7 +68,7 @@ export default function EditorialPanel({
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto">
+            <div className={contentClassName}>
               {children}
             </div>
           </motion.div>

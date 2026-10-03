@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowLeft, ArrowRight, Check, Loader2, User, Target, AlertCircle, Navigation, CheckCircle } from 'lucide-react';
 
 import { safeHaptics } from '@/lib/haptics';
@@ -54,6 +54,8 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
   const [bookedSlots, setBookedSlots] = useState<Record<string, string[]>>({});
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [invalidField, setInvalidField] = useState<string | null>(null);
+  const flowBodyRef = useRef<HTMLDivElement>(null);
 
   const detectLocation = async () => {
     setLocating(true);
@@ -126,7 +128,45 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
   if (!open) return null;
 
   const pkg = packages.find((p) => p.id === data.package_id);
-  const update = (patch: Partial<BookingData>) => setData((d) => ({ ...d, ...patch }));
+  const update = (patch: Partial<BookingData>) => {
+    setData((d) => ({ ...d, ...patch }));
+    if (invalidField && Object.keys(patch).some((key) => key === invalidField)) setInvalidField(null);
+  };
+
+  const focusField = (fieldId: string) => {
+    setInvalidField(fieldId);
+    window.requestAnimationFrame(() => {
+      const field = flowBodyRef.current?.querySelector<HTMLElement>(`[data-field-id="${fieldId}"]`);
+      field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      field?.focus({ preventScroll: true });
+    });
+  };
+
+  const focusNextField = (fieldId: string) => {
+    const ids: Record<string, string> = {
+      weight_kg: 'height_cm', height_cm: 'fitness_goal', client_name: 'client_email',
+      client_email: 'client_phone', client_phone: 'terms_accepted',
+    };
+    const nextId = ids[fieldId];
+    if (nextId) window.requestAnimationFrame(() => flowBodyRef.current?.querySelector<HTMLElement>(`[data-field-id="${nextId}"]`)?.focus({ preventScroll: false }));
+  };
+
+  const focusFirstInvalid = () => {
+    if (step === 1) {
+      const weight = Number(data.weight_kg);
+      const height = Number(data.height_cm);
+      if (!data.weight_kg || !Number.isFinite(weight) || weight < 40 || weight > 150) return focusField('weight_kg');
+      if (!data.height_cm || !Number.isFinite(height) || height < 140 || height > 220) return focusField('height_cm');
+      if (!data.fitness_goal) return focusField('fitness_goal');
+    }
+    if (step === 2) return focusField(data.appointment_date ? 'appointment_time' : 'appointment_date');
+    if (step === 3) {
+      if (!data.client_name.trim()) return focusField('client_name');
+      if (!data.client_email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client_email)) return focusField('client_email');
+      if (!data.client_phone.trim()) return focusField('client_phone');
+      if (!data.terms_accepted) return focusField('terms_accepted');
+    }
+  };
 
   const allowedDates: string[] = [];
   for (let i = 1; i <= 21; i++) {
@@ -161,11 +201,12 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
 
   const next = () => {
     const err = validateStep();
-    if (err) { setError(err); return; }
+    if (err) { setError(err); focusFirstInvalid(); return; }
     setError(null);
+    setInvalidField(null);
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   };
-  const back = () => { setError(null); setStep((s) => Math.max(s - 1, 0)); };
+  const back = () => { setError(null); setInvalidField(null); setStep((s) => Math.max(s - 1, 0)); };
 
   const submit = async () => {
     setSubmitting(true);
@@ -208,6 +249,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
     setData(EMPTY);
     setSubmitted(false);
     setError(null);
+    setInvalidField(null);
     onClose();
   };
 
@@ -218,6 +260,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
       title={submitted ? t('booking_confirmed') : t('booking_title')}
       badge={t('Triangle')}
       maxWidth="max-w-2xl"
+      contentClassName={submitted ? 'flex-1 overflow-y-auto' : 'flex min-h-0 flex-1 flex-col overflow-hidden'}
     >
       {submitted ? (
         <div className="animate-in px-5 py-10 text-center sm:px-10 sm:py-16">
@@ -231,7 +274,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
           <button onClick={reset} className="btn-primary px-16 py-6 uppercase tracking-[0.4em] text-xs">{t('return_home')}</button>
         </div>
       ) : (
-        <div className="flex flex-col h-full">
+        <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex-shrink-0 overflow-x-auto border-b border-primary/5 bg-gray-50/30 px-5 py-5 no-scrollbar sm:px-10 sm:py-6">
             <div className="flex items-center min-w-max gap-4">
               {STEPS.map((label, i) => (
@@ -254,9 +297,9 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-10 sm:py-10">
+          <div ref={flowBodyRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-10 sm:py-10">
             {error && (
-              <div className="animate-in mb-6 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-4 sm:mb-8 sm:px-6 sm:py-5">
+              <div role="alert" aria-live="assertive" className="animate-in mb-6 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-4 sm:mb-8 sm:px-6 sm:py-5">
                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <p className="text-red-700 text-sm font-medium">{error}</p>
               </div>
@@ -267,7 +310,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                 <h3 className="text-[#0a3030] font-black text-2xl uppercase italic leading-none">{t('select_collection')}</h3>
                 <div className="space-y-4">
                   <button
-                    onClick={() => setData(d => ({ ...d, package_id: 'undecided', package_name: 'Expert Recommendation' }))}
+                    onClick={() => { setData(d => ({ ...d, package_id: 'undecided', package_name: 'Expert Recommendation' })); setStep(1); setError(null); }}
                     className={`w-full text-left rounded-[2rem] p-6 border-2 transition-all duration-500 ${
                       data.package_id === 'undecided' ? 'border-[#0a3030] bg-[#0a3030] text-white shadow-2xl translate-x-2' : 'border-gray-50 bg-white hover:border-gray-200'
                     }`}
@@ -288,6 +331,8 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                       key={p.id}
                       onClick={() => {
                         setData(d => ({ ...d, package_id: p.id, package_name: p.name }));
+                        setStep(1);
+                        setError(null);
                       }}
                       className={`w-full text-left rounded-[2rem] p-6 border-2 transition-all duration-500 ${
                         data.package_id === p.id ? 'border-[#0a3030] bg-[#0a3030] text-white shadow-2xl translate-x-2' : 'border-gray-50 bg-white hover:border-gray-200'
@@ -312,19 +357,19 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
             {step === 1 && (
               <div className="space-y-8 animate-in">
                 <h3 className="text-[#0a3030] font-black text-2xl uppercase italic leading-none">{t('biological_profile')}</h3>
-                <div className="grid grid-cols-2 gap-3 sm:gap-6">
-                  <FormEntry label={t('current_weight')} sub="kg">
-                    <input type="number" inputMode="decimal" step="0.1" min={40} max={150} value={data.weight_kg} onChange={(e) => update({ weight_kg: e.target.value })} placeholder="72" aria-label={`${t('current_weight')} (kg)`} className="input-field py-5 font-black text-lg" />
+                <div className="grid grid-cols-2 items-start gap-3 sm:gap-6">
+                  <FormEntry label={t('current_weight')} sub="kg" headerClassName="min-h-10 items-start">
+                    <input data-field-id="weight_kg" aria-invalid={invalidField === 'weight_kg'} onKeyDown={(event) => { if (event.key === 'Enter' && data.weight_kg && Number(data.weight_kg) >= 40 && Number(data.weight_kg) <= 150) { event.preventDefault(); focusNextField('weight_kg'); } }} type="number" inputMode="decimal" step="0.1" min={40} max={150} value={data.weight_kg} onChange={(e) => update({ weight_kg: e.target.value })} placeholder="72" aria-label={`${t('current_weight')} (kg)`} className={`input-field py-5 font-black text-lg ${invalidField === 'weight_kg' ? 'border-red-500 ring-2 ring-red-200' : ''}`} />
                   </FormEntry>
-                  <FormEntry label={t('standing_height')} sub="cm">
-                    <input type="number" inputMode="decimal" step="1" min={140} max={220} value={data.height_cm} onChange={(e) => update({ height_cm: e.target.value })} placeholder="175" aria-label={`${t('standing_height')} (cm)`} className="input-field py-5 font-black text-lg" />
+                  <FormEntry label={t('standing_height')} sub="cm" headerClassName="min-h-10 items-start">
+                    <input data-field-id="height_cm" aria-invalid={invalidField === 'height_cm'} onKeyDown={(event) => { if (event.key === 'Enter' && data.height_cm && Number(data.height_cm) >= 140 && Number(data.height_cm) <= 220) { event.preventDefault(); focusNextField('height_cm'); } }} type="number" inputMode="decimal" step="1" min={140} max={220} value={data.height_cm} onChange={(e) => update({ height_cm: e.target.value })} placeholder="175" aria-label={`${t('standing_height')} (cm)`} className={`input-field py-5 font-black text-lg ${invalidField === 'height_cm' ? 'border-red-500 ring-2 ring-red-200' : ''}`} />
                   </FormEntry>
                 </div>
                 <div>
                   <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40 ml-1 mb-4 block">{t('target_ambition')}</label>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {FITNESS_GOALS.map((g) => (
-                      <button key={g} onClick={() => update({ fitness_goal: g })} className={`py-4 rounded-2xl text-[10px] font-black uppercase border-2 transition-all ${data.fitness_goal === g ? 'border-[#0a3030] bg-[#0a3030] text-white shadow-lg' : 'border-gray-50 bg-white text-gray-300 hover:border-gray-200'}`}>{t(g) || g}</button>
+                      <button key={g} type="button" data-field-id={g === FITNESS_GOALS[0] ? 'fitness_goal' : undefined} aria-pressed={data.fitness_goal === g} onClick={() => { update({ fitness_goal: g }); const weight = Number(data.weight_kg); const height = Number(data.height_cm); if (data.weight_kg && data.height_cm && weight >= 40 && weight <= 150 && height >= 140 && height <= 220) { setError(null); setStep(2); } else { focusField(!data.weight_kg || weight < 40 || weight > 150 ? 'weight_kg' : 'height_cm'); } }} className={`py-4 rounded-2xl text-[10px] font-black uppercase border-2 transition-all ${invalidField === 'fitness_goal' ? 'border-red-400' : data.fitness_goal === g ? 'border-[#0a3030] bg-[#0a3030] text-white shadow-lg' : 'border-gray-50 bg-white text-gray-300 hover:border-gray-200'}`}>{t(g) || g}</button>
                     ))}
                   </div>
                 </div>
@@ -362,7 +407,8 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                       <button
                         key={d}
                         disabled={isFullyBooked}
-                        onClick={() => update({ appointment_date: d, appointment_time: '' })}
+                        data-field-id={!data.appointment_date && d === allowedDates[0] ? 'appointment_date' : undefined}
+                        onClick={() => { update({ appointment_date: d, appointment_time: '' }); setError(null); window.setTimeout(() => flowBodyRef.current?.querySelector<HTMLElement>('[data-field-id="appointment_time"]')?.focus({ preventScroll: false }), 50); }}
                         className={`flex flex-col items-center py-4 rounded-3xl border-2 transition-all relative ${
                           isSelected ? 'border-[#0a3030] bg-[#0a3030] text-white shadow-xl'
                           : isFullyBooked ? 'border-gray-50 bg-gray-50 text-gray-200 opacity-40 cursor-not-allowed'
@@ -385,8 +431,10 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                       return (
                         <button
                           key={slot}
+                          type="button"
+                          data-field-id={!data.appointment_time && slot === TIME_SLOTS.find((candidate) => !bookedSlots[data.appointment_date]?.includes(candidate)) ? 'appointment_time' : undefined}
                           disabled={isSlotTaken}
-                          onClick={() => update({ appointment_time: slot })}
+                          onClick={() => { update({ appointment_time: slot }); setError(null); setStep(3); }}
                           className={`py-4 rounded-2xl text-[10px] font-black uppercase border-2 transition-all ${
                             data.appointment_time === slot ? 'border-[#C5A059] bg-[#C5A059] text-white shadow-md'
                             : isSlotTaken ? 'bg-gray-50 text-gray-200 border-gray-50 opacity-40 cursor-not-allowed'
@@ -417,16 +465,16 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                   {locationError && <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest ml-4">{locationError}</p>}
                 </div>
                 <FormEntry label={t('full_name')} sub={t('passport_id')}>
-                  <input type="text" autoCapitalize="words" value={data.client_name} onChange={(e) => update({ client_name: e.target.value })} placeholder={t('enter_full_name') || "Enter Full Name"} className="input-field py-5 font-black" />
+                  <input data-field-id="client_name" aria-invalid={invalidField === 'client_name'} onKeyDown={(event) => { if (event.key === 'Enter' && data.client_name.trim()) { event.preventDefault(); focusNextField('client_name'); } }} type="text" autoCapitalize="words" autoComplete="name" value={data.client_name} onChange={(e) => update({ client_name: e.target.value })} placeholder={t('enter_full_name') || "Enter Full Name"} className={`input-field py-5 font-black ${invalidField === 'client_name' ? 'border-red-500 ring-2 ring-red-200' : ''}`} />
                 </FormEntry>
                 <FormEntry label={t('email_address')} sub={t('official')}>
-                  <input type="email" value={data.client_email} onChange={(e) => update({ client_email: e.target.value })} placeholder={t('enter_email') || "Enter Email"} className="input-field py-5 font-black" />
+                  <input data-field-id="client_email" aria-invalid={invalidField === 'client_email'} onKeyDown={(event) => { if (event.key === 'Enter' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client_email)) { event.preventDefault(); focusNextField('client_email'); } }} type="email" autoComplete="email" value={data.client_email} onChange={(e) => update({ client_email: e.target.value })} placeholder={t('enter_email') || "Enter Email"} className={`input-field py-5 font-black ${invalidField === 'client_email' ? 'border-red-500 ring-2 ring-red-200' : ''}`} />
                 </FormEntry>
                 <FormEntry label={t('mobile_number')} sub={t('whatsapp_linked')}>
-                  <input type="tel" value={data.client_phone} onChange={(e) => update({ client_phone: e.target.value })} placeholder="+974" className="input-field py-5 font-black" />
+                  <input data-field-id="client_phone" aria-invalid={invalidField === 'client_phone'} onKeyDown={(event) => { if (event.key === 'Enter' && data.client_phone.trim()) { event.preventDefault(); focusNextField('client_phone'); } }} type="tel" autoComplete="tel" value={data.client_phone} onChange={(e) => update({ client_phone: e.target.value })} placeholder="+974" className={`input-field py-5 font-black ${invalidField === 'client_phone' ? 'border-red-500 ring-2 ring-red-200' : ''}`} />
                 </FormEntry>
                 <label className="flex items-start gap-4 mt-10 cursor-pointer group">
-                  <button type="button" onClick={() => update({ terms_accepted: !data.terms_accepted })} className={`mt-0.5 w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all ${data.terms_accepted ? 'border-[#0a3030] bg-[#0a3030] shadow-lg' : 'border-gray-200'}`}>
+                  <button type="button" data-field-id="terms_accepted" aria-pressed={data.terms_accepted} onClick={() => { const accepted = !data.terms_accepted; update({ terms_accepted: accepted }); if (accepted && data.client_name.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.client_email) && data.client_phone.trim()) { setError(null); setStep(4); } }} className={`mt-0.5 min-h-11 min-w-11 rounded-xl border-2 flex items-center justify-center transition-all ${invalidField === 'terms_accepted' ? 'border-red-500 ring-2 ring-red-200' : data.terms_accepted ? 'border-[#0a3030] bg-[#0a3030] shadow-lg' : 'border-gray-200'}`}>
                     {data.terms_accepted && <Check className="w-4 h-4 text-white" />}
                   </button>
                   <span className="text-gray-500 text-xs font-medium leading-relaxed italic">{t('agree_terms')}</span>
@@ -446,12 +494,12 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
             )}
           </div>
 
-          <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-primary/5 bg-white/60 px-5 py-5 backdrop-blur-md sm:px-10 sm:py-8">
-            <button onClick={back} disabled={step === 0} className="flex items-center gap-2 text-gray-400 font-black uppercase tracking-widest text-[10px] disabled:opacity-20 transition-all hover:text-[#0a3030]">
+          <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-primary/5 bg-white/95 px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-8px_24px_rgba(10,48,48,0.06)] backdrop-blur-md sm:px-10 sm:py-6">
+            <button onClick={back} disabled={step === 0} className="flex min-h-11 min-w-11 items-center gap-2 px-3 text-gray-400 font-black uppercase tracking-widest text-[10px] disabled:opacity-20 transition-all hover:text-[#0a3030]">
               <ArrowLeft className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} /> {t('back')}
             </button>
             {step < STEPS.length - 1 ? (
-              <button onClick={next} className="btn-primary flex items-center gap-2 px-5 py-3.5 text-xs uppercase tracking-widest sm:gap-3 sm:px-10 sm:py-4 sm:text-sm">
+              <button onClick={next} className="btn-primary flex min-h-11 items-center gap-2 px-5 py-3.5 text-xs uppercase tracking-widest sm:gap-3 sm:px-10 sm:py-4 sm:text-sm">
                 {t('next')} <ArrowRight className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
               </button>
             ) : (
@@ -466,10 +514,10 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
   );
 }
 
-function FormEntry({ label, sub, children }: any) {
+function FormEntry({ label, sub, children, headerClassName = '' }: any) {
   return (
     <div className="w-full">
-      <div className="flex justify-between items-end mb-3 px-2">
+      <div className={`flex justify-between items-end mb-3 px-2 ${headerClassName}`}>
         <span className="text-[#0a3030] font-black text-[10px] uppercase tracking-[0.3em] opacity-40">{label}</span>
         <span className="text-gray-300 text-[9px] font-black uppercase tracking-widest">{sub}</span>
       </div>
