@@ -140,6 +140,11 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
     if (step === 0) return null;
     if (step === 1) {
       if (!data.weight_kg || !data.height_cm) return t('error_metrics');
+      const weight = Number(data.weight_kg);
+      const height = Number(data.height_cm);
+      if (!Number.isFinite(weight) || weight < 40 || weight > 150 || !Number.isFinite(height) || height < 140 || height > 220) {
+        return t('error_metrics_range');
+      }
       if (!data.fitness_goal) return t('error_goal');
     }
     if (step === 2 && (!data.appointment_date || !data.appointment_time))
@@ -309,10 +314,10 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
                 <h3 className="text-[#0a3030] font-black text-2xl uppercase italic leading-none">{t('biological_profile')}</h3>
                 <div className="grid grid-cols-2 gap-3 sm:gap-6">
                   <FormEntry label={t('current_weight')} sub="kg">
-                    <input type="number" inputMode="decimal" min={40} max={150} value={data.weight_kg} onChange={(e) => update({ weight_kg: e.target.value === '' ? '40' : String(Math.min(150, Math.max(40, Number(e.target.value)))) })} placeholder="72" className="input-field py-5 font-black text-lg" />
+                    <input type="number" inputMode="decimal" step="0.1" min={40} max={150} value={data.weight_kg} onChange={(e) => update({ weight_kg: e.target.value })} placeholder="72" aria-label={`${t('current_weight')} (kg)`} className="input-field py-5 font-black text-lg" />
                   </FormEntry>
                   <FormEntry label={t('standing_height')} sub="cm">
-                    <input type="number" inputMode="decimal" min={140} max={220} value={data.height_cm} onChange={(e) => update({ height_cm: e.target.value === '' ? '140' : String(Math.min(220, Math.max(140, Number(e.target.value)))) })} placeholder="175" className="input-field py-5 font-black text-lg" />
+                    <input type="number" inputMode="decimal" step="1" min={140} max={220} value={data.height_cm} onChange={(e) => update({ height_cm: e.target.value })} placeholder="175" aria-label={`${t('standing_height')} (cm)`} className="input-field py-5 font-black text-lg" />
                   </FormEntry>
                 </div>
                 <div>

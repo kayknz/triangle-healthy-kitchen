@@ -31,6 +31,7 @@ const translations: Record<Language, Record<string, string>> = {
     error_generic: 'Something went wrong. Please try again.',
     error_goal: 'Choose your health goal.',
     error_metrics: 'Enter your weight and height.',
+    error_metrics_range: 'Weight must be 40–150 kg and height 140–220 cm.',
     error_name: 'Enter your name.',
     error_phone: 'Enter a valid phone number.',
     error_slot: 'Choose an available consultation time.',
@@ -914,6 +915,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Errors
     error_select_package: 'يرجى اختيار خطة.',
     error_metrics: 'يرجى إدخال الوزن والطول.',
+    error_metrics_range: 'يجب أن يكون الوزن بين ٤٠ و١٥٠ كجم والطول بين ١٤٠ و٢٢٠ سم.',
     error_goal: 'يرجى اختيار الهدف.',
     error_slot: 'يرجى اختيار الوقت.',
     error_name: 'الاسم مطلوب.',
