@@ -449,9 +449,10 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       title="Start Your Plan"
       badge="Verified Member"
       maxWidth="max-w-xl"
-      contentClassName="min-h-0 flex-1 overflow-hidden"
+      contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <div className="h-full min-h-0 overflow-y-auto overscroll-contain p-6 sm:p-10" ref={checkoutBodyRef} dir={isRtl ? 'rtl' : 'ltr'}>
+      <div className="flex min-h-0 flex-1 flex-col" dir={isRtl ? 'rtl' : 'ltr'}>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] p-5 pb-3 sm:p-10" ref={checkoutBodyRef}>
         {preselectedPackage && pkg && (
           <div className="mb-6 rounded-2xl border border-[#C5A059]/30 bg-[#C5A059]/10 p-4">
             <p className="text-[9px] font-black uppercase tracking-widest text-[#7b6332]">{isRtl ? 'الخطة المختارة' : 'Selected plan'}</p>
@@ -586,7 +587,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {STEPS[step]?.id === 'menu' && (
               <div className="space-y-4 animate-in">
                 <div><h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'اختر وجباتك' : 'Choose your meals'}</h3><p className="mt-1 text-sm text-gray-500">{isRtl ? 'اختر وجباتك من قائمة المطبخ المنشورة لهذا الأسبوع. يتم تحديد اختيار المطبخ مسبقاً عند توفره.' : 'Select meals from this week’s published kitchen menu. Kitchen’s choice is preselected where available.'}</p></div>
-                <section className="rounded-2xl border border-red-200 bg-white p-4"><h4 className="flex items-center justify-between gap-2 font-black uppercase text-[#0a3030]">{isRtl ? 'الحساسية وملاحظات المطبخ' : 'Allergies and kitchen notes'}<FieldLabel required={false} isRtl={isRtl} /></h4><p className="mt-1 text-xs text-gray-500">{isRtl ? 'تُشارك مع المطبخ لضمان سلامة الطعام والتحضير المناسب.' : 'Shared with the kitchen for food safety and preparation.'}</p><div className="mt-3 flex flex-wrap gap-2">{CHECKOUT_ALLERGENS.map((item) => { const selected = foodAllergies.includes(item); return <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 text-gray-700'}`}><input type="checkbox" checked={selected} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item] : current.filter((value) => value !== item))}/>{isRtl ? (t(item.toLowerCase()) || item) : item}</label>; })}</div><label className="mt-4 block text-xs font-bold text-gray-700"><FieldLabel required={false} isRtl={isRtl}>{isRtl ? 'مكونات يجب تجنبها أو ملاحظات عامة للمطبخ' : 'Ingredients to avoid or general kitchen notes'}</FieldLabel><textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder={isRtl ? 'مثال: بدون بصل، توابل خفيفة' : 'For example: no onions, mild spice'} className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
+                <section className="rounded-2xl border border-gray-200 bg-white p-4"><h4 className="flex items-center justify-between gap-2 font-black uppercase text-[#0a3030]">{isRtl ? 'الحساسية وملاحظات المطبخ' : 'Allergies and kitchen notes'}<FieldLabel required={false} isRtl={isRtl} /></h4><p className="mt-1 text-xs leading-relaxed text-gray-500">{isRtl ? 'اختر ما ينطبق فقط. إذا لم تكن لديك حساسية، اترك الخيارات بدون تحديد.' : 'Select only what applies. If you have no allergies, leave every option unchecked and continue.'}</p><div className="mt-3 flex flex-wrap gap-2">{CHECKOUT_ALLERGENS.map((item) => { const selected = foodAllergies.includes(item); return <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 text-gray-700'}`}><input type="checkbox" checked={selected} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item] : current.filter((value) => value !== item))}/>{isRtl ? (t(item.toLowerCase()) || item) : item}</label>; })}</div><label className="mt-4 block text-xs font-bold text-gray-700"><FieldLabel required={false} isRtl={isRtl}>{isRtl ? 'مكونات يجب تجنبها أو ملاحظات عامة للمطبخ' : 'Ingredients to avoid or general kitchen notes'}</FieldLabel><textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder={isRtl ? 'مثال: بدون بصل، توابل خفيفة' : 'For example: no onions, mild spice'} className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
                 {menuLoading ? <p className="py-6 text-sm text-gray-500">{isRtl ? 'جارٍ تحميل القائمة…' : 'Loading menu…'}</p> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{isRtl ? 'لم ينشر المطبخ قائمة الطعام بعد. يرجى العودة بعد نشر قائمة الأسبوع.' : 'The kitchen has not published a menu yet. Check back after the weekly menu is released.'}</p> : packageMenuDays.map((day) => {
                   const meals = packageMenuMeals.filter((meal) => (initialMenuOptions[`${day}|${meal}`] || []).length);
                   if (!meals.length) return null;
@@ -777,38 +778,13 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
               </div>
             )}
 
-            {/* Navigation Buttons */}
-            <div className="sticky bottom-0 z-20 flex shrink-0 justify-between border-t border-gray-100 bg-[#F5F3EB]/95 px-6 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-8px_24px_rgba(10,48,48,0.06)] backdrop-blur-md sm:px-10">
-              {step > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setStep(step - 1)}
-                  className="px-6 py-3 rounded-2xl bg-gray-100 text-[#0a3030] font-black text-xs uppercase tracking-wider"
-                >
-                  Back
-                </button>
-              )}
-              {step < STEPS.length - 1 ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="ml-auto px-8 py-3 rounded-2xl bg-[#0a3030] text-white font-black text-xs uppercase tracking-widest hover:bg-[#C5A059] transition-all"
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSubscribe}
-                  disabled={submitting}
-                  className="ml-auto px-10 py-4 rounded-2xl bg-[#0a3030] text-white font-black text-xs uppercase tracking-widest hover:bg-[#C5A059] transition-all shadow-xl flex items-center gap-2"
-                >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : waitingForPayment ? 'Waiting for Tap confirmation' : paymentMethod === 'cash' ? 'Request cash collection' : 'Continue to Tap checkout'}
-                </button>
-              )}
-            </div>
           </div>
         )}
+      </div>
+      {!success && <div className="z-20 flex shrink-0 justify-between border-t border-gray-100 bg-[#F5F3EB]/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-8px_24px_rgba(10,48,48,0.06)] backdrop-blur-md sm:px-10 sm:py-4">
+        {step > 0 && <button type="button" onClick={() => setStep(step - 1)} className="px-6 py-3 rounded-2xl bg-gray-100 text-[#0a3030] font-black text-xs uppercase tracking-wider">Back</button>}
+        {step < STEPS.length - 1 ? <button type="button" onClick={handleNext} className="ml-auto px-8 py-3 rounded-2xl bg-[#0a3030] text-white font-black text-xs uppercase tracking-widest hover:bg-[#C5A059] transition-all">Next</button> : <button type="button" onClick={handleSubscribe} disabled={submitting} className="ml-auto px-10 py-4 rounded-2xl bg-[#0a3030] text-white font-black text-xs uppercase tracking-widest hover:bg-[#C5A059] transition-all shadow-xl flex items-center gap-2">{submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : waitingForPayment ? 'Waiting for Tap confirmation' : paymentMethod === 'cash' ? 'Request cash collection' : 'Continue to Tap checkout'}</button>}
+      </div>}
       </div>
     </EditorialPanel>
   );
