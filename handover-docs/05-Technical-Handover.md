@@ -10,8 +10,8 @@
 | Server-side functions | `thk-web/supabase/functions/` and `thk-mobile/supabase/functions/` | Supabase Edge Functions for payment, webhook, reminders, booking email, health activity reconciliation, and account deletion. The copies are not complete mirrors. |
 | Older prototype | Repository root `app.js`, `index.html`, `styles.css`, JSON translations | Earlier static prototype. It is not the current production app; make current product changes under `thk-web/` and `thk-mobile/`. |
 
-Production web URL: `https://trianglehealthykitchen.vercel.app/`  
-Supabase project reference used in source: `teguqlkfmchxucedxvpu`  
+Production web URL: `https://trianglehealthykitchen.vercel.app/`
+Supabase project reference used in source: `teguqlkfmchxucedxvpu`
 Mobile app ID: `com.trianglehealthykitchen.app`
 
 ## Main data areas

@@ -1,7 +1,7 @@
 # Triangle Healthy Kitchen Software Handover
 
-**Documentation set:** 1.0  
-**Reviewed:** 3 October 2026  
+**Documentation set:** 1.0
+**Reviewed:** 3 October 2026
 **Product:** Triangle Healthy Kitchen customer platform, operations portal, and mobile apps
 
 ## What this package covers
