@@ -27,7 +27,7 @@ const MyRhythm = lazy(() => import('@/components/MyRhythm'));
 
 type Route = 'home' | 'provider-auth' | 'operations-web' | 'rider-dashboard' | 'subscriber-auth' | 'subscriber-dashboard' | 'today' | 'community' | 'rewards' | 'privacy' | 'terms';
 
-const OPERATIONS_WEB_URL = import.meta.env.VITE_OPERATIONS_WEB_URL || 'https://trianglehealthy-kitchen.vercel.app';
+const OPERATIONS_WEB_URL = import.meta.env.VITE_OPERATIONS_WEB_URL || 'https://trianglehealthykitchen.vercel.app';
 const getSignedInRoute = (role: string | null | undefined, hasPersonal = false): Route =>
   role === 'driver' || role === 'rider' ? 'rider-dashboard'
     : ['ceo', 'admin', 'kitchen', 'transport', 'owner'].includes(role || '') ? 'operations-web'
