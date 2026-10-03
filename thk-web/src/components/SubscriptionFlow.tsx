@@ -95,7 +95,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [availablePackages, setAvailablePackages] = useState<Array<{ id: string; name: string; description: string; price: number; currency: string; kcals: number; meal_periods?: string[] }>>([]);
-  const [initialMenuOptions, setInitialMenuOptions] = useState<Record<string, Array<{ id: string; name: string; kcals: number }>>>({});
+  const [initialMenuOptions, setInitialMenuOptions] = useState<Record<string, Array<{ id: string; name: string; kcals: number; kitchen_choice?: boolean }>>>({});
   const [initialMenuSelections, setInitialMenuSelections] = useState<Record<string, InitialMenuChoice>>({});
   const [foodAllergies, setFoodAllergies] = useState<string[]>([]);
   const [foodDislikes, setFoodDislikes] = useState('');
@@ -148,7 +148,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         if (cancelled) return;
         const rows = menu || [];
         setMenuPeriod(collection);
-        const options: Record<string, Array<{ id: string; name: string; kcals: number }>> = {};
+        const options: Record<string, Array<{ id: string; name: string; kcals: number; kitchen_choice?: boolean }>> = {};
         const defaults: Record<string, InitialMenuChoice> = {};
         for (const day of packageMenuDays) for (const meal of packageMenuMeals) {
           const key = `${day}|${meal}`;
@@ -209,8 +209,20 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       const requiredKeys = packageMenuDays.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`));
       if (requiredKeys.some((key) => !(initialMenuOptions[key] || []).length)) return setError('The published menu is missing one or more meals for this package. Please ask the kitchen to complete the weekly menu.');
       if (!requiredKeys.length) return setError('No meals are available for this package in the published menu.');
-      if (requiredKeys.some((key) => !initialMenuSelections[key])) return setError('Choose one meal for every day and meal period to continue.');
-      if (packageMenuMeals.includes('snacks_2') && packageMenuDays.some((day) => initialMenuSelections[`${day}|snacks`]?.dish_id === initialMenuSelections[`${day}|snacks_2`]?.dish_id)) return setError('Choose two different snacks for each day. The published menu needs at least two snack choices.');
+      const resolvedSelections = { ...initialMenuSelections };
+      for (const key of requiredKeys) {
+        const choices = initialMenuOptions[key] || [];
+        const current = resolvedSelections[key];
+        if (current && choices.some((choice) => choice.id === current.dish_id)) continue;
+        const day = key.split('|')[0];
+        const isSecondSnack = key.endsWith('|snacks_2');
+        const firstSnackId = resolvedSelections[`${day}|snacks`]?.dish_id;
+        const candidates = isSecondSnack ? choices.filter((choice) => choice.id !== firstSnackId) : choices;
+        const chosen = candidates.find((choice) => choice.kitchen_choice) || candidates[0];
+        if (chosen) resolvedSelections[key] = { dish_id: chosen.id, dish_name: chosen.name, dish_kcals: chosen.kcals, day_of_week: day, meal_type: isSecondSnack ? 'snack_2' : key.endsWith('|snacks') ? 'snack' : key.split('|')[1], menu_period: menuPeriod };
+      }
+      setInitialMenuSelections(resolvedSelections);
+      if (packageMenuMeals.includes('snacks_2') && packageMenuDays.some((day) => resolvedSelections[`${day}|snacks`]?.dish_id === resolvedSelections[`${day}|snacks_2`]?.dish_id)) return setError('Choose two different snacks for each day. The published menu needs at least two snack choices.');
     }
     if (currentStepId === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) return setError('Enter your phone number and complete the building, street, area, and zone details.');
     if (currentStepId === 'identity') {

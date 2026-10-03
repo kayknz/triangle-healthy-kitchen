@@ -209,6 +209,19 @@ export default function OperationsWorkspace() {
     finally { setSaving(false); }
   };
 
+  const verifyTapPayment = async (transactionId: string) => {
+    const confirmed = window.confirm('First confirm in Tap that this exact charge is captured and the amount and currency match. Only then mark it verified here. Continue?');
+    if (!confirmed) return;
+    setSaving(true); setError('');
+    try {
+      const { error: rpcError } = await supabase.rpc('review_tap_payment_manually', { p_transaction_id: transactionId });
+      if (rpcError) throw rpcError;
+      setSuccess('Tap payment manually verified. The customer plan is active.');
+      await refresh(true);
+    } catch (e: any) { setError(e?.message || 'Could not verify Tap payment.'); }
+    finally { setSaving(false); }
+  };
+
   const activateDemoSubscriber = async (subscriberId: string) => {
     setSaving(true); setError('');
     try {
@@ -386,7 +399,7 @@ export default function OperationsWorkspace() {
             {(module === 'kitchen' || module === 'packing') && <ProductionSection module={module} date={date} setDate={setDate} weekStart={selectedProductionWeek} rows={productionRows} portionRanges={settings?.portion_ranges} downloadCsv={downloadCsv} />}
             {module === 'delivery' && <DeliverySection date={date} setDate={setDate} subscribers={activeSubscribersIncludingDemo} riders={riders} deliveries={deliveries} saving={saving} assignRider={assignRider} updateDeliveryStatus={updateDeliveryStatus} />}
             {module === 'drivers' && <DriversSection riders={riders} deliveries={deliveries} subscribers={subscribers} date={date} setDate={setDate} />}
-            {module === 'payments' && <PaymentsSection payments={payments} logs={paymentLogs} pending={pendingPayments} subscribers={subscribers} verifyCashPayment={verifyCashPayment} saving={saving} />}
+            {module === 'payments' && <PaymentsSection payments={payments} logs={paymentLogs} pending={pendingPayments} subscribers={subscribers} verifyCashPayment={verifyCashPayment} verifyTapPayment={verifyTapPayment} saving={saving} />}
             {module === 'reminders' && <section className="space-y-4"><div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Email delivery history from the notification log. Transactional email is sent by the configured Brevo-backed functions; this dashboard shows delivery outcomes and does not fabricate scheduled reminders.</div><DataTable headers={['When','Recipient','Subject','Provider','Status','Error']} rows={notifications.map((n) => [new Date(n.created_at).toLocaleString(),n.recipient || '—',n.subject,n.provider || '—',<Status value={n.status}/>,n.error || '—'])} empty="No email events recorded." /></section>}
             {module === 'reports' && <ReportsSection subscribers={subscribers} selections={currentSelections} payments={payments} bookings={bookings} date={date} setDate={setDate} downloadCsv={downloadCsv} />}
             {module === 'bookings' && <BookingsSection bookings={bookings} updateBooking={updateBooking} saving={saving} />}
@@ -544,8 +557,8 @@ function ProductionSection({ module, date, setDate, weekStart, rows, portionRang
   </section>;
 }
 
-function PaymentsSection({ payments, logs, pending, subscribers, verifyCashPayment, saving }: any) {
-  return <section className="space-y-4"><div className="grid gap-3 sm:grid-cols-3"><Metric label="Transactions" value={payments.length}/><Metric label="Need attention" value={pending.length}/><Metric label="Captured" value={payments.filter((p: Row) => p.status === 'captured').length}/></div><p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Tap payments activate from verified gateway callbacks. Cash requests remain pending until Admin or CEO confirms collection here.</p><DataTable headers={['Created','Customer','Method','Amount','Reference','Status','Review']} rows={payments.map((p: Row) => [new Date(p.created_at).toLocaleString(),subscribers.find((s: Row) => s.id === p.subscriber_id)?.full_name || p.metadata?.profile?.full_name || 'Customer',p.payment_provider === 'cash' ? 'Cash collection' : 'Tap',p.amount ? money(p.amount,p.currency) : '—',p.tap_charge_id || p.id,<Status value={p.status}/>,p.payment_provider === 'cash' && p.status === 'pending' ? <button className="ops-button-secondary" disabled={saving} onClick={() => verifyCashPayment(p.id)}>Confirm cash received</button> : '—'])} empty="No payment requests recorded."/><div className="ops-surface"><SectionHeading title="Payment event log" helper="Tap callback and cash collection events."/><DataTable headers={['When','Reference','Event','Severity']} rows={logs.map((l: Row) => [new Date(l.created_at).toLocaleString(),l.tap_charge_id || l.payload?.transaction_id || '—',l.event_type,<Status value={l.severity || 'info'}/>])} empty="No payment log records."/></div></section>;
+function PaymentsSection({ payments, logs, pending, subscribers, verifyCashPayment, verifyTapPayment, saving }: any) {
+  return <section className="space-y-4"><div className="grid gap-3 sm:grid-cols-3"><Metric label="Transactions" value={payments.length}/><Metric label="Need attention" value={pending.length}/><Metric label="Captured" value={payments.filter((p: Row) => p.status === 'captured').length}/></div><p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Tap normally confirms payments automatically. If its callback is delayed, verify the exact charge, captured status, amount and currency in Tap before using manual verification. Cash requests remain pending until collection is confirmed here.</p><DataTable headers={['Created','Customer','Method','Amount','Reference','Status','Review']} rows={payments.map((p: Row) => [new Date(p.created_at).toLocaleString(),subscribers.find((s: Row) => s.id === p.subscriber_id)?.full_name || p.metadata?.profile?.full_name || 'Customer',p.payment_provider === 'cash' ? 'Cash collection' : 'Tap',p.amount ? money(p.amount,p.currency) : '—',p.tap_charge_id || p.id,<Status value={p.status}/>,p.payment_provider === 'cash' && p.status === 'pending' ? <button className="ops-button-secondary" disabled={saving} onClick={() => verifyCashPayment(p.id)}>Confirm cash received</button> : p.payment_provider === 'tap' && ['initiated','pending','failed'].includes(String(p.status).toLowerCase()) && p.tap_charge_id ? <button className="ops-button-secondary" disabled={saving} onClick={() => verifyTapPayment(p.id)}>Verify captured in Tap</button> : '—'])} empty="No payment requests recorded."/><div className="ops-surface"><SectionHeading title="Payment event log" helper="Tap callback and manual reconciliation or cash collection events."/><DataTable headers={['When','Reference','Event','Severity']} rows={logs.map((l: Row) => [new Date(l.created_at).toLocaleString(),l.tap_charge_id || l.payload?.transaction_id || '—',l.event_type,<Status value={l.severity || 'info'}/>])} empty="No payment log records."/></div></section>;
 }
 
 function ReportsSection({ subscribers, selections, payments, bookings, date, setDate, downloadCsv }: any) {

@@ -55,7 +55,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [availablePackages, setAvailablePackages] = useState<Array<{ id: string; name: string; description: string; price: number; currency: string; meal_periods?: string[] }>>([]);
   const [waitingForPayment, setWaitingForPayment] = useState(false);
-  const [initialMenuOptions, setInitialMenuOptions] = useState<Record<string, Array<{ id: string; name: string; kcals: number }>>>({});
+  const [initialMenuOptions, setInitialMenuOptions] = useState<Record<string, Array<{ id: string; name: string; kcals: number; kitchen_choice?: boolean }>>>({});
   const [initialMenuSelections, setInitialMenuSelections] = useState<Record<string, InitialMenuChoice>>({});
   const [foodAllergies, setFoodAllergies] = useState<string[]>([]);
   const [foodDislikes, setFoodDislikes] = useState('');
@@ -247,9 +247,20 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       const missingOptions = requiredKeys.find((key) => !(initialMenuOptions[key] || []).length);
       if (missingOptions) return rejectStep('The published menu is missing one or more meals for this package. Please ask the kitchen to complete the weekly menu.', `menu-${missingOptions}`);
       if (!requiredKeys.length) { rejectStep('No meals are available for this package in the published menu.'); return; }
-      const missingSelection = requiredKeys.find((key) => !initialMenuSelections[key]);
-      if (missingSelection) { rejectStep('Choose one meal for every day and meal period to continue.', `menu-${missingSelection}`); return; }
-      const duplicateSnacks = packageMenuMeals.includes('snacks_2') && packageMenuDays.find((day) => initialMenuSelections[`${day}|snacks`]?.dish_id === initialMenuSelections[`${day}|snacks_2`]?.dish_id);
+      const resolvedSelections = { ...initialMenuSelections };
+      for (const key of requiredKeys) {
+        const choices = initialMenuOptions[key] || [];
+        const current = resolvedSelections[key];
+        if (current && choices.some((choice) => choice.id === current.dish_id)) continue;
+        const day = key.split('|')[0];
+        const isSecondSnack = key.endsWith('|snacks_2');
+        const firstSnackId = resolvedSelections[`${day}|snacks`]?.dish_id;
+        const chosen = (isSecondSnack ? choices.filter((choice) => choice.id !== firstSnackId) : choices)
+          .find((choice) => choice.kitchen_choice) || (isSecondSnack ? choices.find((choice) => choice.id !== firstSnackId) : choices[0]);
+        if (chosen) resolvedSelections[key] = { dish_id: chosen.id, dish_name: chosen.name, dish_kcals: chosen.kcals, day_of_week: day, meal_type: key.endsWith('|snacks_2') ? 'snack_2' : key.endsWith('|snacks') ? 'snack' : key.split('|')[1], menu_period: menuPeriod };
+      }
+      setInitialMenuSelections(resolvedSelections);
+      const duplicateSnacks = packageMenuMeals.includes('snacks_2') && packageMenuDays.find((day) => resolvedSelections[`${day}|snacks`]?.dish_id === resolvedSelections[`${day}|snacks_2`]?.dish_id);
       if (duplicateSnacks) { rejectStep('Choose two different snacks for each day. The published menu needs at least two snack choices.', `menu-${duplicateSnacks}|snacks_2`); return; }
     }
     if (currentStep === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) {
