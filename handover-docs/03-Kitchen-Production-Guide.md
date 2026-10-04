@@ -7,11 +7,17 @@ Kitchen needs to know what to purchase and prepare for each service day without 
 ## Monthly menu release
 
 1. Keep the dish catalogue accurate: names, Arabic names where used, active status, calories, ingredients, and recipe quantity/unit per serving.
-2. Open **Meal Plans** and start a monthly menu from the catalogue (or import the current PDF if that workflow is available in the deployed build).
-3. Review extracted/imported dishes against the source menu. Correct names, meal periods, day, and availability; add or remove dishes as needed.
-4. Mark the Kitchen’s choice among the available options for each day/meal slot. Customers who miss the weekly deadline use this choice.
+2. Open **Meal Plans** and build the monthly menu from the shared catalogue.
+3. Complete all 28 slots: seven service days (Saturday-Friday) across breakfast, lunch, dinner, and snacks. Choose three different active dishes in every slot and mark exactly one Kitchen default.
+4. The screen lists incomplete day/meal slots and blocks review and publish until every slot is complete. The database independently rejects incomplete menus, including missing days, duplicate dishes, inactive dishes, or a missing/multiple Kitchen default.
 5. Review the monthly schedule and publish. The release is expected to be available to customers on Saturday for the service week ahead.
 6. Sign in with a customer test account and confirm the published week is visible before relying on it. If no replacement release exists, the backend contains a function to roll a previous release forward, but that job and active collection must be verified on production.
+
+### Menu PDF layout and import limitations
+
+The current **Meal Plans** publisher uses the dish catalogue; it does not require a PDF. If the legacy PDF import is enabled in a future build, its reader requires a text-based (not scanned-image) PDF with either one page to repeat across four service weeks or four pages, one page per week. Each page must have two text columns and six day blocks in the reader's fixed layout: Saturday, Sunday, Wednesday, and Thursday in the right column; Monday and Tuesday in the left. Each day block must contain exactly these headings, each with a colon: `BREAKFAST:`, `LUNCH:`, `DINNER:`, and `SNACKS:`. Put one dish per text line under each heading, with its calorie total as the final number, for example `Grilled chicken freekeh bowl 520`. The reader uses the first dish listed in each section as the Kitchen default.
+
+**Friday is not supported by that legacy PDF reader.** Do not use that PDF import for a menu that must include Friday add-on meals. Build and publish through the seven-day catalogue workflow instead. A PDF that looks complete to a person can still be incomplete to the reader; always verify all 28 slots in the preview before release.
 
 The user interface describes a monthly menu repeating across four service weeks. Confirm the number and dates in the deployed schedule when publishing; monthly date boundaries and Saturday service-week boundaries are not identical.
 
