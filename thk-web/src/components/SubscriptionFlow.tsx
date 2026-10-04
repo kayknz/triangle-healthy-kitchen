@@ -469,7 +469,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {submitting && <SecuringProtocol message="Preparing your Plan" subtitle="Securely connecting..." />}
           </AnimatePresence>
 
-          {error && <div className="mb-10 bg-red-50 border border-red-100 rounded-[2rem] px-8 py-6 text-red-600 text-xs font-black uppercase tracking-widest flex items-start gap-4"><AlertCircle className="w-5 h-5 shrink-0" /><p>{error}</p></div>}
+          {error && <div role="alert" aria-live="assertive" className="mb-10 bg-red-50 border border-red-100 rounded-[2rem] px-8 py-6 text-red-600 text-xs font-black uppercase tracking-widest flex items-start gap-4"><AlertCircle className="w-5 h-5 shrink-0" /><p>{error}</p></div>}
 
           {STEPS[step].id === 'assessment' && (
             <div className="space-y-12 animate-reveal">
