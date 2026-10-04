@@ -138,10 +138,10 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
   const getSteps = () => {
     const base = [
-      { label: 'Your Info', id: 'assessment' },
       ...(!preselectedPackage ? [{ label: 'Pick Plan', id: 'plan' }] : []),
       { label: 'Choose meals', id: 'menu' },
       { label: 'Delivery Address', id: 'address' },
+      { label: 'Your Info', id: 'assessment' },
     ];
     if (!user) {
       base.push({ label: 'Create Account', id: 'identity' });
@@ -575,6 +575,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                       <div>
                         <p className="font-black text-[#0a3030] text-sm">{p.name}</p>
                         <p className="text-gray-400 text-xs">{p.description}</p>
+                        <p className="mt-1 text-xs font-semibold text-gray-500">{p.meal_periods?.length || 0} {isRtl ? 'وجبات لكل يوم خدمة' : 'meals per service day'} · {(p.meal_periods || []).map((meal) => t(meal) || meal).join(', ')}</p>
                       </div>
                       <span className="font-black text-[#C5A059] text-sm">{p.price} {p.currency}</span>
                     </button>
@@ -778,14 +779,43 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
               </div>
             )}
 
+            {STEPS[step]?.id === 'audit' && (
+              <div className="space-y-4 animate-in">
+                <section className="rounded-2xl border border-gray-200 bg-white p-4">
+                  <h3 className="mb-3 text-lg font-black uppercase italic text-[#0a3030]">{isRtl ? 'راجع طلبك' : 'Review your order'}</h3>
+                  <ReviewRow label={isRtl ? 'الاسم' : 'Name'} value={name || user?.user_metadata?.full_name || user?.email} />
+                  <ReviewRow label={isRtl ? 'الخطة' : 'Plan'} value={pkg ? t(pkg.id) : ''} />
+                  <ReviewRow label={isRtl ? 'الوجبات' : 'Meals'} value={`${Object.keys(initialMenuSelections).length} ${isRtl ? 'اختيارات' : 'selections'} · ${packageMenuMeals.map((meal) => t(meal) || meal).join(', ')}`} />
+                  <ReviewRow label={isRtl ? 'التوصيل' : 'Delivery'} value={`${deliveryPlace === 'office' ? (isRtl ? 'العمل' : 'Work') : deliveryPlace} · ${address.building_number}, ${address.street}, ${address.area} · ${isRtl ? 'المنطقة' : 'Zone'} ${address.zone}`} />
+                  <ReviewRow label={isRtl ? 'الحساسية' : 'Allergies'} value={foodAllergies.length ? foodAllergies.join(', ') : (isRtl ? 'لا توجد حساسية مذكورة' : 'None listed')} />
+                  {foodDislikes.trim() && <ReviewRow label={isRtl ? 'ملاحظات المطبخ' : 'Kitchen notes'} value={foodDislikes.trim()} />}
+                  <ReviewRow label={isRtl ? 'طريقة الدفع' : 'Payment'} value={paymentMethod === 'cash' ? (isRtl ? 'تحصيل نقدي' : 'Cash collection') : 'Tap'} />
+                </section>
+                <details className="rounded-2xl border border-gray-200 bg-white p-4">
+                  <summary className="cursor-pointer font-black text-[#0a3030]">{isRtl ? 'عرض اختيارات الوجبات' : 'View selected meals'}</summary>
+                  <div className="mt-4 space-y-3">{packageMenuDays.map((day) => <div key={day}><h4 className="font-black uppercase text-[#0a3030]">{isRtl ? t(day) || day : day}</h4><ul className="mt-1 space-y-1 text-sm text-gray-600">{packageMenuMeals.map((meal) => { const choice = initialMenuSelections[`${day}|${meal}`]; return choice ? <li key={meal}>{t(meal) || meal}: {choice.dish_name}</li> : null; })}</ul></div>)}</div>
+                </details>
+                <section className="rounded-2xl bg-[#0a3030] p-4 text-white">
+                  <div className="flex items-center justify-between text-sm"><span>{pkg ? t(pkg.id) : ''}</span><span>{Number(pkg?.price || 0).toLocaleString()} {pkg?.currency}</span></div>
+                  {fridayDelivery && <div className="mt-2 flex items-center justify-between text-sm"><span>{t('friday_delivery_addon')}</span><span>199 {pkg?.currency}</span></div>}
+                  <div className="mt-3 flex items-center justify-between border-t border-white/20 pt-3"><strong>{isRtl ? 'الإجمالي المستحق' : 'Total due'}</strong><strong className="text-xl">{(Number(pkg?.price || 0) + (fridayDelivery ? 199 : 0)).toLocaleString()} {pkg?.currency}</strong></div>
+                </section>
+                <p className="text-xs leading-relaxed text-gray-500">{isRtl ? 'تحقق من تفاصيل خطتك قبل الدفع. سيؤكد Tap الدفع، ولن يتم تفعيل الاشتراك قبل التأكيد.' : 'Check your plan details before paying. Tap will confirm the payment; your subscription activates only after confirmation.'}</p>
+              </div>
+            )}
+
           </div>
         )}
       </div>
       {!success && <div className="z-20 flex shrink-0 justify-between border-t border-gray-100 bg-[#F5F3EB]/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-8px_24px_rgba(10,48,48,0.06)] backdrop-blur-md sm:px-10 sm:py-4">
-        {step > 0 && <button type="button" onClick={() => setStep(step - 1)} className="px-6 py-3 rounded-2xl bg-gray-100 text-[#0a3030] font-black text-xs uppercase tracking-wider">Back</button>}
-        {step < STEPS.length - 1 ? <button type="button" onClick={handleNext} className="ml-auto px-8 py-3 rounded-2xl bg-[#0a3030] text-white font-black text-xs uppercase tracking-widest hover:bg-[#C5A059] transition-all">Next</button> : <button type="button" onClick={handleSubscribe} disabled={submitting} className="ml-auto px-10 py-4 rounded-2xl bg-[#0a3030] text-white font-black text-xs uppercase tracking-widest hover:bg-[#C5A059] transition-all shadow-xl flex items-center gap-2">{submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : waitingForPayment ? 'Waiting for Tap confirmation' : paymentMethod === 'cash' ? 'Request cash collection' : 'Continue to Tap checkout'}</button>}
+        {step > 0 && <button type="button" onClick={() => setStep(step - 1)} className="px-6 py-3 rounded-2xl bg-gray-100 text-[#0a3030] font-black text-xs uppercase tracking-wider">{isRtl ? 'رجوع' : 'Back'}</button>}
+        {step < STEPS.length - 1 ? <button type="button" onClick={handleNext} className="ml-auto px-8 py-3 rounded-2xl bg-[#0a3030] text-white font-black text-xs uppercase tracking-widest hover:bg-[#C5A059] transition-all">{isRtl ? 'متابعة' : 'Next'}</button> : <button type="button" onClick={handleSubscribe} disabled={submitting} className="ml-auto px-5 sm:px-10 py-4 rounded-2xl bg-[#0a3030] text-white font-black text-[10px] sm:text-xs uppercase tracking-wider sm:tracking-widest hover:bg-[#C5A059] transition-all shadow-xl flex items-center gap-2">{submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : waitingForPayment ? (isRtl ? 'بانتظار تأكيد Tap' : 'Waiting for Tap confirmation') : paymentMethod === 'cash' ? (isRtl ? 'طلب تحصيل نقدي' : 'Request cash collection') : (isRtl ? 'المتابعة إلى الدفع' : 'Continue to Tap checkout')}</button>}
       </div>}
       </div>
     </EditorialPanel>
   );
+}
+
+function ReviewRow({ label, value }: { label: string; value: string | undefined }) {
+  return <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 border-b border-gray-100 py-3 last:border-0"><span className="text-[10px] font-black uppercase tracking-wider text-gray-400">{label}</span><span className="max-w-[65%] break-words text-right text-sm font-bold text-[#0a3030]">{value || '—'}</span></div>;
 }

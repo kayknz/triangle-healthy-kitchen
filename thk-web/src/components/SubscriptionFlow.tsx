@@ -107,10 +107,10 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
 
   // Dynamic Steps: Insert Identity if user is not logged in
   const STEPS = [
-    { label: t('your_info'), id: 'assessment' },
     ...(preselectedPackage ? [] : [{ label: t('pick_plan'), id: 'plan' }]),
     { label: 'Choose meals', id: 'menu' },
     { label: t('delivery_address'), id: 'address' },
+    { label: t('your_info'), id: 'assessment' },
     ...(user ? [] : [{ label: t('create_account'), id: 'identity' }]),
     { label: t('payment'), id: 'payment' },
     { label: t('review_start'), id: 'audit' }
@@ -470,6 +470,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                  <button key={p.id} onClick={() => { setPkgId(p.id); if (p.id === 'daily_trial' || p.id === 'weekly_reset') setFridayDelivery(false); }} className={`text-left p-6 sm:p-12 rounded-[2.5rem] border-2 transition-all duration-500 relative overflow-hidden group ${pkgId === p.id ? 'border-primary bg-primary text-white shadow-4xl scale-[1.02]' : 'border-primary/5 bg-white/40 hover:border-gold/30 shadow-xl'}`}>
                    <h4 className="text-xl sm:text-2xl font-black uppercase tracking-tight mb-1 sm:mb-2 italic">{t(p.id)}</h4>
                    <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em] text-gold mb-8 sm:mb-10">{p.kcals} KCAL Plan</p>
+                   <p className="mb-5 text-xs font-semibold leading-relaxed opacity-75">{p.meal_periods?.length || 0} {isRtl ? 'وجبات لكل يوم خدمة' : 'meals per service day'} · {(p.meal_periods || []).map((meal) => t(meal) || meal).join(', ')}</p>
                    <p className="text-2xl sm:text-3xl font-black italic tracking-tighter">{p.price} <span className="opacity-40 text-xs font-bold uppercase not-italic ml-1">{p.currency}</span></p>
                  </button>
                ))}
@@ -575,13 +576,27 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
           )}
 
           {STEPS[step].id === 'audit' && (
-            <div className="space-y-12 animate-reveal">
-               <div className="glass-card p-0 overflow-hidden border-primary/10 bg-white/40 shadow-4xl rounded-[4rem]">
-                  <ReviewRow label="Name" value={identity.fullName || user?.user_metadata?.full_name} />
-                  <ReviewRow label="Plan Type" value={t(pkg?.id || '')} />
-                  <ReviewRow label="Deliver to" value={`${deliveryPlace === 'office' ? 'Work' : deliveryPlace}: ${address.building_number}, ${address.street}, ${address.area}`} />
+            <div className="space-y-6 animate-reveal">
+               <div className="rounded-3xl border border-primary/10 bg-white/70 p-5 sm:p-7">
+                  <h3 className="mb-4 text-lg font-black uppercase italic text-primary">{isRtl ? 'راجع طلبك' : 'Review your order'}</h3>
+                  <ReviewRow label={isRtl ? 'الاسم' : 'Name'} value={identity.fullName || user?.user_metadata?.full_name || user?.email} />
+                  <ReviewRow label={isRtl ? 'الخطة' : 'Plan'} value={t(pkg?.id || '')} />
+                  <ReviewRow label={isRtl ? 'الوجبات' : 'Meals'} value={`${Object.keys(initialMenuSelections).length} ${isRtl ? 'اختيارات' : 'selections'} · ${packageMenuMeals.map((meal) => t(meal) || meal).join(', ')}`} />
+                  <ReviewRow label={isRtl ? 'التوصيل' : 'Delivery'} value={`${deliveryPlace === 'office' ? (isRtl ? 'العمل' : 'Work') : (isRtl ? t(deliveryPlace) || deliveryPlace : deliveryPlace)} · ${address.building_number}, ${address.street}, ${address.area} · ${isRtl ? 'المنطقة' : 'Zone'} ${address.zone}`} />
+                  <ReviewRow label={isRtl ? 'الحساسية' : 'Allergies'} value={foodAllergies.length ? foodAllergies.join(', ') : (isRtl ? 'لا توجد حساسية مذكورة' : 'None listed')} />
+                  {foodDislikes.trim() && <ReviewRow label={isRtl ? 'ملاحظات المطبخ' : 'Kitchen notes'} value={foodDislikes.trim()} />}
+                  <ReviewRow label={isRtl ? 'طريقة الدفع' : 'Payment'} value={paymentMethod === 'cash' ? (isRtl ? 'تحصيل نقدي' : 'Cash collection') : 'Tap'} />
                </div>
-               <div className="bg-primary rounded-[4rem] p-12 text-white flex items-center justify-between shadow-4xl relative overflow-hidden">
+               <details className="rounded-3xl border border-primary/10 bg-white/70 p-5 sm:p-7">
+                 <summary className="cursor-pointer font-black text-primary">{isRtl ? 'عرض اختيارات الوجبات' : 'View selected meals'}</summary>
+                 <div className="mt-4 space-y-4">{packageMenuDays.map((day) => <div key={day}><h4 className="font-black uppercase text-primary">{t(day) || day}</h4><ul className="mt-1 space-y-1 text-sm text-primary/70">{packageMenuMeals.map((meal) => { const choice = initialMenuSelections[`${day}|${meal}`]; return choice ? <li key={meal}>{t(meal) || meal}: {choice.dish_name}</li> : null; })}</ul></div>)}</div>
+               </details>
+               <div className="rounded-3xl bg-primary p-6 text-white shadow-xl">
+                 <div className="flex items-center justify-between text-sm"><span>{t(pkg?.id || '')}</span><span>{Number(pkg?.price || 0).toLocaleString()} {pkg?.currency}</span></div>
+                 {fridayDelivery && <div className="mt-2 flex items-center justify-between text-sm"><span>{t('friday_delivery_addon')}</span><span>199 {pkg?.currency}</span></div>}
+                 <div className="mt-4 flex items-center justify-between border-t border-white/20 pt-4"><span className="font-black uppercase tracking-wider">{isRtl ? 'الإجمالي المستحق' : 'Total due'}</span><strong className="text-2xl">{(Number(pkg?.price || 0) + (fridayDelivery ? 199 : 0)).toLocaleString()} {pkg?.currency}</strong></div>
+               </div>
+               <div className="bg-primary rounded-[2rem] p-6 sm:p-8 text-white flex items-center justify-between shadow-4xl relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-64 h-64 bg-gold/10 rounded-full blur-3xl" />
                   <div className="relative z-10 flex items-center gap-6">
                     <Shield className="w-16 h-16 text-gold animate-glow" />
@@ -601,7 +616,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         {!success && <div className={`px-6 sm:px-12 py-8 sm:py-12 border-t border-primary/5 flex items-center justify-between bg-white/80 backdrop-blur-md flex-shrink-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
           <button onClick={() => setStep(s => s - 1)} disabled={step === 0} className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.3em] sm:tracking-[0.5em] text-primary/30 hover:text-primary transition-colors disabled:opacity-0 group flex items-center gap-2 active:scale-90"><ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> {isRtl ? 'رجوع' : 'Back'}</button>
           <button onClick={step === STEPS.length - 1 ? handleSubscribe : handleNext} disabled={submitting} className="btn-primary px-8 sm:px-24 py-5 sm:py-8 text-[10px] sm:text-[11px] tracking-[0.3em] sm:tracking-[0.5em] shadow-4xl active:scale-95 flex items-center gap-4 sm:gap-6 transition-all group">
-            {step === STEPS.length - 1 ? (isRtl ? 'ابدأ الوجبات' : 'START MEALS') : (isRtl ? 'متابعة' : 'PROCEED')}
+            {step === STEPS.length - 1
+              ? paymentMethod === 'cash'
+                ? (isRtl ? 'طلب تحصيل نقدي' : 'REQUEST CASH COLLECTION')
+                : (isRtl ? 'المتابعة إلى الدفع' : 'CONTINUE TO TAP CHECKOUT')
+              : (isRtl ? 'متابعة' : 'PROCEED')}
             <ArrowRight className="w-4 sm:w-5 h-4 sm:h-5 group-hover:translate-x-2 transition-transform" />
           </button>
         </div>}
@@ -624,9 +643,9 @@ function MetricPicker({ label, value, min, max, onChange, unit }: any) {
 
 function ReviewRow({ label, value }: any) {
   return (
-    <div className="flex justify-between gap-8 px-12 py-10 border-b border-primary/5 last:border-0 hover:bg-primary/[0.02] transition-colors">
-      <span className="text-primary/40 text-[11px] font-black uppercase tracking-[0.4em]">{label}</span>
-      <span className="text-primary text-lg font-black uppercase italic tracking-tighter">{value}</span>
+    <div className="flex flex-wrap justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-8 sm:py-6 border-b border-primary/5 last:border-0 hover:bg-primary/[0.02] transition-colors">
+      <span className="text-primary/40 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em]">{label}</span>
+      <span className="max-w-full break-words text-right text-sm sm:text-base font-black text-primary">{value || '—'}</span>
     </div>
   );
 }
