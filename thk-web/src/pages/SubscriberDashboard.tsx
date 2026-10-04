@@ -18,6 +18,7 @@ import {
 import HealthTab from '../components/HealthTab';
 import { useLanguage } from '../lib/LanguageContext';
 import { parseGoogleMapsUrl } from '../lib/location-utils';
+import { DEFAULT_ALLERGEN_OPTIONS, loadAllergenOptions, type AllergenOption } from '../lib/allergen-options';
 
 type Tab = 'menu' | 'delivery' | 'health' | 'settings';
 const qatarTomorrowString = () => { const date = new Date(`${getQatarDate()}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + 1); return date.toISOString().slice(0, 10); };
@@ -887,15 +888,22 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
 function AllergyPreferences({ subscriber, onUpdate }: { subscriber: Subscriber; onUpdate: () => void }) {
   const { t, isRtl } = useLanguage();
   const [allergies, setAllergies] = useState<string[]>(subscriber.allergies || []);
+  const [allergenOptions, setAllergenOptions] = useState<AllergenOption[]>(DEFAULT_ALLERGEN_OPTIONS);
   const [saving, setSaving] = useState(false);
-  const allergens = ['Fish', 'Dairy', 'Eggs', 'Gluten', 'Seafood', 'Sesame', 'Nuts'];
+  useEffect(() => {
+    let cancelled = false;
+    void loadAllergenOptions().then((options) => {
+      if (!cancelled) setAllergenOptions([...options, ...allergies.filter((name) => !options.some((option) => option.name === name)).map((name) => ({ name, name_ar: name }))]);
+    });
+    return () => { cancelled = true; };
+  }, []);
   const save = async () => {
     setSaving(true);
     const { error } = await supabase.from('subscribers').update({ allergies }).eq('id', subscriber.id);
     setSaving(false);
     if (error) alert(t('error_generic')); else { alert(t('safety_confirmed')); onUpdate(); }
   };
-  return <section className="rounded-3xl border border-red-200 bg-white p-6 sm:p-8 shadow-sm"><div className="mb-5 flex items-center gap-3"><ShieldAlert className="h-5 w-5 text-red-600"/><div><h3 className="font-black uppercase tracking-wide text-primary">{isRtl ? 'الحساسية وسلامة الطعام' : 'Allergies & food safety'}</h3><p className="text-xs text-primary/60">{isRtl ? 'تساعد هذه الملاحظات المطبخ على استبعاد الأطباق غير المناسبة.' : 'These notes help flag unsuitable dishes for the kitchen.'}</p></div></div><div className="flex flex-wrap gap-2">{allergens.map((allergen) => { const selected=allergies.includes(allergen); return <button type="button" key={allergen} aria-pressed={selected} onClick={() => setAllergies((previous) => selected ? previous.filter((item) => item !== allergen) : [...previous, allergen])} className={`rounded-full border px-4 py-2 text-xs font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-primary/15 text-primary/70'}`}>{t(allergen.toLowerCase()) || allergen}</button>; })}</div><button type="button" onClick={save} disabled={saving} className="btn-primary mt-5 px-6 py-3 text-xs">{saving ? (isRtl ? 'جارٍ الحفظ…' : 'Saving…') : (isRtl ? 'حفظ ملاحظات سلامة الطعام' : 'Save food-safety notes')}</button></section>;
+  return <section className="rounded-3xl border border-red-200 bg-white p-6 sm:p-8 shadow-sm"><div className="mb-5 flex items-center gap-3"><ShieldAlert className="h-5 w-5 text-red-600"/><div><h3 className="font-black uppercase tracking-wide text-primary">{isRtl ? 'الحساسية وسلامة الطعام' : 'Allergies & food safety'}</h3><p className="text-xs text-primary/60">{isRtl ? 'تساعد هذه الملاحظات المطبخ على استبعاد الأطباق غير المناسبة.' : 'These notes help flag unsuitable dishes for the kitchen.'}</p></div></div><div className="flex flex-wrap gap-2">{allergenOptions.map((allergen) => { const selected=allergies.includes(allergen.name); return <button type="button" key={allergen.name} aria-pressed={selected} onClick={() => setAllergies((previous) => selected ? previous.filter((item) => item !== allergen.name) : [...previous, allergen.name])} className={`rounded-full border px-4 py-2 text-xs font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-primary/15 text-primary/70'}`}>{isRtl ? allergen.name_ar : allergen.name}</button>; })}</div><button type="button" onClick={save} disabled={saving} className="btn-primary mt-5 px-6 py-3 text-xs">{saving ? (isRtl ? 'جارٍ الحفظ…' : 'Saving…') : (isRtl ? 'حفظ ملاحظات سلامة الطعام' : 'Save food-safety notes')}</button></section>;
 }
 
 function PlanSettings({ subscriber, onUpdate, updating, setUpdating }: { subscriber: Subscriber, onUpdate: () => void, updating: boolean, setUpdating: (v: boolean) => void }) {

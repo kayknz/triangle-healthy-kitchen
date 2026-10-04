@@ -10,6 +10,7 @@ import { useLanguage } from '@/lib/LanguageContext';
 import { BUSINESS_RULES } from '@/config/business';
 import { getQatarDate, getQatarDayOfWeek, addDays } from '@/lib/date-utils';
 import { parseGoogleMapsUrl } from '@/lib/location-utils';
+import { DEFAULT_ALLERGEN_OPTIONS, loadAllergenOptions, type AllergenOption } from '@/lib/allergen-options';
 
 type Tab = 'menu' | 'delivery' | 'health' | 'settings';
 const qatarTomorrowString = () => { const date = new Date(`${getQatarDate()}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + 1); return date.toISOString().slice(0, 10); };
@@ -235,10 +236,17 @@ export default function SubscriberDashboard() {
 function AllergyPreferences({ subscriber, onUpdate }: { subscriber: Subscriber; onUpdate: () => void }) {
   const { t, isRtl } = useLanguage();
   const [allergies, setAllergies] = useState<string[]>(subscriber.allergies || []);
+  const [allergenOptions, setAllergenOptions] = useState<AllergenOption[]>(DEFAULT_ALLERGEN_OPTIONS);
   const [saving, setSaving] = useState(false);
-  const allergens = ['Fish', 'Dairy', 'Eggs', 'Gluten', 'Seafood', 'Sesame', 'Nuts'];
+  useEffect(() => {
+    let cancelled = false;
+    void loadAllergenOptions().then((options) => {
+      if (!cancelled) setAllergenOptions([...options, ...allergies.filter((name) => !options.some((option) => option.name === name)).map((name) => ({ name, name_ar: name }))]);
+    });
+    return () => { cancelled = true; };
+  }, []);
   const save = async () => { setSaving(true); const { error } = await supabase.from('subscribers').update({ allergies }).eq('id', subscriber.id); setSaving(false); if (error) alert(t('error_generic')); else { alert(t('safety_confirmed')); onUpdate(); } };
-  return <section className="rounded-2xl border border-red-200 bg-white p-4"><div className="mb-3 flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-red-600"/><div><h3 className="text-sm font-black uppercase text-primary">{t('safety_taste')}</h3><p className="text-[10px] text-primary/60">{isRtl ? 'ملاحظات سلامة الطعام لوجباتك.' : 'Kitchen safety notes for your meals.'}</p></div></div><div className="flex flex-wrap gap-2">{allergens.map((allergen) => { const selected=allergies.includes(allergen); return <button type="button" key={allergen} aria-pressed={selected} onClick={() => setAllergies((previous) => selected ? previous.filter((item) => item !== allergen) : [...previous, allergen])} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-primary/15 text-primary/70'}`}>{t(allergen.toLowerCase()) || allergen}</button>; })}</div><button type="button" onClick={save} disabled={saving} className="btn-primary mt-3 px-4 py-2 text-[10px]">{saving ? (isRtl ? 'جارٍ الحفظ…' : 'Saving…') : (isRtl ? 'حفظ ملاحظات سلامة الطعام' : 'Save food-safety notes')}</button></section>;
+  return <section className="rounded-2xl border border-red-200 bg-white p-4"><div className="mb-3 flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-red-600"/><div><h3 className="text-sm font-black uppercase text-primary">{t('safety_taste')}</h3><p className="text-[10px] text-primary/60">{isRtl ? 'ملاحظات سلامة الطعام لوجباتك.' : 'Kitchen safety notes for your meals.'}</p></div></div><div className="flex flex-wrap gap-2">{allergenOptions.map((allergen) => { const selected=allergies.includes(allergen.name); return <button type="button" key={allergen.name} aria-pressed={selected} onClick={() => setAllergies((previous) => selected ? previous.filter((item) => item !== allergen.name) : [...previous, allergen.name])} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-primary/15 text-primary/70'}`}>{isRtl ? allergen.name_ar : allergen.name}</button>; })}</div><button type="button" onClick={save} disabled={saving} className="btn-primary mt-3 px-4 py-2 text-[10px]">{saving ? (isRtl ? 'جارٍ الحفظ…' : 'Saving…') : (isRtl ? 'حفظ ملاحظات سلامة الطعام' : 'Save food-safety notes')}</button></section>;
 }
 
 function MenuSelection({ subscriber, onUpdate }: { subscriber: Subscriber, onUpdate: () => void }) {

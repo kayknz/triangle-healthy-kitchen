@@ -12,13 +12,13 @@ import { PACKAGE_MEALS } from '@/types/subscription';
 import EditorialPanel from './EditorialPanel';
 import { resolveQatarDeliveryZone } from '@/lib/delivery-zone';
 import { parseGoogleMapsUrl } from '@/lib/location-utils';
+import { DEFAULT_ALLERGEN_OPTIONS, loadAllergenOptions, type AllergenOption } from '@/lib/allergen-options';
 import { getCountryOptions, toE164Phone, type PhoneChannel } from '@/lib/phone-number';
 import type { CountryCode } from 'libphonenumber-js';
 
 type InitialMenuChoice = { dish_id: string; dish_name: string; dish_kcals: number; day_of_week: string; meal_type: string; menu_period: string };
 const SERVICE_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
 const PACKAGE_MENU_MEALS = ['breakfast', 'lunch', 'dinner', 'snacks'];
-const CHECKOUT_ALLERGENS = ['Fish', 'Dairy', 'Eggs', 'Gluten', 'Seafood', 'Sesame', 'Nuts'];
 function upcomingServiceWeekStart() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const date = new Date(`${today}T12:00:00Z`);
@@ -58,6 +58,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const [initialMenuOptions, setInitialMenuOptions] = useState<Record<string, Array<{ id: string; name: string; kcals: number; kitchen_choice?: boolean }>>>({});
   const [initialMenuSelections, setInitialMenuSelections] = useState<Record<string, InitialMenuChoice>>({});
   const [foodAllergies, setFoodAllergies] = useState<string[]>([]);
+  const [allergenOptions, setAllergenOptions] = useState<AllergenOption[]>(DEFAULT_ALLERGEN_OPTIONS);
   const [foodDislikes, setFoodDislikes] = useState('');
   const [menuPeriod, setMenuPeriod] = useState('autumn');
   const [menuLoading, setMenuLoading] = useState(false);
@@ -176,6 +177,13 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   }, [open, preselectedPackage]);
 
   useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void loadAllergenOptions().then((options) => { if (!cancelled) setAllergenOptions(options); });
+    return () => { cancelled = true; };
+  }, [open]);
+
+  useEffect(() => {
     if (!open || !pkgId) return;
     let cancelled = false;
     const loadMenu = async () => {
@@ -244,8 +252,13 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       if (menuLoading) { rejectStep('Please wait while the weekly menu loads.'); return; }
       if (!Object.values(initialMenuOptions).some((choices) => choices.length)) { rejectStep('The kitchen has not published a menu yet. Please check back after the weekly menu is released.'); return; }
       const requiredKeys = packageMenuDays.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`));
-      const missingOptions = requiredKeys.find((key) => !(initialMenuOptions[key] || []).length);
-      if (missingOptions) return rejectStep('The published menu is missing one or more meals for this package. Please ask the kitchen to complete the weekly menu.', `menu-${missingOptions}`);
+      const missingOptions = requiredKeys.filter((key) => !(initialMenuOptions[key] || []).length);
+      if (missingOptions.length) {
+        const missingSummary = missingOptions.slice(0, 5).map((key) => key.replace('|', ' · ')).join(', ');
+        const additionalCount = missingOptions.length - 5;
+        rejectStep(`The published menu is missing ${missingOptions.length} required meal slot${missingOptions.length === 1 ? '' : 's'}: ${missingSummary}${additionalCount > 0 ? `, and ${additionalCount} more` : ''}. Please ask the kitchen to complete these before checkout.`, `menu-${missingOptions[0]}`);
+        return;
+      }
       if (!requiredKeys.length) { rejectStep('No meals are available for this package in the published menu.'); return; }
       const resolvedSelections = { ...initialMenuSelections };
       for (const key of requiredKeys) {
@@ -260,8 +273,17 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         if (chosen) resolvedSelections[key] = { dish_id: chosen.id, dish_name: chosen.name, dish_kcals: chosen.kcals, day_of_week: day, meal_type: key.endsWith('|snacks_2') ? 'snack_2' : key.endsWith('|snacks') ? 'snack' : key.split('|')[1], menu_period: menuPeriod };
       }
       setInitialMenuSelections(resolvedSelections);
-      const duplicateSnacks = packageMenuMeals.includes('snacks_2') && packageMenuDays.find((day) => resolvedSelections[`${day}|snacks`]?.dish_id === resolvedSelections[`${day}|snacks_2`]?.dish_id);
-      if (duplicateSnacks) { rejectStep('Choose two different snacks for each day. The published menu needs at least two snack choices.', `menu-${duplicateSnacks}|snacks_2`); return; }
+      if (packageMenuMeals.includes('snacks_2')) {
+        const incompleteSnackDay = packageMenuDays.find((day) => {
+          const firstSnack = resolvedSelections[`${day}|snacks`]?.dish_id;
+          const secondSnack = resolvedSelections[`${day}|snacks_2`]?.dish_id;
+          return !firstSnack || !secondSnack || firstSnack === secondSnack;
+        });
+        if (incompleteSnackDay) {
+          rejectStep(`Choose two different snacks for ${incompleteSnackDay}. The kitchen needs to publish at least two snack choices that day.`, `menu-${incompleteSnackDay}|snacks_2`);
+          return;
+        }
+      }
     }
     if (currentStep === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) {
       const target = !address.building_number.trim() ? 'address_building' : !address.street.trim() ? 'address_street' : !address.area.trim() ? 'address_area' : !address.zone.trim() ? 'address_zone' : 'address_phone';
@@ -588,7 +610,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {STEPS[step]?.id === 'menu' && (
               <div className="space-y-4 animate-in">
                 <div><h3 className="text-[#0a3030] font-black text-lg uppercase italic">{isRtl ? 'اختر وجباتك' : 'Choose your meals'}</h3><p className="mt-1 text-sm text-gray-500">{isRtl ? 'اختر وجباتك من قائمة المطبخ المنشورة لهذا الأسبوع. يتم تحديد اختيار المطبخ مسبقاً عند توفره.' : 'Select meals from this week’s published kitchen menu. Kitchen’s choice is preselected where available.'}</p></div>
-                <section className="rounded-2xl border border-gray-200 bg-white p-4"><h4 className="flex items-center justify-between gap-2 font-black uppercase text-[#0a3030]">{isRtl ? 'الحساسية وملاحظات المطبخ' : 'Allergies and kitchen notes'}<FieldLabel required={false} isRtl={isRtl} /></h4><p className="mt-1 text-xs leading-relaxed text-gray-500">{isRtl ? 'اختر ما ينطبق فقط. إذا لم تكن لديك حساسية، اترك الخيارات بدون تحديد.' : 'Select only what applies. If you have no allergies, leave every option unchecked and continue.'}</p><div className="mt-3 flex flex-wrap gap-2">{CHECKOUT_ALLERGENS.map((item) => { const selected = foodAllergies.includes(item); return <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 text-gray-700'}`}><input type="checkbox" checked={selected} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item] : current.filter((value) => value !== item))}/>{isRtl ? (t(item.toLowerCase()) || item) : item}</label>; })}</div><label className="mt-4 block text-xs font-bold text-gray-700"><FieldLabel required={false} isRtl={isRtl}>{isRtl ? 'مكونات يجب تجنبها أو ملاحظات عامة للمطبخ' : 'Ingredients to avoid or general kitchen notes'}</FieldLabel><textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder={isRtl ? 'مثال: بدون بصل، توابل خفيفة' : 'For example: no onions, mild spice'} className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
+                <section className="rounded-2xl border border-gray-200 bg-white p-4"><h4 className="flex items-center justify-between gap-2 font-black uppercase text-[#0a3030]">{isRtl ? 'الحساسية وملاحظات المطبخ' : 'Allergies and kitchen notes'}<FieldLabel required={false} isRtl={isRtl} /></h4><p className="mt-1 text-xs leading-relaxed text-gray-500">{isRtl ? 'اختر ما ينطبق فقط. إذا لم تكن لديك حساسية، اترك الخيارات بدون تحديد.' : 'Select only what applies. If you have no allergies, leave every option unchecked and continue.'}</p><div className="mt-3 flex flex-wrap gap-2">{allergenOptions.map((item) => { const selected = foodAllergies.includes(item.name); return <label key={item.name} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${selected ? 'border-red-600 bg-red-600 text-white' : 'border-gray-200 text-gray-700'}`}><input type="checkbox" checked={selected} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item.name] : current.filter((value) => value !== item.name))}/>{isRtl ? item.name_ar : item.name}</label>; })}</div><label className="mt-4 block text-xs font-bold text-gray-700"><FieldLabel required={false} isRtl={isRtl}>{isRtl ? 'مكونات يجب تجنبها أو ملاحظات عامة للمطبخ' : 'Ingredients to avoid or general kitchen notes'}</FieldLabel><textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder={isRtl ? 'مثال: بدون بصل، توابل خفيفة' : 'For example: no onions, mild spice'} className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
                 {menuLoading ? <p className="py-6 text-sm text-gray-500">{isRtl ? 'جارٍ تحميل القائمة…' : 'Loading menu…'}</p> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{isRtl ? 'لم ينشر المطبخ قائمة الطعام بعد. يرجى العودة بعد نشر قائمة الأسبوع.' : 'The kitchen has not published a menu yet. Check back after the weekly menu is released.'}</p> : packageMenuDays.map((day) => {
                   const meals = packageMenuMeals.filter((meal) => (initialMenuOptions[`${day}|${meal}`] || []).length);
                   if (!meals.length) return null;
@@ -787,7 +809,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   <ReviewRow label={isRtl ? 'الخطة' : 'Plan'} value={pkg ? t(pkg.id) : ''} />
                   <ReviewRow label={isRtl ? 'الوجبات' : 'Meals'} value={`${Object.keys(initialMenuSelections).length} ${isRtl ? 'اختيارات' : 'selections'} · ${packageMenuMeals.map((meal) => t(meal) || meal).join(', ')}`} />
                   <ReviewRow label={isRtl ? 'التوصيل' : 'Delivery'} value={`${deliveryPlace === 'office' ? (isRtl ? 'العمل' : 'Work') : deliveryPlace} · ${address.building_number}, ${address.street}, ${address.area} · ${isRtl ? 'المنطقة' : 'Zone'} ${address.zone}`} />
-                  <ReviewRow label={isRtl ? 'الحساسية' : 'Allergies'} value={foodAllergies.length ? foodAllergies.join(', ') : (isRtl ? 'لا توجد حساسية مذكورة' : 'None listed')} />
+                  <ReviewRow label={isRtl ? 'الحساسية' : 'Allergies'} value={foodAllergies.length ? foodAllergies.map((name) => isRtl ? (allergenOptions.find((option) => option.name === name)?.name_ar || name) : name).join(', ') : (isRtl ? 'لا توجد حساسية مذكورة' : 'None listed')} />
                   {foodDislikes.trim() && <ReviewRow label={isRtl ? 'ملاحظات المطبخ' : 'Kitchen notes'} value={foodDislikes.trim()} />}
                   <ReviewRow label={isRtl ? 'طريقة الدفع' : 'Payment'} value={paymentMethod === 'cash' ? (isRtl ? 'تحصيل نقدي' : 'Cash collection') : 'Tap'} />
                 </section>

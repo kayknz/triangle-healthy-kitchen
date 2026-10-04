@@ -14,6 +14,7 @@ import { PACKAGE_MEALS } from '../types/subscription';
 import SecuringProtocol from './SecuringProtocol';
 import { resolveQatarDeliveryZone } from '../lib/delivery-zone';
 import { parseGoogleMapsUrl } from '../lib/location-utils';
+import { DEFAULT_ALLERGEN_OPTIONS, loadAllergenOptions, type AllergenOption } from '../lib/allergen-options';
 
 interface SubscriptionFlowProps {
   open: boolean;
@@ -24,7 +25,6 @@ interface SubscriptionFlowProps {
 type InitialMenuChoice = { dish_id: string; dish_name: string; dish_kcals: number; day_of_week: string; meal_type: string; menu_period: string };
 const SERVICE_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
 const PACKAGE_MENU_MEALS = ['breakfast', 'lunch', 'dinner', 'snacks'];
-const CHECKOUT_ALLERGENS = ['Fish', 'Dairy', 'Eggs', 'Gluten', 'Seafood', 'Sesame', 'Nuts'];
 function upcomingServiceWeekStart() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const date = new Date(`${today}T12:00:00Z`);
@@ -98,6 +98,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const [initialMenuOptions, setInitialMenuOptions] = useState<Record<string, Array<{ id: string; name: string; kcals: number; kitchen_choice?: boolean }>>>({});
   const [initialMenuSelections, setInitialMenuSelections] = useState<Record<string, InitialMenuChoice>>({});
   const [foodAllergies, setFoodAllergies] = useState<string[]>([]);
+  const [allergenOptions, setAllergenOptions] = useState<AllergenOption[]>(DEFAULT_ALLERGEN_OPTIONS);
   const [foodDislikes, setFoodDislikes] = useState('');
   const [menuPeriod, setMenuPeriod] = useState('autumn');
   const [menuLoading, setMenuLoading] = useState(false);
@@ -125,6 +126,13 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       if (preselectedPackage) setPkgId(preselectedPackage);
     }
   }, [open, preselectedPackage]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void loadAllergenOptions().then((options) => { if (!cancelled) setAllergenOptions(options); });
+    return () => { cancelled = true; };
+  }, [open]);
 
   useEffect(() => {
     if (!open || !pkgId) return;
@@ -207,7 +215,12 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
       if (menuLoading) return setError('Please wait while the weekly menu loads.');
       if (!Object.keys(initialMenuOptions).some((key) => (initialMenuOptions[key] || []).length)) return setError('The menu is not published yet. Please check back after the kitchen releases this week’s menu.');
       const requiredKeys = packageMenuDays.flatMap((day) => packageMenuMeals.map((meal) => `${day}|${meal}`));
-      if (requiredKeys.some((key) => !(initialMenuOptions[key] || []).length)) return setError('The published menu is missing one or more meals for this package. Please ask the kitchen to complete the weekly menu.');
+      const missingKeys = requiredKeys.filter((key) => !(initialMenuOptions[key] || []).length);
+      if (missingKeys.length) {
+        const missingSummary = missingKeys.slice(0, 5).map((key) => key.replace('|', ' · ')).join(', ');
+        const additionalCount = missingKeys.length - 5;
+        return setError(`The published menu is missing ${missingKeys.length} required meal slot${missingKeys.length === 1 ? '' : 's'}: ${missingSummary}${additionalCount > 0 ? `, and ${additionalCount} more` : ''}. Please ask the kitchen to complete these before checkout.`);
+      }
       if (!requiredKeys.length) return setError('No meals are available for this package in the published menu.');
       const resolvedSelections = { ...initialMenuSelections };
       for (const key of requiredKeys) {
@@ -222,7 +235,14 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         if (chosen) resolvedSelections[key] = { dish_id: chosen.id, dish_name: chosen.name, dish_kcals: chosen.kcals, day_of_week: day, meal_type: isSecondSnack ? 'snack_2' : key.endsWith('|snacks') ? 'snack' : key.split('|')[1], menu_period: menuPeriod };
       }
       setInitialMenuSelections(resolvedSelections);
-      if (packageMenuMeals.includes('snacks_2') && packageMenuDays.some((day) => resolvedSelections[`${day}|snacks`]?.dish_id === resolvedSelections[`${day}|snacks_2`]?.dish_id)) return setError('Choose two different snacks for each day. The published menu needs at least two snack choices.');
+      if (packageMenuMeals.includes('snacks_2')) {
+        const incompleteSnackDay = packageMenuDays.find((day) => {
+          const firstSnack = resolvedSelections[`${day}|snacks`]?.dish_id;
+          const secondSnack = resolvedSelections[`${day}|snacks_2`]?.dish_id;
+          return !firstSnack || !secondSnack || firstSnack === secondSnack;
+        });
+        if (incompleteSnackDay) return setError(`Choose two different snacks for ${incompleteSnackDay}. The kitchen needs to publish at least two snack choices that day.`);
+      }
     }
     if (currentStepId === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) return setError('Enter your phone number and complete the building, street, area, and zone details.');
     if (currentStepId === 'identity') {
@@ -482,7 +502,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
           {STEPS[step].id === 'menu' && (
             <div className="space-y-6 animate-reveal">
               <div><h3 className="text-xl font-black uppercase italic text-primary">Choose your meals</h3><p className="mt-2 text-sm text-primary/60">Select from the kitchen’s published choices for your plan. Kitchen’s choice is preselected where available.</p></div>
-              <section className="rounded-2xl border border-red-200 bg-white/80 p-5"><h4 className="font-black uppercase text-primary">Allergies and kitchen notes</h4><p className="mt-1 text-xs text-primary/60">These notes are shared with the kitchen for food safety and preparation.</p><div className="mt-3 flex flex-wrap gap-2">{CHECKOUT_ALLERGENS.map((item) => <label key={item} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${foodAllergies.includes(item) ? 'border-red-600 bg-red-600 text-white' : 'border-primary/15 text-primary/70'}`}><input type="checkbox" checked={foodAllergies.includes(item)} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item] : current.filter((value) => value !== item))}/>{isRtl ? (t(item.toLowerCase()) || item) : item}</label>)}</div><label className="mt-4 block text-xs font-bold text-primary/70">Ingredients to avoid or general kitchen notes<textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder="For example: no onions, mild spice" className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
+              <section className="rounded-2xl border border-red-200 bg-white/80 p-5"><h4 className="font-black uppercase text-primary">Allergies and kitchen notes</h4><p className="mt-1 text-xs text-primary/60">These notes are shared with the kitchen for food safety and preparation.</p><div className="mt-3 flex flex-wrap gap-2">{allergenOptions.map((item) => <label key={item.name} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold ${foodAllergies.includes(item.name) ? 'border-red-600 bg-red-600 text-white' : 'border-primary/15 text-primary/70'}`}><input type="checkbox" checked={foodAllergies.includes(item.name)} onChange={(event) => setFoodAllergies((current) => event.target.checked ? [...current,item.name] : current.filter((value) => value !== item.name))}/>{isRtl ? item.name_ar : item.name}</label>)}</div><label className="mt-4 block text-xs font-bold text-primary/70">Ingredients to avoid or general kitchen notes<textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} placeholder="For example: no onions, mild spice" className="input-field mt-2 min-h-20 w-full py-3 normal-case"/></label></section>
               {menuLoading ? <div className="flex items-center gap-3 text-sm font-semibold text-primary/60"><Loader2 className="h-5 w-5 animate-spin"/>Loading this week’s menu…</div> : !Object.values(initialMenuOptions).some((choices) => choices.length) ? <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-primary-900">No published meals are available yet. The kitchen needs to publish a menu before checkout can continue.</div> : packageMenuDays.map((day) => {
                 const meals = packageMenuMeals.filter((meal) => (initialMenuOptions[`${day}|${meal}`] || []).length);
                 if (!meals.length) return null;
@@ -583,7 +603,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   <ReviewRow label={isRtl ? 'الخطة' : 'Plan'} value={t(pkg?.id || '')} />
                   <ReviewRow label={isRtl ? 'الوجبات' : 'Meals'} value={`${Object.keys(initialMenuSelections).length} ${isRtl ? 'اختيارات' : 'selections'} · ${packageMenuMeals.map((meal) => t(meal) || meal).join(', ')}`} />
                   <ReviewRow label={isRtl ? 'التوصيل' : 'Delivery'} value={`${deliveryPlace === 'office' ? (isRtl ? 'العمل' : 'Work') : (isRtl ? t(deliveryPlace) || deliveryPlace : deliveryPlace)} · ${address.building_number}, ${address.street}, ${address.area} · ${isRtl ? 'المنطقة' : 'Zone'} ${address.zone}`} />
-                  <ReviewRow label={isRtl ? 'الحساسية' : 'Allergies'} value={foodAllergies.length ? foodAllergies.join(', ') : (isRtl ? 'لا توجد حساسية مذكورة' : 'None listed')} />
+                  <ReviewRow label={isRtl ? 'الحساسية' : 'Allergies'} value={foodAllergies.length ? foodAllergies.map((name) => isRtl ? (allergenOptions.find((option) => option.name === name)?.name_ar || name) : name).join(', ') : (isRtl ? 'لا توجد حساسية مذكورة' : 'None listed')} />
                   {foodDislikes.trim() && <ReviewRow label={isRtl ? 'ملاحظات المطبخ' : 'Kitchen notes'} value={foodDislikes.trim()} />}
                   <ReviewRow label={isRtl ? 'طريقة الدفع' : 'Payment'} value={paymentMethod === 'cash' ? (isRtl ? 'تحصيل نقدي' : 'Cash collection') : 'Tap'} />
                </div>
