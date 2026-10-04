@@ -134,12 +134,12 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-0 sm:p-4">
       <div className="absolute inset-0 bg-primary/40 backdrop-blur-xl" onClick={submitted ? undefined : reset} />
 
-      <div className={`relative bg-[#F5F3EB] w-full max-w-4xl rounded-[3.5rem] shadow-4xl flex flex-col max-h-[92vh] border border-white/20 overflow-hidden animate-reveal ${isRtl ? 'text-right' : 'text-left'}`}>
+      <div className={`relative flex h-[100dvh] max-h-[100dvh] w-full max-w-4xl flex-col overflow-hidden border border-white/20 bg-[#F5F3EB] shadow-4xl animate-reveal sm:h-auto sm:max-h-[92dvh] sm:rounded-[3.5rem] ${isRtl ? 'text-right' : 'text-left'}`}>
 
-        <div className={`flex items-center justify-between px-12 py-10 border-b border-primary/5 bg-white/40 backdrop-blur-md flex-shrink-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
+        <div className={`flex flex-shrink-0 items-center justify-between border-b border-primary/5 bg-white/40 px-5 py-5 backdrop-blur-md sm:px-12 sm:py-10 ${isRtl ? 'flex-row-reverse' : ''}`}>
           <div>
             <div className="badge mb-3 bg-gold/10 border-gold/20 text-gold py-1 px-4">
               <Sparkles className="w-3 h-3 fill-gold" />
@@ -151,7 +151,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
         </div>
 
         {!submitted && (
-          <div className="px-6 sm:px-12 py-5 bg-gray-50/50 border-b border-primary/5 flex items-center gap-4 overflow-x-auto no-scrollbar">
+          <div className="flex flex-shrink-0 items-center gap-4 overflow-x-auto border-b border-primary/5 bg-gray-50/50 px-5 py-3 no-scrollbar sm:px-12 sm:py-5">
             {STEPS.map((s, i) => (
               <div key={i} className="flex items-center gap-3 flex-shrink-0">
                   <div className={`w-8 h-8 rounded-2xl flex items-center justify-center text-[10px] font-black transition-all duration-500 ${step >= i ? 'bg-primary text-white shadow-lg' : 'bg-white text-gray-300 border border-gray-100'}`}>
@@ -164,7 +164,7 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-6 sm:px-12 py-12 relative">
+        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-12 sm:py-12">
           {submitted ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-12">
                <div className="w-24 h-24 rounded-[2.5rem] bg-teal flex items-center justify-center mb-10 shadow-4xl rotate-6 animate-reveal">
@@ -273,9 +273,9 @@ export default function BookingFlow({ open, onClose, preselectedPackage }: Booki
         </div>
 
         {!submitted && (
-          <div className={`px-6 sm:px-12 py-8 sm:py-12 border-t border-primary/5 flex items-center justify-between bg-white/80 backdrop-blur-md flex-shrink-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
+          <div className={`flex flex-shrink-0 items-center justify-between gap-3 border-t border-primary/5 bg-white/95 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-md sm:px-12 sm:py-12 ${isRtl ? 'flex-row-reverse' : ''}`}>
             <button onClick={() => setStep(s => s - 1)} disabled={step === 0} className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.3em] sm:tracking-[0.5em] text-primary/30 hover:text-primary transition-colors disabled:opacity-0 group flex items-center gap-2 active:scale-90"><ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Back</button>
-            <button onClick={step === STEPS.length - 1 ? submit : handleNext} disabled={submitting} className="btn-primary px-8 sm:px-24 py-5 sm:py-8 text-[10px] sm:text-[11px] tracking-[0.3em] sm:tracking-[0.5em] shadow-4xl active:scale-95 flex items-center gap-4 sm:gap-6 transition-all group">
+            <button onClick={step === STEPS.length - 1 ? submit : handleNext} disabled={submitting} className="btn-primary flex items-center gap-2 px-5 py-4 text-[9px] tracking-[0.15em] shadow-4xl transition-all group active:scale-95 sm:gap-6 sm:px-24 sm:py-8 sm:text-[11px] sm:tracking-[0.5em]">
               {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : step === STEPS.length - 1 ? 'AUTHORIZE' : 'PROCEED'}
               <ArrowRight className={`w-4 sm:w-5 h-4 sm:h-5 group-hover:translate-x-2 transition-transform`} />
             </button>
