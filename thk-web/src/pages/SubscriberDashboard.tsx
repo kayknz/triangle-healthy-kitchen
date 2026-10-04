@@ -19,6 +19,7 @@ import HealthTab from '../components/HealthTab';
 import { useLanguage } from '../lib/LanguageContext';
 import { parseGoogleMapsUrl } from '../lib/location-utils';
 import { DEFAULT_ALLERGEN_OPTIONS, loadAllergenOptions, type AllergenOption } from '../lib/allergen-options';
+import { municipalityForZone, QATAR_MUNICIPALITIES } from '../lib/qatar-locations';
 
 type Tab = 'menu' | 'delivery' | 'health' | 'settings';
 const qatarTomorrowString = () => { const date = new Date(`${getQatarDate()}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + 1); return date.toISOString().slice(0, 10); };
@@ -768,8 +769,10 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
     building_number: subscriber.building_number || '',
     street: subscriber.street || '',
     area: subscriber.area || '',
+    zone_number: subscriber.zone_number || '',
     delivery_notes: subscriber.delivery_notes || '',
   });
+  const [municipality, setMunicipality] = useState(municipalityForZone(subscriber.zone_number || '')?.name || '');
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -842,7 +845,9 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
                          latitude: parsed.latitude,
                          longitude: parsed.longitude,
                          area: parsed.zone ? `${f.area} (Zone ${parsed.zone})` : f.area,
+                         zone_number: parsed.zone || f.zone_number,
                        }));
+                       if (parsed.zone) setMunicipality(municipalityForZone(parsed.zone)?.name || '');
                      }
                    }
                  }}
@@ -861,6 +866,10 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
             <div className="space-y-4">
                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#C5A059]">{t('area_zone')}</p>
                <input type="text" value={form.area} onChange={e => setForm({...form, area: e.target.value})} className="input-field py-6 font-black text-lg bg-white/40" />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="space-y-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#C5A059]">{isRtl ? 'البلدية' : 'Municipality'}<select value={municipality} onChange={(event) => { setMunicipality(event.target.value); setForm({ ...form, zone_number: '' }); }} className="input-field w-full py-4 text-base font-bold normal-case tracking-normal"><option value="">{isRtl ? 'اختر البلدية' : 'Choose municipality'}</option>{QATAR_MUNICIPALITIES.map((item) => <option key={item.name} value={item.name}>{isRtl ? item.name_ar : item.name.replace(' Municipality','')}</option>)}</select></label>
+              <label className="space-y-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#C5A059]">{isRtl ? 'رقم المنطقة' : 'Zone number'}<select value={form.zone_number} disabled={!municipality} onChange={(event) => setForm({ ...form, zone_number: event.target.value })} className="input-field w-full py-4 text-base font-bold normal-case tracking-normal"><option value="">{isRtl ? 'اختر المنطقة' : 'Choose zone'}</option>{QATAR_MUNICIPALITIES.find((item) => item.name === municipality)?.zones.map((zone) => <option key={zone} value={String(zone)}>{isRtl ? `المنطقة ${zone}` : `Zone ${zone}`}</option>)}</select></label>
             </div>
             <div className="space-y-4">
                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#C5A059]">{t('shipment_instructions')}</p>

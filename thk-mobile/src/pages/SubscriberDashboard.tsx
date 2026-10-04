@@ -11,6 +11,7 @@ import { BUSINESS_RULES } from '@/config/business';
 import { getQatarDate, getQatarDayOfWeek, addDays } from '@/lib/date-utils';
 import { parseGoogleMapsUrl } from '@/lib/location-utils';
 import { DEFAULT_ALLERGEN_OPTIONS, loadAllergenOptions, type AllergenOption } from '@/lib/allergen-options';
+import { municipalityForZone, QATAR_MUNICIPALITIES } from '@/lib/qatar-locations';
 
 type Tab = 'menu' | 'delivery' | 'health' | 'settings';
 const qatarTomorrowString = () => { const date = new Date(`${getQatarDate()}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + 1); return date.toISOString().slice(0, 10); };
@@ -735,8 +736,10 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
     building_number: subscriber.building_number || '',
     street: subscriber.street || '',
     area: subscriber.area || '',
+    zone_number: subscriber.zone_number || '',
     delivery_notes: subscriber.delivery_notes || '',
   });
+  const [municipality, setMunicipality] = useState(municipalityForZone(subscriber.zone_number || '')?.name || '');
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -805,8 +808,9 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
                          ...f,
                          latitude: parsed.latitude,
                          longitude: parsed.longitude,
-                         area: parsed.zone ? `${f.area} (Zone ${parsed.zone})` : f.area,
+                         zone_number: parsed.zone || f.zone_number,
                        }));
+                       if (parsed.zone) setMunicipality(municipalityForZone(parsed.zone)?.name || '');
                      }
                    }
                  }}
@@ -824,7 +828,11 @@ function DeliverySettings({ subscriber, activeDelivery, riderLocation, onUpdate 
             </div>
             <div className="space-y-3">
                <p className="text-[10px] font-black uppercase tracking-widest text-muted">{t('area_zone')}</p>
-               <input type="text" value={form.area} onChange={e => setForm({...form, area: e.target.value})} className="input-field py-4 font-black" />
+               <input type="text" value={form.area} onChange={e => setForm({...form, area: e.target.value})} placeholder={isRtl ? 'اسم الحي كما يظهر في الخرائط' : 'Neighbourhood name as shown on your map'} className="input-field py-4 font-black" />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="space-y-2 text-[10px] font-black uppercase tracking-widest text-muted">{isRtl ? 'البلدية' : 'Municipality'}<select value={municipality} onChange={(event) => { setMunicipality(event.target.value); setForm({ ...form, zone_number: '' }); }} className="input-field w-full py-3 text-base font-bold normal-case tracking-normal"><option value="">{isRtl ? 'اختر البلدية' : 'Choose municipality'}</option>{QATAR_MUNICIPALITIES.map((item) => <option key={item.name} value={item.name}>{isRtl ? item.name_ar : item.name.replace(' Municipality','')}</option>)}</select></label>
+              <label className="space-y-2 text-[10px] font-black uppercase tracking-widest text-muted">{isRtl ? 'رقم المنطقة' : 'Zone number'}<select value={form.zone_number} disabled={!municipality} onChange={(event) => setForm({ ...form, zone_number: event.target.value })} className="input-field w-full py-3 text-base font-bold normal-case tracking-normal"><option value="">{isRtl ? 'اختر المنطقة' : 'Choose zone'}</option>{QATAR_MUNICIPALITIES.find((item) => item.name === municipality)?.zones.map((zone) => <option key={zone} value={String(zone)}>{isRtl ? `المنطقة ${zone}` : `Zone ${zone}`}</option>)}</select></label>
             </div>
             <div className="space-y-3">
                <p className="text-[10px] font-black uppercase tracking-widest text-muted">{t('shipment_instructions')}</p>

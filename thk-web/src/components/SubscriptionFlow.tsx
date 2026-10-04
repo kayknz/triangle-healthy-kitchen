@@ -13,6 +13,7 @@ import { useLanguage } from '../lib/LanguageContext';
 import { PACKAGE_MEALS } from '../types/subscription';
 import SecuringProtocol from './SecuringProtocol';
 import { resolveQatarDeliveryZone } from '../lib/delivery-zone';
+import { municipalityForZone, QATAR_MUNICIPALITIES } from '../lib/qatar-locations';
 import { parseGoogleMapsUrl } from '../lib/location-utils';
 import { DEFAULT_ALLERGEN_OPTIONS, loadAllergenOptions, type AllergenOption } from '../lib/allergen-options';
 
@@ -83,6 +84,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     building_number: '',
     street: '',
     area: '',
+    municipality: '',
     zone: '',
     latitude: null as number | null,
     longitude: null as number | null,
@@ -244,7 +246,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         if (incompleteSnackDay) return setError(`Choose two different snacks for ${incompleteSnackDay}. The kitchen needs to publish at least two snack choices that day.`);
       }
     }
-    if (currentStepId === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) return setError('Enter your phone number and complete the building, street, area, and zone details.');
+    if (currentStepId === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.municipality || !address.zone.trim() || !phone.trim())) return setError('Enter your phone number and complete the building, street, area, municipality, and zone details.');
     if (currentStepId === 'identity') {
       if (!identity.fullName || !identity.email || identity.password.length < 6) return setError('Enter your name and billing email. Password must be at least 6 characters.');
       if (signupChannel === 'whatsapp' && !toE164Phone(phone, signupCountry)) return setError('Enter a valid phone number for the selected country.');
@@ -307,6 +309,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             street: addr.road || addr.pedestrian || addr.residential || '',
             area: addr.suburb || addr.neighbourhood || addr.quarter || addr.city_district || addr.city || '',
             zone: zoneNumber || '',
+            municipality: municipalityForZone(zoneNumber || '')?.name || '',
             delivery_notes: addr.amenity || addr.shop || addr.leisure || previous.delivery_notes,
             latitude,
             longitude,
@@ -537,6 +540,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                             latitude: parsed.latitude,
                             longitude: parsed.longitude,
                             zone: parsed.zone || prev.zone,
+                            municipality: municipalityForZone(parsed.zone || prev.zone)?.name || prev.municipality,
                           }));
                           setLocationMessage(parsed.zone
                             ? `Google Maps location detected! Delivery zone ${parsed.zone} applied.`
@@ -554,10 +558,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                </div>
                <div className="space-y-3"><label htmlFor="checkout-delivery-notes" className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">{isRtl ? 'معلم قريب أو تعليمات التوصيل (اختياري)' : 'Landmark or delivery instructions (optional)'}</label><textarea id="checkout-delivery-notes" value={address.delivery_notes} onChange={(e) => setAddress({ ...address, delivery_notes: e.target.value })} placeholder={isRtl ? 'مثال: استقبال المكتب أو مدخل النادي أو بوابة الفيلا' : 'For example: office reception, gym entrance, or villa gate'} className="input-field min-h-28 py-5 font-medium bg-white/60" /></div>
                <div className="space-y-3"><label htmlFor="checkout-phone" className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">{isRtl ? 'رقم التواصل للتوصيل' : 'Delivery Contact Number'}</label><input id="checkout-phone" type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+974 3312 3456" className="input-field py-7 font-black bg-white/60" /></div>
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                  <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">{isRtl ? 'رقم المنطقة' : 'Zone Number'}</p><input type="text" value={address.zone} onChange={(e) => setAddress({...address, zone: e.target.value})} placeholder={isRtl ? 'مثال: ٦٦' : 'e.g. 66'} className="input-field py-7 font-black bg-white/60" /></div>
-                  <div className="space-y-3"><p className="text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">{isRtl ? 'الحي' : 'Area'}</p><input type="text" value={address.area} onChange={(e) => setAddress({...address, area: e.target.value})} placeholder={isRtl ? 'مثال: الخليج الغربي' : 'e.g. West Bay'} className="input-field py-7 font-black bg-white/60" /></div>
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="space-y-3"><label className="block text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">{isRtl ? 'البلدية' : 'Municipality'}<select value={address.municipality} onChange={(e) => setAddress({...address, municipality: e.target.value, zone: ''})} className="input-field mt-2 w-full py-5 font-bold bg-white/60"><option value="">{isRtl ? 'اختر البلدية' : 'Choose municipality'}</option>{QATAR_MUNICIPALITIES.map((item) => <option key={item.name} value={item.name}>{isRtl ? item.name_ar : item.name.replace(' Municipality','')}</option>)}</select></label></div>
+                  <div className="space-y-3"><label className="block text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">{isRtl ? 'رقم المنطقة' : 'Zone number'}<select value={address.zone} disabled={!address.municipality} onChange={(e) => setAddress({...address, zone: e.target.value})} className="input-field mt-2 w-full py-5 font-bold bg-white/60"><option value="">{isRtl ? 'اختر المنطقة' : 'Choose zone'}</option>{QATAR_MUNICIPALITIES.find((item) => item.name === address.municipality)?.zones.map((zone) => <option key={zone} value={String(zone)}>{isRtl ? `المنطقة ${zone}` : `Zone ${zone}`}</option>)}</select></label></div>
                </div>
+               <div className="space-y-3"><label className="block text-[9px] font-black uppercase tracking-widest text-primary/40 ml-2">{isRtl ? 'الحي أو المنطقة المحلية' : 'Area / neighbourhood'}<input type="text" value={address.area} onChange={(e) => setAddress({...address, area: e.target.value})} placeholder={isRtl ? 'أدخل اسم الحي كما يظهر في الخرائط' : 'Enter the neighbourhood name shown on your map'} className="input-field mt-2 w-full py-5 font-bold bg-white/60" /></label></div>
             </div>
           )}
 
@@ -602,7 +607,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   <ReviewRow label={isRtl ? 'الاسم' : 'Name'} value={identity.fullName || user?.user_metadata?.full_name || user?.email} />
                   <ReviewRow label={isRtl ? 'الخطة' : 'Plan'} value={t(pkg?.id || '')} />
                   <ReviewRow label={isRtl ? 'الوجبات' : 'Meals'} value={`${Object.keys(initialMenuSelections).length} ${isRtl ? 'اختيارات' : 'selections'} · ${packageMenuMeals.map((meal) => t(meal) || meal).join(', ')}`} />
-                  <ReviewRow label={isRtl ? 'التوصيل' : 'Delivery'} value={`${deliveryPlace === 'office' ? (isRtl ? 'العمل' : 'Work') : (isRtl ? t(deliveryPlace) || deliveryPlace : deliveryPlace)} · ${address.building_number}, ${address.street}, ${address.area} · ${isRtl ? 'المنطقة' : 'Zone'} ${address.zone}`} />
+                  <ReviewRow label={isRtl ? 'التوصيل' : 'Delivery'} value={`${deliveryPlace === 'office' ? (isRtl ? 'العمل' : 'Work') : (isRtl ? t(deliveryPlace) || deliveryPlace : deliveryPlace)} · ${address.building_number}, ${address.street}, ${address.area} · ${isRtl ? address.municipality ? QATAR_MUNICIPALITIES.find((item) => item.name === address.municipality)?.name_ar : '' : address.municipality.replace(' Municipality','')} · ${isRtl ? 'المنطقة' : 'Zone'} ${address.zone}`} />
                   <ReviewRow label={isRtl ? 'الحساسية' : 'Allergies'} value={foodAllergies.length ? foodAllergies.map((name) => isRtl ? (allergenOptions.find((option) => option.name === name)?.name_ar || name) : name).join(', ') : (isRtl ? 'لا توجد حساسية مذكورة' : 'None listed')} />
                   {foodDislikes.trim() && <ReviewRow label={isRtl ? 'ملاحظات المطبخ' : 'Kitchen notes'} value={foodDislikes.trim()} />}
                   <ReviewRow label={isRtl ? 'طريقة الدفع' : 'Payment'} value={paymentMethod === 'cash' ? (isRtl ? 'تحصيل نقدي' : 'Cash collection') : 'Tap'} />

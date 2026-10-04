@@ -11,6 +11,7 @@ import { useLanguage } from '@/lib/LanguageContext';
 import { PACKAGE_MEALS } from '@/types/subscription';
 import EditorialPanel from './EditorialPanel';
 import { resolveQatarDeliveryZone } from '@/lib/delivery-zone';
+import { municipalityForZone, QATAR_MUNICIPALITIES } from '@/lib/qatar-locations';
 import { parseGoogleMapsUrl } from '@/lib/location-utils';
 import { DEFAULT_ALLERGEN_OPTIONS, loadAllergenOptions, type AllergenOption } from '@/lib/allergen-options';
 import { getCountryOptions, toE164Phone, type PhoneChannel } from '@/lib/phone-number';
@@ -92,6 +93,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     building_number: '',
     street: '',
     area: '',
+    municipality: '',
     zone: '',
     latitude: null as number | null,
     longitude: null as number | null,
@@ -118,7 +120,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const focusNextCheckoutField = (fieldId: string) => {
     const ids: Record<string, string> = {
       assessment_age: 'assessment_weight', assessment_weight: 'assessment_height', assessment_height: 'assessment_goal',
-      address_building: 'address_street', address_street: 'address_area', address_area: 'address_zone', address_zone: 'address_phone',
+      address_building: 'address_street', address_street: 'address_area', address_area: 'address_municipality', address_municipality: 'address_zone', address_zone: 'address_phone',
       identity_name: 'identity_email', identity_email: 'identity_password', payment_email: 'payment_terms',
     };
     if (fieldId.startsWith('menu-')) {
@@ -285,9 +287,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         }
       }
     }
-    if (currentStep === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.zone.trim() || !phone.trim())) {
-      const target = !address.building_number.trim() ? 'address_building' : !address.street.trim() ? 'address_street' : !address.area.trim() ? 'address_area' : !address.zone.trim() ? 'address_zone' : 'address_phone';
-      rejectStep('Enter your phone number and complete the building, street, area, and zone details.', target);
+    if (currentStep === 'address' && (!address.building_number.trim() || !address.street.trim() || !address.area.trim() || !address.municipality || !address.zone.trim() || !phone.trim())) {
+      const target = !address.building_number.trim() ? 'address_building' : !address.street.trim() ? 'address_street' : !address.area.trim() ? 'address_area' : !address.municipality ? 'address_municipality' : !address.zone.trim() ? 'address_zone' : 'address_phone';
+      rejectStep('Enter your phone number and complete the building, street, area, municipality, and zone details.', target);
       return;
     }
     if (currentStep === 'identity') {
@@ -363,6 +365,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             street: addr.road || addr.pedestrian || addr.residential || '',
             area: addr.suburb || addr.neighbourhood || addr.quarter || addr.city_district || addr.city || '',
             zone: zoneNumber || '',
+            municipality: municipalityForZone(zoneNumber || '')?.name || '',
             delivery_notes: addr.amenity || addr.shop || addr.leisure || previous.delivery_notes,
             latitude,
             longitude,
@@ -654,6 +657,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                             latitude: parsed.latitude,
                             longitude: parsed.longitude,
                             zone: parsed.zone || prev.zone,
+                            municipality: municipalityForZone(parsed.zone || prev.zone)?.name || prev.municipality,
                           }));
                           setLocationMessage(parsed.zone
                             ? `Google Maps location detected! Delivery zone ${parsed.zone} applied.`
@@ -698,7 +702,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'اسم المنطقة' : 'Area Name'}</FieldLabel></label>
+                  <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'اسم الحي أو المنطقة المحلية' : 'Area / neighbourhood'}</FieldLabel></label>
                   <input
                     data-field-id="address_area"
                     enterKeyHint="next"
@@ -707,15 +711,19 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                     value={address.area}
                     aria-invalid={invalidField === 'address_area'}
                     onChange={(e) => { setAddress({ ...address, area: e.target.value }); clearInvalidField('address_area'); }}
-                    placeholder="e.g. Lusail / West Bay / The Pearl"
+                    placeholder={isRtl ? 'كما يظهر في الخرائط' : 'As shown on your map'}
                     className={`input-field py-3 font-bold ${invalidFieldClass('address_area')}`}
                     required
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'رقم المنطقة' : 'Zone Number'}</FieldLabel></label>
-                    <input data-field-id="address_zone" aria-invalid={invalidField === 'address_zone'} enterKeyHint="next" onKeyDown={(event) => { if (event.key === 'Enter' && address.zone.trim()) { event.preventDefault(); focusNextCheckoutField('address_zone'); } }} type="text" value={address.zone} onChange={(e) => { setAddress({ ...address, zone: e.target.value }); clearInvalidField('address_zone'); }} placeholder="e.g. 66" className={`input-field py-3 font-bold ${invalidFieldClass('address_zone')}`} required />
+                    <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'البلدية' : 'Municipality'}</FieldLabel></label>
+                    <select data-field-id="address_municipality" aria-invalid={invalidField === 'address_municipality'} value={address.municipality} onChange={(e) => { setAddress({ ...address, municipality: e.target.value, zone: '' }); clearInvalidField('address_municipality'); }} className={`input-field py-3 font-bold ${invalidFieldClass('address_municipality')}`} required><option value="">{isRtl ? 'اختر البلدية' : 'Choose municipality'}</option>{QATAR_MUNICIPALITIES.map((item) => <option key={item.name} value={item.name}>{isRtl ? item.name_ar : item.name.replace(' Municipality','')}</option>)}</select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'رقم المنطقة' : 'Zone number'}</FieldLabel></label>
+                    <select data-field-id="address_zone" aria-invalid={invalidField === 'address_zone'} value={address.zone} disabled={!address.municipality} onChange={(e) => { setAddress({ ...address, zone: e.target.value }); clearInvalidField('address_zone'); }} className={`input-field py-3 font-bold ${invalidFieldClass('address_zone')}`} required><option value="">{isRtl ? 'اختر المنطقة' : 'Choose zone'}</option>{QATAR_MUNICIPALITIES.find((item) => item.name === address.municipality)?.zones.map((zone) => <option key={zone} value={String(zone)}>{isRtl ? `المنطقة ${zone}` : `Zone ${zone}`}</option>)}</select>
                   </div>
                   <div>
                     <label className="text-[10px] font-black uppercase text-gray-400"><FieldLabel required isRtl={isRtl}>{isRtl ? 'هاتف التوصيل' : 'Delivery Phone'}</FieldLabel></label>
@@ -808,7 +816,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   <ReviewRow label={isRtl ? 'الاسم' : 'Name'} value={name || user?.user_metadata?.full_name || user?.email} />
                   <ReviewRow label={isRtl ? 'الخطة' : 'Plan'} value={pkg ? t(pkg.id) : ''} />
                   <ReviewRow label={isRtl ? 'الوجبات' : 'Meals'} value={`${Object.keys(initialMenuSelections).length} ${isRtl ? 'اختيارات' : 'selections'} · ${packageMenuMeals.map((meal) => t(meal) || meal).join(', ')}`} />
-                  <ReviewRow label={isRtl ? 'التوصيل' : 'Delivery'} value={`${deliveryPlace === 'office' ? (isRtl ? 'العمل' : 'Work') : deliveryPlace} · ${address.building_number}, ${address.street}, ${address.area} · ${isRtl ? 'المنطقة' : 'Zone'} ${address.zone}`} />
+                  <ReviewRow label={isRtl ? 'التوصيل' : 'Delivery'} value={`${deliveryPlace === 'office' ? (isRtl ? 'العمل' : 'Work') : deliveryPlace} · ${address.building_number}, ${address.street}, ${address.area} · ${isRtl ? QATAR_MUNICIPALITIES.find((item) => item.name === address.municipality)?.name_ar || '' : address.municipality.replace(' Municipality','')} · ${isRtl ? 'المنطقة' : 'Zone'} ${address.zone}`} />
                   <ReviewRow label={isRtl ? 'الحساسية' : 'Allergies'} value={foodAllergies.length ? foodAllergies.map((name) => isRtl ? (allergenOptions.find((option) => option.name === name)?.name_ar || name) : name).join(', ') : (isRtl ? 'لا توجد حساسية مذكورة' : 'None listed')} />
                   {foodDislikes.trim() && <ReviewRow label={isRtl ? 'ملاحظات المطبخ' : 'Kitchen notes'} value={foodDislikes.trim()} />}
                   <ReviewRow label={isRtl ? 'طريقة الدفع' : 'Payment'} value={paymentMethod === 'cash' ? (isRtl ? 'تحصيل نقدي' : 'Cash collection') : 'Tap'} />
