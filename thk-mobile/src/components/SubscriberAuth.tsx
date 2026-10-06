@@ -93,7 +93,6 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess, onCh
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* International calling-code dropdown for phone entry */}
             <div className="space-y-2">
               <label className="text-[#0a3030] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
                 {t('operational_email') || 'Email address'}
