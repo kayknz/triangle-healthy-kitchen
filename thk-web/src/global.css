@@ -12,7 +12,7 @@
     overflow-x: hidden;
     width: 100%;
     position: relative;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
   }
 
   /* Precision Scale Pass — The Billboard Killer */

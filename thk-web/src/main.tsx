@@ -5,6 +5,12 @@ import App from './App';
 import './global.css';
 import { LanguageProvider } from './lib/LanguageContext';
 
+// Prevent the browser from restoring a stale scroll position (often the footer)
+// before React Router's initial route has rendered.
+if ('scrollRestoration' in window.history) {
+  window.history.scrollRestoration = 'manual';
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <LanguageProvider>

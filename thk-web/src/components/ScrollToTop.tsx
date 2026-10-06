@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 export default function ScrollToTop() {
   const { pathname, hash } = useLocation();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (hash) {
       // Small delay to ensure the new page content has rendered
       setTimeout(() => {
@@ -14,7 +14,7 @@ export default function ScrollToTop() {
         }
       }, 100);
     } else {
-      window.scrollTo(0, 0);
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     }
   }, [pathname, hash]);
 
