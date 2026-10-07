@@ -131,6 +131,7 @@ export interface Subscriber {
   tap_charge_id?: string | null;
   last_payment_id?: string | null;
   current_period_end: string | null;
+  remaining_days?: number;
   is_owner?: boolean;
   is_demo?: boolean;
   friday_delivery_addon?: boolean;

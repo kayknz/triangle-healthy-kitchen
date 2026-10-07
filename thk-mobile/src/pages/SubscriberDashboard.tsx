@@ -121,6 +121,23 @@ export default function SubscriberDashboard() {
 
   useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
 
+  useEffect(() => {
+    if (!subscriber?.id) return;
+    const channel = supabase.channel(`remaining-deliveries-${subscriber.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'rider_deliveries',
+        filter: `subscriber_id=eq.${subscriber.id}`,
+      }, async (payload) => {
+        if (payload.new.status !== 'delivered') return;
+        const { data } = await supabase.from('subscribers').select('remaining_days').eq('id', subscriber.id).maybeSingle();
+        if (typeof data?.remaining_days === 'number') {
+          setSubscriber((current) => current ? { ...current, remaining_days: data.remaining_days } : current);
+        }
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [subscriber?.id]);
+
   const isHardLocked = !!(settings?.selection_deadline &&
     menuSelectionsCount === 0 &&
     (new Date(settings.selection_deadline).getTime() - new Date().getTime()) < BUSINESS_RULES.MENU_LOCK_WINDOW);
@@ -175,6 +192,14 @@ export default function SubscriberDashboard() {
               <span className="text-sage">{t('progress')}.</span>
             </h1>
             <p className="text-[#C5A059] text-[10px] font-black mt-4 uppercase tracking-[0.4em]">{t(subscriber.package_id) || subscriber.package_name} {t('access')}</p>
+            {typeof subscriber.remaining_days === 'number' && (
+              <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-primary/10 bg-white px-4 py-2.5 shadow-sm" aria-live="polite">
+                <Package className="h-4 w-4 text-gold" />
+                <span className="text-xs font-bold text-primary">
+                  {isRtl ? `التوصيلات المتبقية: ${subscriber.remaining_days}` : `${subscriber.remaining_days} deliveries left`}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex bg-white/40 backdrop-blur-xl rounded-[2rem] p-1.5 border border-primary/5 shadow-2xl overflow-x-auto no-scrollbar touch-pan-x">
             {(['menu', 'delivery', 'health', 'settings'] as const).map((tKey) => (

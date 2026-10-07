@@ -138,6 +138,23 @@ export default function SubscriberDashboard() {
 
   useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
 
+  useEffect(() => {
+    if (!subscriber?.id) return;
+    const channel = supabase.channel(`remaining-deliveries-${subscriber.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'rider_deliveries',
+        filter: `subscriber_id=eq.${subscriber.id}`,
+      }, async (payload) => {
+        if (payload.new.status !== 'delivered') return;
+        const { data } = await supabase.from('subscribers').select('remaining_days').eq('id', subscriber.id).maybeSingle();
+        if (typeof data?.remaining_days === 'number') {
+          setSubscriber((current) => current ? { ...current, remaining_days: data.remaining_days } : current);
+        }
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [subscriber?.id]);
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
@@ -195,6 +212,14 @@ export default function SubscriberDashboard() {
               {subscriber.full_name || 'Member'}<br />
               <span className="text-[#C5A059] font-sans font-black uppercase not-italic tracking-tighter text-xl sm:text-3xl">{isRtl ? 'متابعة التقدم' : 'Progress Tracker.'}</span>
             </h1>
+            {typeof subscriber.remaining_days === 'number' && (
+              <div className="mt-5 inline-flex items-center gap-3 rounded-2xl border border-[#123F38]/10 bg-white px-5 py-3 shadow-sm" aria-live="polite">
+                <Package className="h-5 w-5 text-[#C5A059]" />
+                <span className="text-sm font-bold text-[#123F38]">
+                  {isRtl ? `التوصيلات المتبقية: ${subscriber.remaining_days}` : `${subscriber.remaining_days} deliveries left`}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex bg-white/40 backdrop-blur-3xl rounded-[2.5rem] p-2 border border-[#123F38]/10 shadow-4xl overflow-x-auto no-scrollbar touch-pan-x">
             {(['menu', 'delivery', 'health', 'settings'] as const).map((tKey) => (
