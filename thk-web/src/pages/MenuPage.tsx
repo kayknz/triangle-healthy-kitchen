@@ -31,6 +31,7 @@ const MEALS = ['breakfast', 'lunch', 'dinner', 'snacks'];
 const STOCK_IMAGES = {
   chicken: 'https://images.unsplash.com/photo-1744444202869-54debf97b285?auto=format&fit=crop&w=900&q=80',
   fish: 'https://images.unsplash.com/photo-1674655491431-ab599ebe3c06?auto=format&fit=crop&w=900&q=80',
+  eggs: 'https://images.unsplash.com/photo-1494597706938-de2cd7341979?auto=format&fit=crop&w=900&q=80',
   breakfast: 'https://images.unsplash.com/photo-1676843577301-464c4ee6634a?auto=format&fit=crop&w=900&q=80',
   snack: 'https://images.unsplash.com/photo-1642588417228-170f2a073ff1?auto=format&fit=crop&w=900&q=80',
   bowl: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80',
@@ -40,9 +41,10 @@ function stockImageFor(dish: Dish, meal: string) {
   const name = dish.name.toLowerCase();
   if (/salmon|tuna|fish|sea bass|seafood|shrimp|prawn/.test(name)) return STOCK_IMAGES.fish;
   if (/chicken|turkey/.test(name)) return STOCK_IMAGES.chicken;
-  if (/beef|steak|lamb/.test(name)) return STOCK_IMAGES.bowl;
   if (/snack|energy|bite|bar|ball/.test(name) || meal === 'snacks') return STOCK_IMAGES.snack;
-  if (meal === 'breakfast') return STOCK_IMAGES.breakfast;
+  if (/egg|omelet|omelette|frittata|muffin/.test(name)) return STOCK_IMAGES.eggs;
+  if (/beef|steak|lamb/.test(name)) return STOCK_IMAGES.bowl;
+  if (/oat|porridge|chia|yogurt|yoghurt|granola/.test(name)) return STOCK_IMAGES.breakfast;
   return STOCK_IMAGES.bowl;
 }
 
