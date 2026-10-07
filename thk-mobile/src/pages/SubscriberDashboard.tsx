@@ -30,9 +30,9 @@ export default function SubscriberDashboard() {
   const [menuSelectionsCount, setMenuSelectionsCount] = useState<number | null>(null);
   const [activityData, setActivityData] = useState<{ steps: number, goal: number, streak: number[] }>({ steps: 0, goal: 10000, streak: [] });
 
-  const loadDashboardData = useCallback(async (retryCount = 0) => {
+  const loadDashboardData = useCallback(async (retryCount = 0, silentRefresh = false) => {
     if (!user) return;
-    setLoading(true);
+    if (!silentRefresh) setLoading(true);
 
     try {
       const [{ data: rawSubData }, { data: settsData }] = await Promise.all([
@@ -230,7 +230,7 @@ export default function SubscriberDashboard() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
           >
-            {tab === 'menu' && <MenuSelection subscriber={subscriber} onUpdate={loadDashboardData} />}
+            {tab === 'menu' && <MenuSelection subscriber={subscriber} onUpdate={() => loadDashboardData(0, true)} />}
             {tab === 'delivery' && <DeliverySettings subscriber={subscriber} activeDelivery={activeDelivery} riderLocation={riderLocation} onUpdate={loadDashboardData} />}
             {tab === 'health' && <HealthTab subscriber={subscriber} />}
             {tab === 'settings' && <PlanSettings subscriber={subscriber} onUpdate={loadDashboardData} updating={updating} setUpdating={setUpdating} />}

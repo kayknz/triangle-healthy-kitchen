@@ -46,9 +46,9 @@ export default function SubscriberDashboard() {
     streak_history: [0, 0, 0, 0, 0, 0, 0] as number[]
   });
 
-  const loadDashboardData = useCallback(async (retryCount = 0) => {
+  const loadDashboardData = useCallback(async (retryCount = 0, silentRefresh = false) => {
     if (!user) return;
-    setLoading(true);
+    if (!silentRefresh) setLoading(true);
 
     try {
       const today = getQatarDate();
@@ -250,7 +250,7 @@ export default function SubscriberDashboard() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
           >
-            {tab === 'menu' && <MenuSelection subscriber={subscriber} onUpdate={loadDashboardData} />}
+            {tab === 'menu' && <MenuSelection subscriber={subscriber} onUpdate={() => loadDashboardData(0, true)} />}
             {tab === 'delivery' && <DeliverySettings subscriber={subscriber} activeDelivery={activeDelivery} riderLocation={riderLocation} onUpdate={loadDashboardData} />}
             {tab === 'health' && <HealthTab subscriber={subscriber} />}
             {tab === 'settings' && <PlanSettings subscriber={subscriber} onUpdate={loadDashboardData} updating={updating} setUpdating={setUpdating} />}
