@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useCallback, useEffect } from 'react';
 import type { PluginListenerHandle } from '@capacitor/core';
 import type { URLOpenListenerEvent } from '@capacitor/app';
-import { Calendar, Users, Gift, User as UserIcon, ExternalLink } from 'lucide-react';
+import { Calendar, Users, Gift, User as UserIcon, ExternalLink, Clock3, LogOut, RefreshCw } from 'lucide-react';
 import Home from '@/pages/Home';
 import Navbar from '@/components/Navbar';
 import SecuringProtocol from '@/components/SecuringProtocol';
@@ -25,16 +25,16 @@ const LegalPage = lazy(() => import('@/components/LegalPage'));
 const OnboardingFlow = lazy(() => import('@/components/OnboardingFlow'));
 const MyRhythm = lazy(() => import('@/components/MyRhythm'));
 
-type Route = 'home' | 'provider-auth' | 'operations-web' | 'rider-dashboard' | 'subscriber-auth' | 'subscriber-dashboard' | 'today' | 'community' | 'rewards' | 'privacy' | 'terms';
+type Route = 'home' | 'provider-auth' | 'operations-web' | 'rider-dashboard' | 'subscriber-auth' | 'subscriber-dashboard' | 'payment-pending' | 'today' | 'community' | 'rewards' | 'privacy' | 'terms';
 
 const OPERATIONS_WEB_URL = import.meta.env.VITE_OPERATIONS_WEB_URL || 'https://trianglehealthykitchen.vercel.app';
-const getSignedInRoute = (role: string | null | undefined, hasPersonal = false): Route =>
+const getSignedInRoute = (role: string | null | undefined, hasPersonal = false, hasPendingPayment = false): Route =>
   role === 'driver' || role === 'rider' ? 'rider-dashboard'
     : ['ceo', 'admin', 'kitchen', 'transport', 'owner'].includes(role || '') ? 'operations-web'
-      : hasPersonal ? 'subscriber-dashboard' : 'home';
+      : hasPendingPayment ? 'payment-pending' : hasPersonal ? 'subscriber-dashboard' : 'home';
 
 function AppContent() {
-  const { session, loading: authLoading, user, userRole, hasPersonal } = useAuth();
+  const { session, loading: authLoading, user, userRole, hasPersonal, hasPendingPayment, signOut, refreshAuth } = useAuth();
   const { t, isRtl } = useLanguage();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -115,9 +115,9 @@ function AppContent() {
       }
       const path = url.pathname + url.hash;
       if (path.includes('dashboard') || path.includes('provider')) {
-        setRoute(getSignedInRoute(userRole));
+        setRoute(getSignedInRoute(userRole, hasPersonal, hasPendingPayment));
       } else if (path.includes('my-plan') || path.includes('account')) {
-        setRoute('subscriber-dashboard');
+        setRoute(getSignedInRoute(userRole, hasPersonal, hasPendingPayment));
       } else if (path.includes('today')) {
         setRoute('today');
       }
@@ -146,7 +146,7 @@ function AppContent() {
       void deepLinkListener?.remove();
       void backListener?.remove();
     };
-  }, [userRole, bookingOpen, subscribeOpen, route]);
+  }, [userRole, hasPersonal, hasPendingPayment, bookingOpen, subscribeOpen, route]);
 
   useEffect(() => {
     const handleRouting = () => {
@@ -156,12 +156,14 @@ function AppContent() {
       const target = hash || path;
 
       if (target === '#provider' || target === '#dashboard' || target === '/provider') {
-        setRoute(session ? getSignedInRoute(userRole, hasPersonal) : 'provider-auth');
+        setRoute(session ? getSignedInRoute(userRole, hasPersonal, hasPendingPayment) : 'provider-auth');
       } else if (target === '#subscribe') {
-        setRoute(session ? getSignedInRoute(userRole, hasPersonal) : 'subscriber-auth');
-        if (session && (userRole === 'subscriber' || userRole === 'customer') && !hasPersonal) setSubscribeOpen(true);
+        setRoute(session ? getSignedInRoute(userRole, hasPersonal, hasPendingPayment) : 'subscriber-auth');
+        if (session && !hasPendingPayment && (userRole === 'subscriber' || userRole === 'customer') && !hasPersonal) setSubscribeOpen(true);
       } else if (target === '#my-plan' || target === '#account' || target === '/my-plan') {
-        setRoute(session ? getSignedInRoute(userRole, hasPersonal) : 'subscriber-auth');
+        setRoute(session ? getSignedInRoute(userRole, hasPersonal, hasPendingPayment) : 'subscriber-auth');
+      } else if (target === '#payment-pending') {
+        setRoute(session && hasPendingPayment ? 'payment-pending' : getSignedInRoute(userRole, hasPersonal, hasPendingPayment));
       } else if (target === '#today' || target === '/today') {
         setRoute(session ? 'today' : 'subscriber-auth');
       } else if (target === '#community' || target === '/community') {
@@ -183,7 +185,7 @@ function AppContent() {
       window.removeEventListener('hashchange', handleRouting);
       window.removeEventListener('popstate', handleRouting);
     };
-  }, [session, userRole, hasPersonal]);
+  }, [session, userRole, hasPersonal, hasPendingPayment]);
 
   useEffect(() => {
     if (!session || !user || Capacitor.getPlatform() === 'web') return;
@@ -238,13 +240,25 @@ function AppContent() {
   }, []);
 
   const openSubscribe = useCallback((pkgId?: string) => {
+    if (hasPendingPayment) {
+      setRoute('payment-pending');
+      window.location.hash = 'payment-pending';
+      return;
+    }
     setPreselectedPackage(pkgId ?? null);
     setSubscribeOpen(true);
-  }, []);
+  }, [hasPendingPayment]);
 
   // Precise Role Route Guard
   useEffect(() => {
-    if (!authLoading && session && route === 'home' && hasPersonal) {
+    if (!authLoading && session && hasPendingPayment && !['operations-web', 'rider-dashboard'].includes(route)) {
+      setRoute('payment-pending');
+      if (window.location.hash !== '#payment-pending') window.location.hash = 'payment-pending';
+    } else if (!authLoading && session && route === 'payment-pending' && !hasPendingPayment) {
+      const destination = getSignedInRoute(userRole, hasPersonal, false);
+      setRoute(destination);
+      window.location.hash = destination === 'subscriber-dashboard' ? 'account' : '';
+    } else if (!authLoading && session && route === 'home' && hasPersonal) {
       if (userRole === 'driver' || userRole === 'rider') {
         setRoute('rider-dashboard');
       } else if (['ceo', 'admin', 'kitchen', 'transport', 'owner'].includes(userRole || '')) {
@@ -253,7 +267,7 @@ function AppContent() {
         setRoute('subscriber-dashboard');
       }
     }
-  }, [authLoading, session, userRole, route, hasPersonal]);
+  }, [authLoading, session, userRole, route, hasPersonal, hasPendingPayment]);
 
   if (authLoading || onboardingComplete === null) {
     return <SecuringProtocol message="Securing Protocol" subtitle="Verifying authenticated access to the culinary rhythm ledger..." />;
@@ -314,9 +328,10 @@ function AppContent() {
         isOpen={route === 'subscriber-auth'}
         onClose={() => { setRoute('home'); window.location.hash = ''; }}
         onSuccess={(access) => {
-          const destination = getSignedInRoute(access.role, access.hasPersonal);
+          const destination = getSignedInRoute(access.role, access.hasPersonal, access.hasPendingPayment);
           setRoute(destination);
-          const routeHash = destination === 'subscriber-dashboard' ? '#account'
+          const routeHash = destination === 'payment-pending' ? '#payment-pending'
+            : destination === 'subscriber-dashboard' ? '#account'
             : destination === 'operations-web' ? '#dashboard' : '';
           window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${routeHash}`);
         }}
@@ -349,6 +364,25 @@ function AppContent() {
         </main>
       )}
       {route === 'rider-dashboard' && <RiderDashboard onExit={() => setRoute('home')} />}
+
+      {route === 'payment-pending' && (
+        <main className="min-h-screen bg-[#F5F3EB] px-5 pb-24 pt-24">
+          <Navbar onBookClick={openBooking} onSubscribeClick={openSubscribe} />
+          <section className="mx-auto mt-8 max-w-lg rounded-3xl border border-[#123F38]/10 bg-white p-7 text-center shadow-xl sm:p-10">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-700"><Clock3 className="h-8 w-8" /></div>
+            <h1 className="text-2xl font-black text-[#123F38]">{isRtl ? 'حسابك بانتظار الموافقة' : 'Your account is awaiting approval'}</h1>
+            <p className="mt-4 text-sm leading-6 text-[#123F38]/70">
+              {isRtl ? 'استلمنا طلب الدفع أو التفعيل. لا تختر خطة أو تدفع مرة أخرى. سنفعّل حسابك بعد التحقق.' : 'We received your payment or activation request. Please do not select another plan or pay again. We will activate your account after verification.'}
+            </p>
+            <button type="button" onClick={() => void refreshAuth()} className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#123F38] px-6 py-4 font-bold text-white">
+              <RefreshCw className="h-4 w-4" />{isRtl ? 'تحقق من الحالة' : 'Check approval status'}
+            </button>
+            <button type="button" onClick={async () => { await signOut(); setRoute('home'); window.location.hash = ''; }} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#123F38]/15 px-6 py-4 font-bold text-[#123F38]">
+              <LogOut className="h-4 w-4" />{isRtl ? 'تسجيل الخروج' : 'Sign out'}
+            </button>
+          </section>
+        </main>
+      )}
 
       {route === 'today' && (
         <div className="bg-[#F5F3EB] min-h-screen pb-24 pt-20">

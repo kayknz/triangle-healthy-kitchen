@@ -13,6 +13,7 @@ interface AuthResult {
   approved?: boolean;
   needsVerification?: boolean;
   hasPersonal?: boolean;
+  hasPendingPayment?: boolean;
 }
 
 interface AuthContextValue {
@@ -23,6 +24,7 @@ interface AuthContextValue {
   userRole: UserRole | null;
   isApprovedRider: boolean;
   hasPersonal: boolean;
+  hasPendingPayment: boolean;
   canEdit: boolean;
   canManageDrivers: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
@@ -58,13 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [isApprovedRider, setIsApprovedRider] = useState(false);
   const [hasPersonal, setHasPersonal] = useState(false);
+  const [hasPendingPayment, setHasPendingPayment] = useState(false);
 
   const canEdit = userRole === 'ceo' || userRole === 'admin' || userRole === 'owner';
   const canManageDrivers = canEdit || userRole === 'transport';
 
-  const getAuthAccess = async (u: User | null): Promise<{ role: UserRole | null; isOwner: boolean; isApprovedRider: boolean; hasPersonal: boolean }> => {
+  const getAuthAccess = async (u: User | null): Promise<{ role: UserRole | null; isOwner: boolean; isApprovedRider: boolean; hasPersonal: boolean; hasPendingPayment: boolean }> => {
     if (!u) {
-      return { role: null, isOwner: false, isApprovedRider: false, hasPersonal: false };
+      return { role: null, isOwner: false, isApprovedRider: false, hasPersonal: false, hasPendingPayment: false };
     }
 
     try {
@@ -77,25 +80,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .select('approved')
             .eq('user_id', u.id)
             .maybeSingle();
-          return { role, isOwner: false, isApprovedRider: rider?.approved === true, hasPersonal: false };
+          return { role, isOwner: false, isApprovedRider: rider?.approved === true, hasPersonal: false, hasPendingPayment: false };
         }
-        return { role, isOwner: role === 'ceo' || role === 'admin', isApprovedRider: false, hasPersonal: true };
+        return { role, isOwner: role === 'ceo' || role === 'admin', isApprovedRider: false, hasPersonal: true, hasPendingPayment: false };
       }
 
       const email = (u.email || '').toLowerCase().trim();
       const knownStaff = STAFF_EMAIL_MAP[email];
-      if (knownStaff && knownStaff.role !== 'driver') return { ...knownStaff, hasPersonal: true };
+      if (knownStaff && knownStaff.role !== 'driver') return { ...knownStaff, hasPersonal: true, hasPendingPayment: false };
 
       const { data: sub } = await supabase
         .from('subscribers')
-        .select('is_owner,payment_status,subscription_status,package_id')
+        .select('id,is_owner,payment_status,subscription_status,package_id')
         .eq('user_id', u.id)
         .maybeSingle();
 
       if (sub?.is_owner) {
-        return { role: 'ceo', isOwner: true, isApprovedRider: false, hasPersonal: true };
+        return { role: 'ceo', isOwner: true, isApprovedRider: false, hasPersonal: true, hasPendingPayment: false };
       }
       const paidPlan = sub?.payment_status === 'Paid' && sub?.subscription_status === 'Active' && Boolean(sub?.package_id) && sub?.package_id !== 'pending';
+      const { data: pendingPayment } = await supabase.rpc('my_pending_payment_request');
+      const hasPendingPayment = Boolean(pendingPayment);
 
       const { data: rider } = await supabase
           .from('rider_applications')
@@ -108,13 +113,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isOwner: false,
           isApprovedRider: rider?.approved === true,
           hasPersonal: paidPlan,
+          hasPendingPayment,
         };
       }
+      return { role: 'customer', isOwner: false, isApprovedRider: false, hasPersonal: paidPlan, hasPendingPayment };
     } catch (err) {
       console.warn('Metadata fetch warning:', err);
     }
 
-    return { role: 'customer', isOwner: false, isApprovedRider: false, hasPersonal: false };
+    return { role: 'customer', isOwner: false, isApprovedRider: false, hasPersonal: false, hasPendingPayment: false };
   };
 
   const applyAuthAccess = async (u: User | null) => {
@@ -124,13 +131,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsOwner(access.isOwner);
       setIsApprovedRider(access.isApprovedRider);
       setHasPersonal(access.hasPersonal);
+      setHasPendingPayment(access.hasPendingPayment);
       return access;
     } catch (e) {
       setUserRole('customer');
       setIsOwner(false);
       setIsApprovedRider(false);
       setHasPersonal(false);
-      return { role: 'customer' as UserRole, isOwner: false, isApprovedRider: false, hasPersonal: false };
+      setHasPendingPayment(false);
+      return { role: 'customer' as UserRole, isOwner: false, isApprovedRider: false, hasPersonal: false, hasPendingPayment: false };
     }
   };
 
@@ -256,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error: error.message };
 
     const access = await applyAuthAccess(data.user);
-    return { error: null, role: access.role ?? undefined, approved: access.isApprovedRider, hasPersonal: access.hasPersonal };
+    return { error: null, role: access.role ?? undefined, approved: access.isApprovedRider, hasPersonal: access.hasPersonal, hasPendingPayment: access.hasPendingPayment };
   };
 
   const signInPhone = async (phone: string, password: string) => {
@@ -279,6 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
       setIsOwner(false);
       setHasPersonal(false);
+      setHasPendingPayment(false);
     setUserRole(null);
     setIsApprovedRider(false);
   };
@@ -342,7 +352,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      session, user, loading, isOwner, userRole, isApprovedRider, hasPersonal, canEdit, canManageDrivers,
+      session, user, loading, isOwner, userRole, isApprovedRider, hasPersonal, hasPendingPayment, canEdit, canManageDrivers,
       signIn, signInPhone, signUp, signUpPhone, verifySignupOtp, completePhoneSignup, sendOtp, verifyOtp, signOut, resetPassword, refreshAuth,
       enableBiometric, biometricLogin
     }}>

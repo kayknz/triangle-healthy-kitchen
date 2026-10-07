@@ -1,5 +1,5 @@
 import { useState, useRef, type MouseEvent } from 'react';
-import { Menu, X, UserCircle, Languages, Star, Calendar, Users, Gift, ChefHat } from 'lucide-react';
+import { Menu, X, UserCircle, Languages, Star, Calendar, Users, Gift, ChefHat, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { safeHaptics } from '@/lib/haptics';
 import { useLanguage } from '@/lib/LanguageContext';
@@ -13,7 +13,7 @@ interface NavbarProps {
 export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
   const [open, setOpen] = useState(false);
   const { language, setLanguage, t, isRtl } = useLanguage();
-  const { session, isOwner } = useAuth();
+  const { session, isOwner, signOut } = useAuth();
 
   const logoTaps = useRef(0);
   const lastTapTime = useRef(0);
@@ -144,6 +144,19 @@ export default function Navbar({ onBookClick, onSubscribeClick }: NavbarProps) {
             <Languages className="w-3 h-3 text-[#C5A059]" />
             {language === 'en' ? 'ع' : 'EN'}
           </button>
+
+          {session && (
+            <button
+              type="button"
+              onClick={async () => { setOpen(false); await signOut(); window.location.hash = ''; }}
+              aria-label={isRtl ? 'تسجيل الخروج' : 'Sign out'}
+              title={isRtl ? 'تسجيل الخروج' : 'Sign out'}
+              className="flex items-center gap-1 rounded-lg border border-[#123F38]/10 bg-white/70 px-2 py-1.5 text-[#123F38]"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline text-[9px] font-black uppercase tracking-wider">{isRtl ? 'خروج' : 'Sign out'}</span>
+            </button>
+          )}
 
           {isOwner && (
             <a

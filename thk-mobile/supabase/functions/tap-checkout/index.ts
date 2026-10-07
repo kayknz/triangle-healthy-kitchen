@@ -256,6 +256,26 @@ Deno.serve(async (req: Request) => {
     }
     subscriberId = subscriber.id;
 
+    // A customer with an unresolved payment request must not open another
+    // checkout. This check gives a useful response; a database unique index
+    // also closes the race between simultaneous requests.
+    const { data: openPayment, error: openPaymentError } = await adminClient
+      .from('payment_transactions')
+      .select('id, payment_provider, status')
+      .eq('subscriber_id', subscriber.id)
+      .in('status', ['pending', 'initiated'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (openPaymentError) throw new Error(`Pending payment lookup failed: ${openPaymentError.message}`);
+    if (openPayment) {
+      return jsonResponse({
+        pending_approval: true,
+        transaction_id: openPayment.id,
+        message: 'You already have a payment or activation request awaiting review. Please wait for account approval instead of starting another checkout.',
+      }, 409);
+    }
+
     const submittedBillingEmail = safeText(profile.email, 254).toLowerCase();
     if (!user.email && !subscriber.email && submittedBillingEmail) {
       const { data: updatedSubscriber, error: billingEmailError } = await adminClient
@@ -423,6 +443,9 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (transactionError || !transaction) {
+      if (transactionError?.code === '23505') {
+        return jsonResponse({ pending_approval: true, message: 'A payment or activation request is already awaiting review. Please wait for account approval instead of starting another checkout.' }, 409);
+      }
       throw new Error(
         `Payment transaction creation failed: ${
           transactionError?.message || "Unknown error"

@@ -19,6 +19,7 @@ interface AuthContextValue {
   isApprovedRider: boolean;
   onboardingComplete: boolean;
   hasPersonal: boolean;
+  hasPendingPayment: boolean;
   accessMode: AccessMode | null;
   setAccessMode: (mode: AccessMode) => void;
   hasDualAccess: boolean;
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isApprovedRider, setIsApprovedRider] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [hasPersonal, setHasPersonal] = useState(false);
+  const [hasPendingPayment, setHasPendingPayment] = useState(false);
   const [accessMode, setAccessModeState] = useState<AccessMode | null>(null);
   const [hasDualAccess, setHasDualAccess] = useState(false);
 
@@ -60,8 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('thk_access_mode', mode);
   };
 
-  const getAuthAccess = async (u: User | null): Promise<{ role: UserRole | null; staffRole: StaffRole | null; isOwner: boolean; isApprovedRider: boolean; hasPersonal: boolean; onboardingCompleted: boolean }> => {
-    if (!u) return { role: null, staffRole: null, isOwner: false, isApprovedRider: false, hasPersonal: false, onboardingCompleted: false };
+  const getAuthAccess = async (u: User | null): Promise<{ role: UserRole | null; staffRole: StaffRole | null; isOwner: boolean; isApprovedRider: boolean; hasPersonal: boolean; hasPendingPayment: boolean; onboardingCompleted: boolean }> => {
+    if (!u) return { role: null, staffRole: null, isOwner: false, isApprovedRider: false, hasPersonal: false, hasPendingPayment: false, onboardingCompleted: false };
 
     const { data: assignedRole, error: roleError } = await supabase.rpc('current_staff_role');
     const validStaffRoles: StaffRole[] = ['ceo', 'admin', 'kitchen', 'transport'];
@@ -82,6 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       && sub?.subscription_status === 'Active'
       && Boolean(sub?.package_id)
       && sub?.package_id !== 'pending';
+    const { data: pendingPayment } = await supabase.rpc('my_pending_payment_request');
+    const hasPendingPayment = Boolean(pendingPayment);
     const owner = sub?.is_owner === true;
     const onboardingCompleted = sub?.onboarding_completed === true;
 
@@ -92,13 +96,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isOwner: staffRole === 'ceo' || staffRole === 'admin',
         isApprovedRider: false,
         hasPersonal,
+        hasPendingPayment,
         onboardingCompleted
       };
     }
 
     // 2. Resolve Owner Status
     if (owner) {
-      return { role: 'owner', staffRole: null, isOwner: true, isApprovedRider: false, hasPersonal: true, onboardingCompleted };
+      return { role: 'owner', staffRole: null, isOwner: true, isApprovedRider: false, hasPersonal: true, hasPendingPayment: false, onboardingCompleted };
     }
 
     // 3. Resolve Rider Status (Check rider_applications table)
@@ -115,12 +120,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isOwner: false,
         isApprovedRider: riderApp.approved === true,
         hasPersonal,
+        hasPendingPayment,
         onboardingCompleted
       };
     }
 
     // 4. Default to Subscriber
-    return { role: 'subscriber', staffRole: null, isOwner: false, isApprovedRider: false, hasPersonal, onboardingCompleted };
+    return { role: 'subscriber', staffRole: null, isOwner: false, isApprovedRider: false, hasPersonal, hasPendingPayment, onboardingCompleted };
   };
 
   const applyAuthAccess = async (u: User | null) => {
@@ -131,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsApprovedRider(access.isApprovedRider);
     setOnboardingComplete(access.onboardingCompleted);
     setHasPersonal(access.hasPersonal);
+    setHasPendingPayment(access.hasPendingPayment);
 
     const dual = (access.isOwner || access.role === 'rider') && access.hasPersonal;
     setHasDualAccess(dual);
@@ -282,6 +289,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{
       session, user, loading, userRole, staffRole, isOwner, isApprovedRider, onboardingComplete,
       hasPersonal,
+      hasPendingPayment,
       accessMode, setAccessMode: (m) => { setAccessModeState(m); localStorage.setItem('thk_access_mode', m); },
       hasDualAccess,
       signIn, signInPhone, signUp, signUpPhone, verifySignupOtp, signOut, resetPassword, refreshAuth

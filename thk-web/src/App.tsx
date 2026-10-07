@@ -15,6 +15,7 @@ const RiderDashboard = lazy(() => import('./pages/RiderDashboard'));
 const SubscriberDashboard = lazy(() => import('./pages/SubscriberDashboard'));
 const CommunityPage = lazy(() => import('./pages/CommunityPage'));
 const RewardsPage = lazy(() => import('./pages/RewardsPage'));
+const PaymentPendingPage = lazy(() => import('./pages/PaymentPendingPage'));
 const SubscriptionFlow = lazy(() => import('./components/SubscriptionFlow'));
 const BookingFlow = lazy(() => import('./components/BookingFlow'));
 import AccessSelector from './components/AccessSelector';
@@ -62,13 +63,17 @@ function ProtectedRoute({ children, role, mode }: { children: React.ReactNode, r
 }
 
 function AppContent() {
-  const { user, accessMode, hasDualAccess, onboardingComplete, userRole, hasPersonal } = useAuth();
+  const { user, accessMode, hasDualAccess, onboardingComplete, userRole, hasPersonal, hasPendingPayment } = useAuth();
   const location = useLocation();
   const [showSubFlow, setShowSubFlow] = useState(false);
   const [showBookFlow, setShowBookFlow] = useState(false);
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
 
   const routeFallback = <div className="min-h-[50vh] flex items-center justify-center" role="status" aria-label="Loading page"><div className="w-8 h-8 border-4 border-teal border-t-gold rounded-full animate-spin" /></div>;
+
+  if (user && userRole === 'subscriber' && hasPendingPayment && location.pathname !== '/payment-pending') {
+    return <Navigate to="/payment-pending" replace />;
+  }
 
   const openSubFlow = (pkgId?: string) => {
     setSelectedPkg(pkgId || null);
@@ -105,6 +110,7 @@ function AppContent() {
           />
           <Route path="/menu" element={<MenuPage onSubscribeClick={openSubFlow} />} />
           <Route path="/plans" element={<PlansPage onSubscribeClick={openSubFlow} />} />
+          <Route path="/payment-pending" element={user ? <PaymentPendingPage /> : <Navigate to="/login" replace />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/privacy" element={<LegalPage type="privacy" />} />
           <Route path="/terms" element={<LegalPage type="terms" />} />

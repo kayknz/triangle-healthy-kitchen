@@ -392,7 +392,25 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         }
       });
 
-      if (fetchErr) throw fetchErr;
+      if (fetchErr) {
+        let isPendingApproval = false;
+        try {
+          const response = typeof fetchErr === 'object' && fetchErr !== null && 'context' in fetchErr
+            ? fetchErr.context
+            : undefined;
+          if (response instanceof Response) {
+            const payload: unknown = await response.clone().json();
+            isPendingApproval = typeof payload === 'object' && payload !== null
+              && 'pending_approval' in payload && payload.pending_approval === true;
+          }
+        } catch { /* Keep the provider's original error if the body is not JSON. */ }
+        if (isPendingApproval) {
+          await refreshAuth();
+          onClose();
+          return;
+        }
+        throw fetchErr;
+      }
       if (paymentMethod === 'cash' && result?.cash_pending && result?.transaction_id) { setCashPending(true); setSuccess(true); return; }
       if (!result?.checkout_url || !result?.transaction_id) throw new Error(result?.error || 'Tap did not return a valid checkout session.');
       if (checkoutWindow) checkoutWindow.location.href = result.checkout_url;

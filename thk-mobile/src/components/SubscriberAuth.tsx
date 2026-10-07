@@ -7,7 +7,7 @@ import EditorialPanel from './EditorialPanel';
 interface SubscriberAuthProps {
   isOpen?: boolean;
   onClose: () => void;
-  onSuccess: (access: { role?: string; hasPersonal?: boolean }) => void;
+  onSuccess: (access: { role?: string; hasPersonal?: boolean; hasPendingPayment?: boolean }) => void;
   onChoosePlan: () => void;
 }
 

@@ -133,7 +133,7 @@ export default function SubscriberDashboard() {
 
   const handleSignOut = async () => {
     await signOut();
-    window.location.href = '/login';
+    window.location.hash = '';
   };
 
   if (loading) {
@@ -155,7 +155,7 @@ export default function SubscriberDashboard() {
           {t('complete_consultation')}
         </p>
         <button
-          onClick={() => window.location.href = '/plans'}
+          onClick={() => { window.location.hash = '#subscribe'; }}
           className="btn-primary w-full max-w-xs uppercase tracking-widest text-sm"
         >
           {t('nav_packages')}
@@ -889,7 +889,8 @@ function PlanSettings({ subscriber, onUpdate, updating, setUpdating }: { subscri
     if (error) alert(t('error_generic'));
     else {
       alert(isRtl ? 'تم استلام الطلب. سيعالجه فريقنا خلال ٣٠ يوماً.' : 'Request received. Our team will process it within 30 days.');
-      signOut();
+      await signOut();
+      window.location.hash = '';
     }
     setUpdating(false);
   };

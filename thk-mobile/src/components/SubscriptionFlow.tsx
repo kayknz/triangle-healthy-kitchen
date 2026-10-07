@@ -45,7 +45,7 @@ interface SubscriptionFlowProps {
 }
 
 export default function SubscriptionFlow({ open, onClose, preselectedPackage }: SubscriptionFlowProps) {
-  const { user, signUp, signUpPhone, verifySignupOtp } = useAuth();
+  const { user, signUp, signUpPhone, verifySignupOtp, refreshAuth } = useAuth();
   const { t, isRtl } = useLanguage();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -433,7 +433,25 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             initial_menu_selections: Object.values(initialMenuSelections).map((choice) => ({ ...choice, week_start_date: upcomingServiceWeekStart() })),
           },
       });
-      if (checkoutError) throw checkoutError;
+      if (checkoutError) {
+        let isPendingApproval = false;
+        try {
+          const response = typeof checkoutError === 'object' && checkoutError !== null && 'context' in checkoutError
+            ? checkoutError.context
+            : undefined;
+          if (response instanceof Response) {
+            const payload: unknown = await response.clone().json();
+            isPendingApproval = typeof payload === 'object' && payload !== null
+              && 'pending_approval' in payload && payload.pending_approval === true;
+          }
+        } catch { /* Keep the provider's original error if the body is not JSON. */ }
+        if (isPendingApproval) {
+          await refreshAuth();
+          onClose();
+          return;
+        }
+        throw checkoutError;
+      }
       if (paymentMethod === 'cash' && checkout?.cash_pending && checkout?.transaction_id) {
         setCashPending(true);
         setSuccess(true);
