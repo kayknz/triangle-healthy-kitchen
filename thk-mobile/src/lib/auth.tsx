@@ -12,6 +12,7 @@ interface AuthResult {
   role?: UserRole;
   approved?: boolean;
   needsVerification?: boolean;
+  hasPersonal?: boolean;
 }
 
 interface AuthContextValue {
@@ -255,7 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error: error.message };
 
     const access = await applyAuthAccess(data.user);
-    return { error: null, role: access.role ?? undefined, approved: access.isApprovedRider };
+    return { error: null, role: access.role ?? undefined, approved: access.isApprovedRider, hasPersonal: access.hasPersonal };
   };
 
   const signInPhone = async (phone: string, password: string) => {

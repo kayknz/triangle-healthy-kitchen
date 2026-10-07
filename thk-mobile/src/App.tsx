@@ -313,9 +313,12 @@ function AppContent() {
       <SubscriberAuth
         isOpen={route === 'subscriber-auth'}
         onClose={() => { setRoute('home'); window.location.hash = ''; }}
-        onSuccess={() => {
-          setRoute(hasPersonal ? 'subscriber-dashboard' : 'home');
-          window.location.hash = hasPersonal ? 'account' : '';
+        onSuccess={(access) => {
+          const destination = getSignedInRoute(access.role, access.hasPersonal);
+          setRoute(destination);
+          const routeHash = destination === 'subscriber-dashboard' ? '#account'
+            : destination === 'operations-web' ? '#dashboard' : '';
+          window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${routeHash}`);
         }}
         onChoosePlan={() => { setPreselectedPackage(null); setSubscribeOpen(true); setRoute('home'); }}
       />
