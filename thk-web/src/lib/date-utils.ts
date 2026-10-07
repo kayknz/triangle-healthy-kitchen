@@ -17,6 +17,15 @@ export function getQatarDate(date: Date = new Date()): string {
   }).format(date);
 }
 
+/** Returns the next Saturday service date using Qatar's local calendar day. */
+export function getUpcomingServiceWeekStart(date: Date = new Date()): string {
+  const today = getQatarDate(date);
+  const serviceDate = new Date(`${today}T12:00:00Z`);
+  const daysUntilSaturday = (6 - serviceDate.getUTCDay() + 7) % 7 || 7;
+  serviceDate.setUTCDate(serviceDate.getUTCDate() + daysUntilSaturday);
+  return serviceDate.toISOString().slice(0, 10);
+}
+
 /**
  * Adds or subtracts days from a date.
  */

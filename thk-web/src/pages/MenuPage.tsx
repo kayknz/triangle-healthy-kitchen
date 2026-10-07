@@ -1,127 +1,199 @@
-import React, { useState } from 'react';
-import { ChefHat, Flame, Sparkles, ChevronRight, Utensils, Star, Plus } from 'lucide-react';
-import { WEEKLY_MENU } from '../data/menu'; // Synchronized Data Source
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, ArrowRight, ChefHat, Flame, Image as ImageIcon, Loader2, Sparkles } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';
-import AnimatedSection from '../components/AnimatedSection';
+import { supabase } from '../supabase';
+import { getUpcomingServiceWeekStart } from '../lib/date-utils';
 
 interface MenuPageProps {
   onSubscribeClick: (pkgId?: string) => void;
 }
 
-export default function MenuPage({ onSubscribeClick }: MenuPageProps) {
-  const { t, isRtl } = useLanguage();
+type Dish = {
+  id: string;
+  name: string;
+  name_ar?: string | null;
+  description?: string | null;
+  kcals?: number | null;
+  allergens?: string[] | null;
+};
 
-  // Filter for Week 1 of the current season (Standard logic)
-  const menuData = WEEKLY_MENU.filter(d => d.week === 1 && d.collection === 'summer');
-  const [activeDay, setActiveDay] = useState(menuData[0] || WEEKLY_MENU[0]);
+type MenuRow = {
+  id: string;
+  day_of_week: string;
+  meal_period: string;
+  dishes: Dish | Dish[] | null;
+};
+
+const DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const MEALS = ['breakfast', 'lunch', 'dinner', 'snacks'];
+
+// Stock images are illustrative references, not photos of Triangle's plated meals.
+const STOCK_IMAGES = {
+  chicken: 'https://images.unsplash.com/photo-1744444202869-54debf97b285?auto=format&fit=crop&w=900&q=80',
+  fish: 'https://images.unsplash.com/photo-1674655491431-ab599ebe3c06?auto=format&fit=crop&w=900&q=80',
+  breakfast: 'https://images.unsplash.com/photo-1676843577301-464c4ee6634a?auto=format&fit=crop&w=900&q=80',
+  snack: 'https://images.unsplash.com/photo-1642588417228-170f2a073ff1?auto=format&fit=crop&w=900&q=80',
+  bowl: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80',
+};
+
+function stockImageFor(dish: Dish, meal: string) {
+  const name = dish.name.toLowerCase();
+  if (/salmon|tuna|fish|sea bass|seafood|shrimp|prawn/.test(name)) return STOCK_IMAGES.fish;
+  if (/chicken|turkey/.test(name)) return STOCK_IMAGES.chicken;
+  if (/beef|steak|lamb/.test(name)) return STOCK_IMAGES.bowl;
+  if (/snack|energy|bite|bar|ball/.test(name) || meal === 'snacks') return STOCK_IMAGES.snack;
+  if (meal === 'breakfast') return STOCK_IMAGES.breakfast;
+  return STOCK_IMAGES.bowl;
+}
+
+function serviceWeekBounds(weekStart: string) {
+  const start = new Date(`${weekStart}T00:00:00+03:00`).toISOString();
+  const endDate = new Date(`${weekStart}T12:00:00Z`);
+  endDate.setUTCDate(endDate.getUTCDate() + 1);
+  const end = new Date(`${endDate.toISOString().slice(0, 10)}T00:00:00+03:00`).toISOString();
+  return { start, end };
+}
+
+export default function MenuPage({ onSubscribeClick }: MenuPageProps) {
+  const { isRtl } = useLanguage();
+  const [activeDay, setActiveDay] = useState('Saturday');
+  const [rows, setRows] = useState<MenuRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [weekStart, setWeekStart] = useState('');
+  const [usedPreviousMenu, setUsedPreviousMenu] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMenu() {
+      setLoading(true);
+      setError('');
+      try {
+        const serviceWeek = getUpcomingServiceWeekStart();
+        const { data: prepared, error: prepareError } = await supabase.rpc('ensure_service_week_menu', { p_week_start: serviceWeek });
+        if (prepareError) throw prepareError;
+        if (!prepared?.ready || !prepared?.collection) {
+          if (!cancelled) {
+            setRows([]);
+            setWeekStart(serviceWeek);
+            setUsedPreviousMenu(false);
+          }
+          return;
+        }
+
+        const bounds = serviceWeekBounds(serviceWeek);
+        const { data, error: menuError } = await supabase
+          .from('menu_availability')
+          .select('id,day_of_week,meal_period,dishes!inner(id,name,name_ar,description,kcals,allergens)')
+          .eq('collection', prepared.collection)
+          .eq('is_active', true)
+          .gte('available_from', bounds.start)
+          .lt('available_from', bounds.end)
+          .order('day_of_week')
+          .order('meal_period');
+        if (menuError) throw menuError;
+        if (!cancelled) {
+          setRows((data || []) as unknown as MenuRow[]);
+          setWeekStart(serviceWeek);
+          setUsedPreviousMenu(Boolean(prepared.used_previous_menu));
+        }
+      } catch (loadError) {
+        if (!cancelled) setError(loadError instanceof Error ? loadError.message : (isRtl ? 'تعذر تحميل القائمة الحالية.' : 'The current menu could not be loaded.'));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void loadMenu();
+    return () => { cancelled = true; };
+  }, [isRtl]);
+
+  const dayRows = useMemo(() => rows.filter((row) => row.day_of_week === activeDay), [rows, activeDay]);
+  const dateLabel = weekStart
+    ? new Intl.DateTimeFormat(isRtl ? 'ar-QA' : 'en-QA', { timeZone: 'Asia/Qatar', dateStyle: 'long' }).format(new Date(`${weekStart}T12:00:00Z`))
+    : '';
 
   return (
-    <div className="min-h-screen bg-background py-32 px-6 md:px-12 relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-full h-[60vh] bg-food-atmosphere opacity-5 grayscale pointer-events-none" />
-
-      <div className="max-w-7xl mx-auto relative z-10">
-        <div className={`flex flex-col md:flex-row md:items-end justify-between gap-12 mb-24 sm:mb-32 ${isRtl ? 'text-right' : 'text-left'}`}>
-          <div className="max-w-2xl">
-            <div className="badge mb-10 bg-gold/10 border-gold/20 py-2.5 px-6">
-              <Sparkles className="w-3.5 h-3.5 fill-gold animate-glow" />
-              <span className="font-black tracking-[0.5em] text-[10px] text-gold uppercase">{t('culinary_collections')}</span>
+    <main className={`min-h-screen bg-background px-4 pb-20 pt-28 sm:px-6 md:px-12 ${isRtl ? 'text-right' : 'text-left'}`} dir={isRtl ? 'rtl' : 'ltr'}>
+      <div className="mx-auto max-w-7xl">
+        <header className="mb-8 flex flex-col justify-between gap-6 sm:mb-10 md:flex-row md:items-end">
+          <div className="max-w-3xl">
+            <div className="badge mb-4 bg-gold/10 px-4 py-2">
+              <Sparkles className="h-3.5 w-3.5 fill-gold" />
+              <span className="text-[10px]">{isRtl ? 'القائمة المنشورة من المطبخ' : 'THE KITCHEN’S PUBLISHED MENU'}</span>
             </div>
-            <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-serif italic text-primary leading-[0.9] tracking-tighter drop-shadow-xl">
-              {t('seasonal_signatures')}
+            <h1 className="text-4xl font-serif italic leading-tight text-primary sm:text-5xl">
+              {isRtl ? 'وجبات هذا الأسبوع' : 'This week’s menu'}
             </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-primary/65 sm:text-base">
+              {isRtl
+                ? 'تصفّح الأطباق المنشورة لهذا الأسبوع قبل اختيار باقتك. تختلف الوجبات المشمولة حسب الباقة.'
+                : 'Browse the dishes the kitchen has released for the upcoming service week. The meals included depend on your plan.'}
+            </p>
+            {dateLabel && <p className="mt-2 text-xs font-bold text-primary/50">{isRtl ? 'يبدأ أسبوع الخدمة في' : 'Service week starts'} · {dateLabel}</p>}
           </div>
+          <button onClick={() => onSubscribeClick()} className="btn-primary flex items-center justify-center gap-3 !px-7 !py-4 text-xs tracking-[0.15em]">
+            {isRtl ? 'عرض الباقات والاشتراك' : 'See plans and subscribe'}
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </header>
 
-          <div className="flex flex-wrap gap-3 p-2 bg-white/40 backdrop-blur-[100px] rounded-[2.5rem] border border-white/20 shadow-4xl overflow-x-auto no-scrollbar touch-pan-x">
-            {menuData.map((day) => (
-              <button
-                key={day.day}
-                onClick={() => setActiveDay(day)}
-                className={`px-10 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.3em] transition-all whitespace-nowrap ${
-                  activeDay.day === day.day
-                    ? 'bg-primary text-ivory shadow-3xl scale-105'
-                    : 'text-primary/60 hover:text-primary hover:bg-white/50'
-                }`}
-              >
-                {t(day.day)}
-              </button>
-            ))}
-          </div>
-        </div>
+        {usedPreviousMenu && <p className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          {isRtl ? 'تعرض هذه الصفحة آخر قائمة منشورة أثناء تجهيز قائمة الأسبوع الجديد.' : 'The kitchen has carried forward its latest published menu while the new week is being prepared.'}
+        </p>}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 sm:gap-20">
-          {(['breakfast', 'lunch', 'dinner', 'snacks'] as const).map((mealType) => (
-            <AnimatedSection key={mealType}>
-              <div className="glass-card p-12 h-full bg-white/5 backdrop-blur-[80px] border-white/20 shadow-4xl hover:shadow-gold/5">
-                <div className="flex items-center justify-between mb-12 pb-8 border-b border-primary/5">
-                  <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 rounded-[2rem] bg-primary/5 flex items-center justify-center group-hover:bg-gold transition-colors">
-                      <Utensils className="w-8 h-8 text-primary/40 group-hover:text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="text-3xl font-serif italic text-primary leading-none">{t(mealType)}</h3>
-                      <p className="text-gold text-[10px] font-black uppercase tracking-[0.3em] mt-3 italic">{t('chef_tailored')}</p>
+        <nav aria-label={isRtl ? 'أيام القائمة' : 'Menu days'} className="mb-6 flex gap-2 overflow-x-auto pb-2">
+          {DAYS.map((day) => (
+            <button key={day} type="button" onClick={() => setActiveDay(day)} aria-pressed={activeDay === day}
+              className={`shrink-0 rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${activeDay === day ? 'border-primary bg-primary text-white' : 'border-primary/10 bg-white text-primary hover:bg-emerald-50'}`}>
+              {isRtl ? ({ Saturday: 'السبت', Sunday: 'الأحد', Monday: 'الاثنين', Tuesday: 'الثلاثاء', Wednesday: 'الأربعاء', Thursday: 'الخميس', Friday: 'الجمعة' } as Record<string, string>)[day] : day}
+            </button>
+          ))}
+        </nav>
+
+        {loading && <div className="flex min-h-56 items-center justify-center gap-3 rounded-2xl border border-primary/10 bg-white text-sm font-semibold text-primary/70"><Loader2 className="h-5 w-5 animate-spin" />{isRtl ? 'جارٍ تحميل قائمة المطبخ…' : 'Loading the kitchen menu…'}</div>}
+        {!loading && error && <div role="alert" className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-900"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0"/><div><p className="font-bold">{isRtl ? 'تعذر تحميل القائمة' : 'Menu unavailable'}</p><p className="mt-1">{isRtl ? 'يرجى المحاولة مرة أخرى لاحقاً أو التواصل معنا.' : 'Please try again later or contact the kitchen.'}</p></div></div>}
+        {!loading && !error && rows.length === 0 && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-950">
+          <ChefHat className="mx-auto mb-3 h-7 w-7" />
+          <p className="font-bold">{isRtl ? 'قائمة هذا الأسبوع قيد الإعداد' : 'This week’s menu is being prepared'}</p>
+          <p className="mt-1">{isRtl ? 'ستظهر الأطباق هنا فور نشر المطبخ للقائمة.' : 'The dishes will appear here when the kitchen publishes the menu.'}</p>
+        </div>}
+
+        {!loading && !error && rows.length > 0 && <div className="space-y-8">
+          {MEALS.map((meal) => {
+            const dishes = dayRows.filter((row) => row.meal_period === meal).flatMap((row) => {
+              const dish = Array.isArray(row.dishes) ? row.dishes[0] : row.dishes;
+              return dish ? [{ ...dish, availabilityId: row.id }] : [];
+            });
+            if (!dishes.length) return null;
+            const mealName = isRtl ? ({ breakfast: 'الإفطار', lunch: 'الغداء', dinner: 'العشاء', snacks: 'وجبات خفيفة' } as Record<string, string>)[meal] : ({ breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snacks: 'Snacks' } as Record<string, string>)[meal];
+            return <section key={meal} aria-labelledby={`menu-${meal}`}>
+              <div className="mb-3 flex items-center gap-2"><h2 id={`menu-${meal}`} className="text-xl font-bold not-italic text-primary">{mealName}</h2><span className="rounded-full bg-primary/5 px-2.5 py-1 text-xs font-semibold text-primary/60">{dishes.length} {isRtl ? 'خيارات' : dishes.length === 1 ? 'choice' : 'choices'}</span></div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {dishes.map((dish) => <article key={dish.availabilityId} className="overflow-hidden rounded-2xl border border-primary/10 bg-white shadow-sm">
+                  <div className="relative aspect-[16/10] bg-emerald-50">
+                    <img src={stockImageFor(dish, meal)} alt={isRtl && dish.name_ar ? dish.name_ar : dish.name} loading="lazy" className="h-full w-full object-cover" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />
+                    <span className="absolute bottom-2 start-2 flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold text-primary/70"><ImageIcon className="h-3 w-3"/>{isRtl ? 'صورة توضيحية' : 'Illustrative photo'}</span>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-lg font-bold not-italic leading-snug text-primary">{isRtl && dish.name_ar ? dish.name_ar : dish.name}</h3>
+                    {dish.description && <p className="mt-2 line-clamp-3 text-sm leading-5 text-primary/65">{dish.description}</p>}
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {dish.kcals != null && <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900"><Flame className="h-3.5 w-3.5"/>{dish.kcals} {isRtl ? 'سعرة' : 'kcal'}</span>}
+                      {(dish.allergens || []).map((allergen) => <span key={allergen} className="rounded-full border border-primary/10 px-2.5 py-1 text-xs text-primary/65">{allergen}</span>)}
                     </div>
                   </div>
-                  <ChevronRight className="w-6 h-6 text-primary/10" />
-                </div>
-
-                <div className="space-y-10">
-                  {activeDay.items[mealType]?.map((item: any, idx: number) => (
-                    <div key={idx} className="group cursor-default">
-                      <div className="flex items-start justify-between gap-8">
-                        <div>
-                          <h4 className="text-xl font-serif italic text-primary leading-tight group-hover:text-gold transition-colors duration-500">
-                            {isRtl && item.name_ar ? item.name_ar : item.name}
-                          </h4>
-                          <div className="flex items-center gap-5 mt-5">
-                            <div className="flex items-center gap-2 px-4 py-1.5 bg-background/50 rounded-full border border-primary/5">
-                              <Flame className="w-3.5 h-3.5 text-gold animate-glow" />
-                              <span className="text-[10px] font-black text-primary/40 uppercase tracking-[0.2em]">{item.kcals} {t('kcal')}</span>
-                            </div>
-                            {item.isHeritage && (
-                              <div className="badge border-gold/20 bg-gold/5 scale-95">
-                                <Star className="w-3 h-3 fill-gold text-gold" />
-                                <span className="text-gold font-black tracking-widest">{t('heritage')}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const targetPkg = item.kcals <= 1100 ? '1100kcal' : item.kcals <= 1400 ? '1400kcal' : '1500kcal';
-                            onSubscribeClick(targetPkg);
-                          }}
-                          className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center text-gold hover:bg-gold hover:text-primary transition-all duration-500 mt-2 flex-shrink-0"
-                          title={t('integrate_into_plan')}
-                          aria-label={t('integrate_into_plan')}
-                        >
-                          <Plus className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                </article>)}
               </div>
-            </AnimatedSection>
-          ))}
-        </div>
+            </section>;
+          })}
+          {dayRows.length === 0 && <p className="rounded-xl border border-primary/10 bg-white p-5 text-sm text-primary/70">{isRtl ? 'لا توجد وجبات منشورة لهذا اليوم.' : 'No dishes have been published for this day.'}</p>}
+        </div>}
 
-        <div className="mt-32 p-16 sm:p-24 glass-card bg-primary flex flex-col lg:flex-row items-center justify-between gap-16 relative overflow-hidden border-none shadow-4xl group">
-          <div className="absolute inset-0 bg-food-atmosphere opacity-10 grayscale pointer-events-none group-hover:scale-105 transition-transform duration-[10s]" />
-          <div className="relative z-10 max-w-2xl text-center lg:text-left">
-            <h3 className="text-5xl sm:text-7xl font-serif italic tracking-tight mb-8 text-white">{t('bio_synchronous_intake')}</h3>
-            <p className="text-white opacity-100 text-xl italic font-bold leading-tight tracking-tighter">
-              {t('based_on_metrics')}
-            </p>
-          </div>
-          <button
-            onClick={() => onSubscribeClick()}
-            className="relative z-10 btn-primary bg-gold text-primary hover:bg-white hover:text-primary !px-20 !py-8 scale-110 shadow-gold/20"
-          >
-            {t('hero_cta_book')}
-          </button>
-        </div>
+        <aside className="mt-10 rounded-2xl bg-primary p-6 text-white sm:flex sm:items-center sm:justify-between sm:gap-6">
+          <div><p className="font-bold">{isRtl ? 'كل باقة تشمل وجبات مختلفة' : 'Your plan determines your included meals'}</p><p className="mt-1 text-sm text-white/75">{isRtl ? 'راجع الباقات لمعرفة الوجبات المشمولة والسعر قبل الاشتراك.' : 'Compare the meal periods and price for each package before you subscribe.'}</p></div>
+          <button onClick={() => onSubscribeClick()} className="mt-4 rounded-xl bg-white px-5 py-3 text-sm font-bold text-primary sm:mt-0">{isRtl ? 'قارن الباقات' : 'Compare plans'}</button>
+        </aside>
       </div>
-    </div>
+    </main>
   );
 }
