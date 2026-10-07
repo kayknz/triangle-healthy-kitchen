@@ -7,7 +7,7 @@ import EditorialPanel from './EditorialPanel';
 interface SubscriberAuthProps {
   isOpen?: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (access: { role?: string; hasPersonal?: boolean }) => void;
   onChoosePlan: () => void;
 }
 
@@ -48,7 +48,7 @@ export default function SubscriberAuth({ isOpen = true, onClose, onSuccess, onCh
       if (result.error) {
         setError(result.error);
       } else {
-        onSuccess();
+        onSuccess(result);
       }
     } catch (e: any) {
       setError(e.message || t('error_generic'));

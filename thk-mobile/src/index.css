@@ -68,6 +68,17 @@ html {
   background: #FDFCF7;
 }
 
+/* iOS Safari/WebView zooms the page when a focused control uses text below 16px.
+   Keep phone-sized form controls at a readable size so focusing a field does not
+   unexpectedly magnify and displace the flow. */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* Keep section headings visible below the fixed mobile navigation bar. */
 section[id],
 footer[id] {
