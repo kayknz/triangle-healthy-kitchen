@@ -61,7 +61,9 @@ export default function Footer() {
             <div className="space-y-8">
               <div className="group cursor-pointer">
                 <p className="text-[9px] font-black text-gold uppercase tracking-widest mb-3">{t('footer_doha_headquarters')}</p>
-                <p className="text-lg font-bold italic group-hover:text-gold transition-colors text-[#F5F3EB]">Lusail Marina, Doha, Qatar</p>
+                <a href="https://www.google.com/maps/place/Triangle+Healthy+Kitchen/@25.3423493,51.429275,17z/data=!3m1!4b1!4m6!3m5!1s0x3e45d1a52631f6bd:0x424dd2de865cc6b3!8m2!3d25.3423493!4d51.4318499!16s%2Fg%2F11vz12dsvs" target="_blank" rel="noreferrer" className="text-lg font-bold italic group-hover:text-gold transition-colors text-[#F5F3EB]">
+                  {isRtl ? 'الغرافة، الدوحة، قطر' : 'Al Gharrafa, Doha, Qatar'}
+                </a>
               </div>
               <div className="group cursor-pointer">
                 <p className="text-[9px] font-black text-gold uppercase tracking-widest mb-3">{t('footer_official_communication')}</p>
