@@ -101,7 +101,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const paymentMethod = body?.payment_method === 'cash' ? 'cash' : 'tap';
+    const requestedPaymentMethod = body?.payment_method;
+    const paymentMethod = ['cash', 'fawran'].includes(requestedPaymentMethod) ? requestedPaymentMethod : 'tap';
 
     const packageId =
       (typeof body?.packageId === "string" && body.packageId.trim())
@@ -386,6 +387,16 @@ Deno.serve(async (req: Request) => {
     // The transaction stores the authoritative package/amount.
     //
 
+    let fawranDetails: { alias: string; account_name: string | null } | null = null;
+    if (paymentMethod === 'fawran') {
+      const { data: settings, error: settingsError } = await adminClient
+        .from('global_settings').select('fawran_alias,fawran_account_name').limit(1).maybeSingle();
+      if (settingsError) throw new Error(`Fawran payment settings lookup failed: ${settingsError.message}`);
+      const alias = typeof settings?.fawran_alias === 'string' ? settings.fawran_alias.trim() : '';
+      if (!alias) return jsonResponse({ error: 'Fawran transfers are not configured yet. Please choose Tap or contact the kitchen.' }, 503);
+      fawranDetails = { alias, account_name: typeof settings?.fawran_account_name === 'string' ? settings.fawran_account_name.trim() : null };
+    }
+
     const transactionMetadata = {
       package_id: pkg.id,
       package_name: pkg.name,
@@ -442,13 +453,14 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (paymentMethod === 'cash') {
+    if (paymentMethod === 'cash' || paymentMethod === 'fawran') {
       await adminClient.from('payment_logs').insert({
         tap_charge_id: null,
-        event_type: 'cash_collection_requested',
+        event_type: paymentMethod === 'fawran' ? 'fawran_transfer_requested' : 'cash_collection_requested',
         payload: { transaction_id: transaction.id, subscriber_id: subscriber.id, amount, currency, package_id: pkg.id },
         severity: 'info',
       });
+      if (paymentMethod === 'fawran') return jsonResponse({ fawran_pending: true, transaction_id: transaction.id, amount, currency, ...fawranDetails, message: 'Transfer the exact amount using Fawran. Your plan remains pending until staff verifies receipt.' }, 200);
       return jsonResponse({ cash_pending: true, transaction_id: transaction.id, message: 'We will reach out to activate your account after cash is collected and verified.' }, 200);
     }
 

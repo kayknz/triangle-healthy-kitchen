@@ -49,7 +49,8 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [cashPending, setCashPending] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'tap' | 'cash'>('tap');
+  const [paymentMethod, setPaymentMethod] = useState<'tap' | 'cash' | 'fawran'>('tap');
+  const [fawranPaymentDetails, setFawranPaymentDetails] = useState<{ alias: string; account_name: string | null; transaction_id: string; amount: number; currency: string } | null>(null);
 
   // Biological Metrics
   const [assessment, setAssessment] = useState({
@@ -123,6 +124,8 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
     if (open) {
       setStep(0);
       setSuccess(false);
+      setCashPending(false);
+      setFawranPaymentDetails(null);
       setSignupOtpStep(false);
       setSignupOtpCode('');
       if (preselectedPackage) setPkgId(preselectedPackage);
@@ -412,6 +415,11 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
         throw fetchErr;
       }
       if (paymentMethod === 'cash' && result?.cash_pending && result?.transaction_id) { setCashPending(true); setSuccess(true); return; }
+      if (paymentMethod === 'fawran' && result?.fawran_pending && result?.transaction_id && result?.alias) {
+        setFawranPaymentDetails({ alias: result.alias, account_name: result.account_name || null, transaction_id: result.transaction_id, amount: Number(result.amount), currency: String(result.currency || pkg.currency) });
+        setSuccess(true);
+        return;
+      }
       if (!result?.checkout_url || !result?.transaction_id) throw new Error(result?.error || 'Tap did not return a valid checkout session.');
       if (checkoutWindow) checkoutWindow.location.href = result.checkout_url;
       else window.location.assign(result.checkout_url);
@@ -481,8 +489,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
           {success ? (
             <div className="min-h-[400px] flex flex-col items-center justify-center text-center gap-6">
               <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><Check className="w-10 h-10" /></div>
-              <h3 className="text-2xl font-black uppercase italic text-primary">{cashPending ? 'Cash collection requested' : 'Payment confirmed'}</h3>
-              <p className="max-w-md text-sm text-primary/60">{cashPending ? 'We’ll reach out to collect the cash. Your plan stays pending and activates only after Admin or CEO verifies collection.' : 'Tap confirmed your payment and your plan is active. The kitchen team can now prepare your meals.'}</p>
+              <h3 className="text-2xl font-black uppercase italic text-primary">{fawranPaymentDetails ? 'Fawran transfer required' : cashPending ? 'Cash collection requested' : 'Payment confirmed'}</h3>
+              <p className="max-w-md text-sm text-primary/60">{fawranPaymentDetails ? 'Send the exact amount to the business Fawran alias below. Your plan remains pending until staff confirms the transfer in the company bank account.' : cashPending ? 'We’ll reach out to collect the cash. Your plan stays pending and activates only after Admin or CEO verifies collection.' : 'Tap confirmed your payment and your plan is active. The kitchen team can now prepare your meals.'}</p>
+              {fawranPaymentDetails && <div className="w-full max-w-md space-y-3 rounded-2xl border border-primary/10 bg-white p-5 text-left text-sm text-primary"><p><strong>Fawran business alias:</strong> {fawranPaymentDetails.alias}</p>{fawranPaymentDetails.account_name && <p><strong>Recipient:</strong> {fawranPaymentDetails.account_name}</p>}<p><strong>Amount:</strong> {fawranPaymentDetails.amount.toLocaleString()} {fawranPaymentDetails.currency}</p><p className="break-all"><strong>Payment reference:</strong> {fawranPaymentDetails.transaction_id}</p><p className="text-xs text-primary/60">Use this reference if your banking app allows a transfer note. Do not pay a different recipient. Activation follows manual verification.</p></div>}
               <button onClick={close} className="btn-primary px-10 py-5">Continue</button>
             </div>
           ) : <>
@@ -606,14 +615,16 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                     <div className="text-left"><p className="text-lg font-black uppercase tracking-tight italic leading-none">{isRtl ? 'دفع آمن عبر Tap' : 'Secure payment with Tap'}</p><p className="text-[9px] uppercase tracking-[0.2em] mt-2 text-white/60">{isRtl ? 'تظهر خيارات البطاقات والمحافظ في صفحة دفع Tap' : 'Card and wallet options appear in Tap checkout'}</p></div>
                   </button>
                   <button type="button" onClick={() => setPaymentMethod('cash')} className={`flex items-center gap-5 rounded-[2.5rem] border-2 p-8 text-left ${paymentMethod === 'cash' ? 'border-primary bg-primary text-white' : 'border-primary/10 bg-white/60 text-primary'}`}><Banknote className="h-7 w-7 text-gold"/><span><strong className="block text-base font-black uppercase">{isRtl ? 'الدفع النقدي' : 'Cash collection'}</strong><small className="mt-2 block text-xs opacity-70">{isRtl ? 'يُدفع قبل بدء الخطة، وتتحقق الإدارة أو الرئيس التنفيذي من الاستلام.' : 'Pay before your plan starts; Admin/CEO verifies collection.'}</small></span></button>
+                  <button type="button" onClick={() => setPaymentMethod('fawran')} className={`flex items-center gap-5 rounded-[2.5rem] border-2 p-8 text-left ${paymentMethod === 'fawran' ? 'border-primary bg-primary text-white' : 'border-primary/10 bg-white/60 text-primary'}`}><Banknote className="h-7 w-7 text-gold"/><span><strong className="block text-base font-black uppercase">Fawran transfer</strong><small className="mt-2 block text-xs opacity-70">Transfer to the company’s Fawran alias. Staff verifies receipt before plan activation.</small></span></button>
                </div>
                {paymentMethod === 'cash' && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{isRtl ? 'ستبقى خطتك معلّقة حتى تأكيد استلام المبلغ نقداً.' : 'Your plan will remain pending until cash collection is confirmed.'}</p>}
+               {paymentMethod === 'fawran' && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Your order will be saved as pending. We’ll show the configured company alias and exact amount after you submit. The plan activates only after staff confirms the transfer was received.</p>}
 
                <label className="flex items-start gap-8 mt-12 cursor-pointer group px-4">
                   <button type="button" onClick={() => setTermsAccepted(!termsAccepted)} className={`mt-0.5 w-10 h-10 rounded-[1.2rem] border-2 flex items-center justify-center transition-all ${termsAccepted ? 'border-primary bg-primary shadow-xl scale-110' : 'border-primary/10 group-hover:border-primary/30 bg-white'}`}>
                     {termsAccepted && <Check className="w-6 h-6 text-white" />}
                   </button>
-                  <span className="text-primary/40 text-[12px] italic font-medium leading-relaxed pt-1">{isRtl ? `أوافق على الشروط وأصرح بـ${paymentMethod === 'cash' ? 'تحصيل المبلغ نقداً قبل التفعيل' : 'دفع قيمة خطة الوجبات الصحية'}.` : `I agree to the terms and authorize ${paymentMethod === 'cash' ? 'cash collection before activation' : 'the healthy meal plan payment'}.`}</span>
+                  <span className="text-primary/40 text-[12px] italic font-medium leading-relaxed pt-1">{isRtl ? `أوافق على الشروط وأصرح بـ${paymentMethod === 'cash' ? 'تحصيل المبلغ نقداً قبل التفعيل' : paymentMethod === 'fawran' ? 'تحويل المبلغ عبر فَوران والتحقق اليدوي قبل التفعيل' : 'دفع قيمة خطة الوجبات الصحية'}.` : `I agree to the terms and authorize ${paymentMethod === 'cash' ? 'cash collection before activation' : paymentMethod === 'fawran' ? 'a Fawran transfer and manual verification before activation' : 'the healthy meal plan payment'}.`}</span>
                </label>
             </div>
           )}
@@ -628,7 +639,7 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
                   <ReviewRow label={isRtl ? 'التوصيل' : 'Delivery'} value={`${deliveryPlace === 'office' ? (isRtl ? 'العمل' : 'Work') : (isRtl ? t(deliveryPlace) || deliveryPlace : deliveryPlace)} · ${address.building_number}, ${address.street}, ${address.area} · ${isRtl ? address.municipality ? QATAR_MUNICIPALITIES.find((item) => item.name === address.municipality)?.name_ar : '' : address.municipality.replace(' Municipality','')} · ${isRtl ? 'المنطقة' : 'Zone'} ${address.zone}`} />
                   <ReviewRow label={isRtl ? 'الحساسية' : 'Allergies'} value={foodAllergies.length ? foodAllergies.map((name) => isRtl ? (allergenOptions.find((option) => option.name === name)?.name_ar || name) : name).join(', ') : (isRtl ? 'لا توجد حساسية مذكورة' : 'None listed')} />
                   {foodDislikes.trim() && <ReviewRow label={isRtl ? 'ملاحظات المطبخ' : 'Kitchen notes'} value={foodDislikes.trim()} />}
-                  <ReviewRow label={isRtl ? 'طريقة الدفع' : 'Payment'} value={paymentMethod === 'cash' ? (isRtl ? 'تحصيل نقدي' : 'Cash collection') : 'Tap'} />
+                  <ReviewRow label={isRtl ? 'طريقة الدفع' : 'Payment'} value={paymentMethod === 'cash' ? (isRtl ? 'تحصيل نقدي' : 'Cash collection') : paymentMethod === 'fawran' ? 'Fawran transfer · manual verification' : 'Tap'} />
                </div>
                <details className="rounded-3xl border border-primary/10 bg-white/70 p-5 sm:p-7">
                  <summary className="cursor-pointer font-black text-primary">{isRtl ? 'عرض اختيارات الوجبات' : 'View selected meals'}</summary>
@@ -662,7 +673,9 @@ export default function SubscriptionFlow({ open, onClose, preselectedPackage }: 
             {step === STEPS.length - 1
               ? paymentMethod === 'cash'
                 ? (isRtl ? 'طلب تحصيل نقدي' : 'REQUEST CASH COLLECTION')
-                : (isRtl ? 'المتابعة إلى الدفع' : 'CONTINUE TO TAP CHECKOUT')
+                : paymentMethod === 'fawran'
+                  ? 'REQUEST FAWRAN PAYMENT'
+                  : (isRtl ? 'المتابعة إلى الدفع' : 'CONTINUE TO TAP CHECKOUT')
               : (isRtl ? 'متابعة' : 'PROCEED')}
             <ArrowRight className="w-4 sm:w-5 h-4 sm:h-5 group-hover:translate-x-2 transition-transform" />
           </button>
