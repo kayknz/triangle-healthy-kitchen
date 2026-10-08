@@ -67,7 +67,7 @@ export default function Footer() {
               </div>
               <div className="group cursor-pointer">
                 <p className="text-[9px] font-black text-gold uppercase tracking-widest mb-3">{t('footer_official_communication')}</p>
-                <p className="text-lg font-bold italic group-hover:text-gold transition-colors text-[#F5F3EB]">hello@triangle.qa</p>
+                <a href="mailto:triangle.healthykitchen@gmail.com" className="text-lg font-bold italic group-hover:text-gold transition-colors text-[#F5F3EB]">triangle.healthykitchen@gmail.com</a>
               </div>
             </div>
           </div>
