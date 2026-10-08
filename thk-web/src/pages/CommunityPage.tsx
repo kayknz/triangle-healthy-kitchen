@@ -13,29 +13,57 @@ const CommunityPage: React.FC = () => {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionError, setActionError] = useState('');
+
+  const shareCommunity = async () => {
+    setActionError('');
+    setActionMessage('');
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Triangle Tribe', text: 'Join me in the Triangle community!', url: window.location.href });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(window.location.href);
+        setActionMessage('Community link copied.');
+      } else {
+        setActionError('Sharing is not available in this browser.');
+      }
+    } catch (e) {
+      if (e instanceof Error && e.name !== 'AbortError') setActionError(e.message || 'Could not share this community.');
+    }
+  };
 
   const fetchData = async () => {
-    if (!user) return;
+    if (!user) { setLoading(false); return; }
     try {
-      const [{ data: sub }, { data: regionList }] = await Promise.all([
-        supabase.from('subscribers').select('*, regional_communities(*)').eq('user_id', user.id).maybeSingle(),
-        supabase.from('regional_communities').select('*')
+      const [{ data: sub, error: subError }, { data: regionList, error: regionError }] = await Promise.all([
+        supabase.from('subscribers').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('regional_communities').select('*').order('name')
       ]);
+      if (subError) throw subError;
+      if (regionError) throw regionError;
 
-      setSubscriber(sub);
+      const joinedRegion = sub?.preferred_region_id
+        ? (regionList || []).find((region) => region.id === sub.preferred_region_id) || null
+        : null;
+      setSubscriber(sub ? { ...sub, regional_communities: joinedRegion } : null);
       setRegions(regionList || []);
 
       if (sub?.preferred_region_id) {
-        const { data: feed } = await supabase
+        const { data: feed, error: feedError } = await supabase
           .from('community_posts')
           .select('*, community_reactions(reaction_type)')
           .eq('region_id', sub.preferred_region_id)
           .order('created_at', { ascending: false })
           .limit(20);
+        if (feedError) throw feedError;
         setPosts(feed || []);
+      } else {
+        setPosts([]);
       }
     } catch (e) {
       console.error('Community fetch error:', e);
+      setActionError(e instanceof Error ? e.message : 'Could not load your community. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -44,23 +72,36 @@ const CommunityPage: React.FC = () => {
   useEffect(() => { fetchData(); }, [user]);
 
   const joinGroup = async (groupId: string) => {
-    if (!subscriber) return;
+    setActionError('');
+    setActionMessage('');
+    if (!subscriber) {
+      setActionError('Your member profile is not ready yet. Choose a plan and complete signup before joining a tribe.');
+      return;
+    }
     setJoining(groupId);
-    const { error } = await supabase
-      .from('subscribers')
-      .update({ preferred_region_id: groupId })
-      .eq('id', subscriber.id);
-
-    if (!error) await fetchData();
-    setJoining(null);
+    try {
+      const { error } = await supabase.rpc('set_preferred_community', { p_region_id: groupId });
+      if (error) throw error;
+      await fetchData();
+      setActionMessage('You joined the tribe.');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not join this tribe. Please try again.');
+    } finally { setJoining(null); }
   };
 
   const leaveGroup = async () => {
     if (!confirm("Are you sure you want to leave this group?")) return;
+    setActionError('');
+    setActionMessage('');
     setJoining('leaving');
-    await supabase.from('subscribers').update({ preferred_region_id: null }).eq('id', subscriber.id);
-    await fetchData();
-    setJoining(null);
+    try {
+      const { error } = await supabase.rpc('set_preferred_community', { p_region_id: null });
+      if (error) throw error;
+      await fetchData();
+      setActionMessage('You left the tribe.');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not leave this tribe. Please try again.');
+    } finally { setJoining(null); }
   };
 
   if (loading) {
@@ -76,6 +117,7 @@ const CommunityPage: React.FC = () => {
   return (
     <div className={`min-h-screen bg-[#F5F3EB] py-32 sm:py-40 px-4 sm:px-6 md:px-12 ${isRtl ? 'text-right' : 'text-left'}`}>
       <div className="max-w-7xl mx-auto space-y-24">
+        {(actionError || actionMessage) && <div role={actionError ? 'alert' : 'status'} className={`fixed inset-x-4 top-24 z-50 mx-auto max-w-2xl rounded-xl border p-4 text-sm shadow-lg ${actionError ? 'border-red-200 bg-red-50 text-red-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900'}`}>{actionError || actionMessage}</div>}
         {/* Header */}
         <header>
           <div className="badge mb-8 bg-primary/5 border-primary/10 text-primary py-2 px-6">
@@ -101,12 +143,13 @@ const CommunityPage: React.FC = () => {
                <div className="absolute top-0 right-0 w-64 h-64 bg-gold/10 rounded-full blur-3xl -mr-32 -mt-32" />
             </div>
 
+            {!subscriber && <p className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">Create your member profile by choosing a plan and completing signup before joining a tribe. <a href="/plans" className="font-bold underline">View plans</a></p>}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {regions.map((group) => (
                 <button
                   key={group.id}
                   onClick={() => joinGroup(group.id)}
-                  disabled={joining !== null}
+                  disabled={joining !== null || !subscriber}
                   className="glass-card p-10 text-left group hover:scale-[1.02] transition-all relative overflow-hidden bg-white/40"
                 >
                    <div className="relative z-10 flex flex-col h-full justify-between gap-12">
@@ -192,7 +235,7 @@ const CommunityPage: React.FC = () => {
                     <p className="text-gold text-[10px] font-black uppercase tracking-[0.5em]">Tribe Feed</p>
                     <h2 className="text-4xl font-serif italic text-primary">Latest Posts</h2>
                   </div>
-                  <button className="btn-secondary flex items-center gap-4 group">
+                  <button onClick={() => void shareCommunity()} className="btn-secondary flex items-center gap-4 group">
                     <Share2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                     Share Update
                   </button>
