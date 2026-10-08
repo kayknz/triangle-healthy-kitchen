@@ -15,6 +15,7 @@ type Dish = {
   description?: string | null;
   kcals?: number | null;
   allergens?: string[] | null;
+  image_url?: string | null;
 };
 
 type MenuRow = {
@@ -86,7 +87,7 @@ export default function MenuPage({ onSubscribeClick }: MenuPageProps) {
         const bounds = serviceWeekBounds(serviceWeek);
         const { data, error: menuError } = await supabase
           .from('menu_availability')
-          .select('id,day_of_week,meal_period,dishes!inner(id,name,name_ar,description,kcals,allergens)')
+          .select('id,day_of_week,meal_period,dishes!inner(id,name,name_ar,description,kcals,allergens,image_url)')
           .eq('collection', prepared.collection)
           .eq('is_active', true)
           .gte('available_from', bounds.start)
@@ -173,7 +174,7 @@ export default function MenuPage({ onSubscribeClick }: MenuPageProps) {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {dishes.map((dish) => <article key={dish.availabilityId} className="overflow-hidden rounded-2xl border border-primary/10 bg-white shadow-sm">
                   <div className="relative aspect-[16/10] bg-emerald-50">
-                    <img src={stockImageFor(dish, meal)} alt={isRtl && dish.name_ar ? dish.name_ar : dish.name} loading="lazy" className="h-full w-full object-cover" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />
+                    <img src={dish.image_url || stockImageFor(dish, meal)} alt={isRtl && dish.name_ar ? dish.name_ar : dish.name} loading="lazy" className="h-full w-full object-cover" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />
                     <span className="absolute bottom-2 start-2 flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold text-primary/70"><ImageIcon className="h-3 w-3"/>{isRtl ? 'صورة توضيحية' : 'Illustrative photo'}</span>
                   </div>
                   <div className="p-4">
