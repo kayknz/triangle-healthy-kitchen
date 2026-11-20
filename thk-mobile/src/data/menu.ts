@@ -1,4 +1,5 @@
 import type { DailyMenu, MenuDish, Ingredient } from '@/types/subscription';
+import { MENU_A } from './new_menus';
 
 // --- INGREDIENT REGISTRY ---
 const I: Record<string, Ingredient> = {
@@ -152,17 +153,34 @@ const DISHES: Record<string, MenuDish> = {
 
 const BASE_WEEK = [
   'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'
-].map((day) => ({
+].map((day) => {
+  const publishedDay = MENU_A.find((menu) => menu.day === day);
+  const fourthChoices = {
+    breakfast: publishedDay?.items.breakfast[3],
+    lunch: publishedDay?.items.lunch[3],
+    dinner: publishedDay?.items.dinner[3],
+    snacks: publishedDay?.items.snacks[3],
+  };
+  const thirdSnackChoice = publishedDay?.items.snacks[2];
+  const toDish = (dish: any, type: string): MenuDish => ({
+    name: dish.name,
+    name_ar: dish.name_ar,
+    kcals: dish.kcals,
+    slug: `choice-4-${day.toLowerCase()}-${type}`,
+  });
+
+  return {
   day,
   short: day.substring(0, 3),
   week: 1,
   items: {
-    breakfast: [DISHES.tuna_melt, DISHES.shakshuka, DISHES.halloumi_wrap],
-    lunch: [DISHES.majboos, DISHES.maqlouba, DISHES.kabsa],
-    dinner: [DISHES.bamia, DISHES.salmon, DISHES.steak],
-    snacks: [DISHES.acai, DISHES.energy_balls],
+    breakfast: [DISHES.tuna_melt, DISHES.shakshuka, DISHES.halloumi_wrap, toDish(fourthChoices.breakfast, 'breakfast')],
+    lunch: [DISHES.majboos, DISHES.maqlouba, DISHES.kabsa, toDish(fourthChoices.lunch, 'lunch')],
+    dinner: [DISHES.bamia, DISHES.salmon, DISHES.steak, toDish(fourthChoices.dinner, 'dinner')],
+    snacks: [DISHES.acai, toDish(publishedDay?.items.snacks[1], 'snacks-2'), toDish(thirdSnackChoice, 'snacks-3'), toDish(fourthChoices.snacks, 'snacks-4')],
   }
-}));
+  };
+});
 
 export const WEEKLY_MENU: DailyMenu[] = [
   ...BASE_WEEK.map(d => ({ ...d, collection: 'autumn' as const })),
